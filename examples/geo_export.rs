@@ -1,11 +1,11 @@
 //! Export apicult-desigual geometry as SVG or JSON via the [`SerializeGeo`] trait.
 //!
 //! ```sh
-//! cargo run -p apicult-desigual --example geo_export                                # plain SVG
-//! cargo run -p apicult-desigual --example geo_export -- 5 2.0                       # plain SVG, custom radius/pad
-//! cargo run -p apicult-desigual --example geo_export -- 5 2.0 --format svg-rich     # rich SVG
-//! cargo run -p apicult-desigual --example geo_export -- 5 2.0 --format json-v1      # gen1 JSON
-//! cargo run -p apicult-desigual --example geo_export -- 5 2.0 --format json-v2      # gen2 JSON (tris only)
+//! cargo run --example geo_export                                # plain SVG
+//! cargo run --example geo_export -- 5 2.0                       # plain SVG, custom radius/pad
+//! cargo run --example geo_export -- 5 2.0 --format svg-rich     # rich SVG
+//! cargo run --example geo_export -- 5 2.0 --format json-v1      # gen1 JSON
+//! cargo run --example geo_export -- 5 2.0 --format json-v2      # gen2 JSON (tris only)
 //! ```
 //!
 //! Backward-compat aliases: `--rich` → `--format svg-rich`, `--json` → `--format json-v1`.

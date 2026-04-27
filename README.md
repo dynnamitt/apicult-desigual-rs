@@ -38,10 +38,10 @@ let tris = layout.all_tris();
 The `geo_export` example streams the grid to stdout in any of the supported formats. It's the same binary that drives the [live WebGL demo](https://dynnamitt.github.io/hex-terrain/svg/):
 
 ```sh
-cargo run -p apicult-desigual --example geo_export                                   # plain SVG (gray, no labels)
-cargo run -p apicult-desigual --example geo_export -- 5 2.0 --format svg-rich        # green fill, outlined strokes, height labels
-cargo run -p apicult-desigual --example geo_export -- 5 2.0 --format json-v1         # gen1: {hexes, edges, quads, tris}
-cargo run -p apicult-desigual --example geo_export -- 5 2.0 --format json-v2         # gen2: {version: 2, tris}  — welded-mesh consumers
+cargo run --example geo_export                                   # plain SVG (gray, no labels)
+cargo run --example geo_export -- 5 2.0 --format svg-rich        # green fill, outlined strokes, height labels
+cargo run --example geo_export -- 5 2.0 --format json-v1         # gen1: {hexes, edges, quads, tris}
+cargo run --example geo_export -- 5 2.0 --format json-v2         # gen2: {version: 2, tris}  — welded-mesh consumers
 ```
 
 `--rich` and `--json` remain as backward-compat aliases for `--format svg-rich` and `--format json-v1`.
