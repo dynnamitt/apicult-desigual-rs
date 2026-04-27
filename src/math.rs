@@ -2,6 +2,8 @@
 //!
 //! All functions operate on plain numeric / `glam` inputs with no ECS dependencies.
 
+use std::collections::HashSet;
+
 use glam::{Quat, Vec2, Vec3};
 use hexx::{EdgeDirection, GridVertex, Hex, VertexDirection};
 
@@ -44,12 +46,15 @@ pub fn gap_vertex_data(world_verts: &[Vec3], flat: bool) -> (Vec<[f32; 3]>, [f32
 /// as apicult-desigual generation: quads on even edges \[0,2,4\] where neighbor exists,
 /// tris on vertices \[0,1\] with canonical ownership and all 3 coords in grid.
 pub fn gap_filler(grid: &[Hex]) -> (usize, usize) {
+    let set: HashSet<Hex> = grid.iter().copied().collect();
+
     let quads = grid
         .iter()
         .flat_map(|hex| [0, 2, 4].map(|i| hex.neighbor(EdgeDirection::ALL_DIRECTIONS[i])))
-        .filter(|n| grid.contains(n))
+        .filter(|n| set.contains(n))
         .count();
 
+    let set_ref = &set;
     let tris = grid
         .iter()
         .flat_map(|&hex| {
@@ -59,7 +64,7 @@ pub fn gap_filler(grid: &[Hex]) -> (usize, usize) {
                     direction: VertexDirection::ALL_DIRECTIONS[vi],
                 };
                 let coords = gv.coordinates();
-                (coords[0] == hex && coords.iter().all(|c| grid.contains(c))).then_some(())
+                (coords[0] == hex && coords.iter().all(|c| set_ref.contains(c))).then_some(())
             })
         })
         .count();

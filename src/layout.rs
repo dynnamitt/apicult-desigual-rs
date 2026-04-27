@@ -162,9 +162,8 @@ impl HGridLayout {
     /// "Long sides" are the edges that bridge hex→neighbor (v0→n0 and v1→n1),
     /// not the short edges running along each hex's perimeter.
     pub fn quad_long_edges(&self) -> Vec<(Vec3, Vec3)> {
-        let hexes: Vec<Hex> = shapes::hexagon(Hex::ZERO, self.grid_radius).collect();
         let mut edges = Vec::new();
-        for &hex in &hexes {
+        for hex in shapes::hexagon(Hex::ZERO, self.grid_radius) {
             for edge_index in [0u8, 2, 4] {
                 let dir = EdgeDirection::ALL_DIRECTIONS[edge_index as usize];
                 let neighbor = hex.neighbor(dir);
@@ -190,9 +189,8 @@ impl HGridLayout {
     /// of every gap quad, in CCW order ready for triangulation `[0,1,2,0,2,3]`.
     /// Same `[0,2,4]` even-edge ownership as [`quad_long_edges`].
     pub fn gap_quads(&self) -> Vec<[Vec3; 4]> {
-        let hexes: Vec<Hex> = shapes::hexagon(Hex::ZERO, self.grid_radius).collect();
         let mut quads = Vec::new();
-        for &hex in &hexes {
+        for hex in shapes::hexagon(Hex::ZERO, self.grid_radius) {
             for edge_index in [0u8, 2, 4] {
                 let dir = EdgeDirection::ALL_DIRECTIONS[edge_index as usize];
                 let neighbor = hex.neighbor(dir);
@@ -218,9 +216,8 @@ impl HGridLayout {
     /// consecutive corner pairs (CCW). Hard-coded fan — no earcut needed
     /// for the flat-top case.
     pub fn hex_face_tris(&self) -> Vec<[Vec3; 3]> {
-        let hexes: Vec<Hex> = shapes::hexagon(Hex::ZERO, self.grid_radius).collect();
         let mut tris = Vec::new();
-        for &hex in &hexes {
+        for hex in shapes::hexagon(Hex::ZERO, self.grid_radius) {
             let Some(&height) = self.heights.get(&hex) else {
                 continue;
             };
@@ -254,9 +251,8 @@ impl HGridLayout {
     /// Returns the three world-space corners of every 3-hex junction gap tri.
     /// Canonical ownership: tri emitted only when the origin hex is `coordinates()[0]`.
     pub fn gap_tris(&self) -> Vec<[Vec3; 3]> {
-        let hexes: Vec<Hex> = shapes::hexagon(Hex::ZERO, self.grid_radius).collect();
         let mut tris = Vec::new();
-        for &hex in &hexes {
+        for hex in shapes::hexagon(Hex::ZERO, self.grid_radius) {
             for v_idx in [0u8, 1] {
                 let dir = VertexDirection::ALL_DIRECTIONS[v_idx as usize];
                 let gv = GridVertex {
