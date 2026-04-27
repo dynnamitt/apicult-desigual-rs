@@ -1,6 +1,6 @@
 # apicult-desigual
 
-## 🌐 [**Live WebGL demo →**](https://dynnamitt.github.io/hex-terrain/svg/)
+## 🌐 [**Live WebGL demo →**](https://dynnamitt.github.io/apicult-desigual-rs/)
 
 Interactive three.js terrain viewer (orbit / zoom / pan) rendered from the crate's own JSON output. The same page also shows the plain and rich SVG variants.
 
