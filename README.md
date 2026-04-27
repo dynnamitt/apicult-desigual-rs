@@ -35,7 +35,7 @@ let tris = layout.all_tris();
 
 ## Preview example
 
-The `geo_export` example streams the grid to stdout in any of the supported formats. It's the same binary that drives the [live WebGL demo](https://dynnamitt.github.io/hex-terrain/svg/):
+The `geo_export` example streams the grid to stdout in any of the supported formats. It's the same binary that drives the [live WebGL demo](https://dynnamitt.github.io/apicult-desigual-rs/):
 
 ```sh
 cargo run --example geo_export                                   # plain SVG (gray, no labels)
