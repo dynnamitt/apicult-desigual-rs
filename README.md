@@ -42,6 +42,7 @@ cargo run --example geo_export                                   # plain SVG (gr
 cargo run --example geo_export -- 5 2.0 --format svg-rich        # green fill, outlined strokes, height labels
 cargo run --example geo_export -- 5 2.0 --format json-v1         # gen1: {hexes, edges, quads, tris}
 cargo run --example geo_export -- 5 2.0 --format json-v2         # gen2: {version: 2, tris}  — welded-mesh consumers
+cargo run --example geo_export -- --seed 7                       # override the height-noise seed
 ```
 
 `--rich` and `--json` remain as backward-compat aliases for `--format svg-rich` and `--format json-v1`.
@@ -49,7 +50,9 @@ cargo run --example geo_export -- 5 2.0 --format json-v2         # gen2: {versio
 To build the whole preview page (both SVGs + both JSON variants + HTML) locally, use the root Makefile target:
 
 ```sh
-make svg-preview   # writes into target/svg-preview/
+make preview                        # writes into target/svg-preview/ with a random HSEED
+make HSEED=42 preview               # pin the seed for a reproducible bundle
+make RADIUS=4 PAD=1.0 preview       # override grid params
 ```
 
 ## Dependencies

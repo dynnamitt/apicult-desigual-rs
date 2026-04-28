@@ -27,7 +27,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
 
       - name: Build preview
-        run: make svg-preview SHORT_SHA="${GITHUB_SHA::7}" SVG_OUT=deploy
+        run: make preview SHORT_SHA="${GITHUB_SHA::7}" OUT=deploy
 
       - name: Checkout gh-pages
         uses: actions/checkout@v4

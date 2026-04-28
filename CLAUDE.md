@@ -15,9 +15,11 @@ cargo test <name>                                    # single test by name subst
 cargo test --doc                                     # doctests only (math.rs has executable examples)
 cargo run --example geo_export                       # plain SVG to stdout
 cargo run --example geo_export -- 5 2.0 --format svg-rich   # args: <radius> <pad> [--format svg|svg-rich|json-v1|json-v2]
+cargo run --example geo_export -- --seed 7                  # override the height-noise seed
 
-make svg-preview                                     # build full preview bundle into target/svg-preview/
-make SVG_RADIUS=4 SVG_PAD=1.0 svg-preview            # override grid params
+make preview                                         # build full preview bundle into target/svg-preview/ (random seed)
+make RADIUS=4 PAD=1.0 preview                        # override grid params
+make HSEED=42 preview                                # pin the seed for a reproducible preview
 ```
 
 `Cargo.toml` denies all `unused` and `clippy::all` lints — code must be warning-clean to compile.
@@ -38,4 +40,4 @@ Three modules, exported flat from `lib.rs`:
 
 ## Preview pipeline
 
-`make svg-preview` runs `geo_export` four times (plain SVG, rich SVG, JSON v1, JSON v2), then templates `web/svg-preview.html` and `web/hex-terrain.html` with the short git SHA into `target/svg-preview/`. The `.github/workflows/svg-preview.yml` CI runs the same `make` target on push to `main` and publishes the result to the `gh-pages` branch — so the live demo at https://dynnamitt.github.io/apicult-desigual-rs/ tracks `main` automatically.
+`make preview` runs `geo_export` four times (plain SVG, rich SVG, JSON v1, JSON v2), then templates `web/svg-preview.html` and `web/hex-terrain.html` with the short git SHA into `target/svg-preview/`. A random `HSEED` is generated once per invocation and passed to all four `geo_export` calls so the bundle is internally consistent; pin it with `make HSEED=N preview` for a reproducible build (the chosen seed is echoed at the end). The `.github/workflows/svg-preview.yml` CI runs the same `make` target on push to `main` and publishes the result to the `gh-pages` branch — so the live demo at https://dynnamitt.github.io/apicult-desigual-rs/ tracks `main` automatically (each commit publishes a freshly seeded terrain).

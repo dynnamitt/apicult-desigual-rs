@@ -1,7 +1,17 @@
-SVG_OUT ?= target/svg-preview
-SVG_RADIUS ?= 2
-SVG_PAD ?= 0.6
+OUT ?= target/svg-preview
+RADIUS ?= 2
+PAD ?= 0.6
 SHORT_SHA ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo local)
+
+# Random u32 seed, snapshotted once per make invocation. Override with `make HSEED=N ...`.
+ifndef HSEED
+HSEED := $(shell od -An -N4 -tu4 /dev/urandom | tr -d ' ')
+endif
+
+# $(call EXPORT,<format>,<dst>) — empty <format> means default plain SVG
+EXPORT = cargo run -q --example geo_export --release -- $(RADIUS) $(PAD) --seed $(HSEED) $(if $(1),--format $(1)) > $(2)
+# $(call RENDER,<src>,<dst>) — templates the short SHA into an HTML file
+RENDER = sed "s|__SHA__|$(SHORT_SHA)|g" $(1) > $(2)
 
 build:
 	cargo build
@@ -9,29 +19,29 @@ build:
 test:
 	cargo test
 
-svg-prep:
-	@mkdir -p $(SVG_OUT)
+prep:
+	@mkdir -p $(OUT)
 
-svg-plain: svg-prep
-	cargo run -q --example geo_export --release -- $(SVG_RADIUS) $(SVG_PAD) > $(SVG_OUT)/apicult-desigual.svg
+svg-plain: prep
+	$(call EXPORT,,$(OUT)/apicult-desigual.svg)
 
-svg-rich: svg-prep
-	cargo run -q --example geo_export --release -- $(SVG_RADIUS) $(SVG_PAD) --format svg-rich > $(SVG_OUT)/apicult-desigual-rich.svg
+svg-rich: prep
+	$(call EXPORT,svg-rich,$(OUT)/apicult-desigual-rich.svg)
 
-svg-json: svg-prep
-	cargo run -q --example geo_export --release -- $(SVG_RADIUS) $(SVG_PAD) --format json-v1 > $(SVG_OUT)/apicult-desigual.json
+json-v1: prep
+	$(call EXPORT,json-v1,$(OUT)/apicult-desigual.json)
 
-svg-json-v2: svg-prep
-	cargo run -q --example geo_export --release -- $(SVG_RADIUS) $(SVG_PAD) --format json-v2 > $(SVG_OUT)/hex-terrain.json
+json-v2: prep
+	$(call EXPORT,json-v2,$(OUT)/hex-terrain.json)
 
-svg-html: svg-prep
-	sed "s|__SHA__|$(SHORT_SHA)|g" web/svg-preview.html > $(SVG_OUT)/index.html
+preview-html: prep
+	$(call RENDER,web/svg-preview.html,$(OUT)/index.html)
 
-hex-terrain: svg-prep
-	sed "s|__SHA__|$(SHORT_SHA)|g" web/hex-terrain.html > $(SVG_OUT)/hex-terrain.html
-	cp web/hex-terrain.js $(SVG_OUT)/hex-terrain.js
+terrain-html: prep
+	$(call RENDER,web/hex-terrain.html,$(OUT)/hex-terrain.html)
+	cp web/hex-terrain.js $(OUT)/hex-terrain.js
 
-svg-preview: svg-plain svg-rich svg-json svg-json-v2 svg-html hex-terrain
-	@echo "svg preview built in $(SVG_OUT)/"
+preview: svg-plain svg-rich json-v1 json-v2 preview-html terrain-html
+	@echo "preview built in $(OUT)/ (seed=$(HSEED))"
 
-.PHONY: build test svg-prep svg-plain svg-rich svg-json svg-json-v2 svg-html hex-terrain svg-preview
+.PHONY: build test prep svg-plain svg-rich json-v1 json-v2 preview-html terrain-html preview

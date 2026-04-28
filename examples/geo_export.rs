@@ -6,6 +6,7 @@
 //! cargo run --example geo_export -- 5 2.0 --format svg-rich     # rich SVG
 //! cargo run --example geo_export -- 5 2.0 --format json-v1      # gen1 JSON
 //! cargo run --example geo_export -- 5 2.0 --format json-v2      # gen2 JSON (tris only)
+//! cargo run --example geo_export -- --seed 7                    # override height-noise seed
 //! ```
 //!
 //! Backward-compat aliases: `--rich` → `--format svg-rich`, `--json` → `--format json-v1`.
@@ -19,11 +20,17 @@ use apicult_desigual::{
 fn main() {
     let mut positional: Vec<String> = Vec::new();
     let mut format: Option<String> = None;
+    let mut seed: Option<u32> = None;
     let mut args = std::env::args().skip(1);
     while let Some(arg) = args.next() {
         match arg.as_str() {
-            "--rich" => format = Some("svg-rich".into()),
-            "--json" => format = Some("json-v1".into()),
+            "--seed" => match args.next().and_then(|s| s.parse().ok()) {
+                Some(s) => seed = Some(s),
+                None => {
+                    eprintln!("--seed requires a u32 value");
+                    std::process::exit(2);
+                }
+            },
             "--format" => match args.next() {
                 Some(f) => format = Some(f),
                 None => {
@@ -40,10 +47,12 @@ fn main() {
         .and_then(|s| s.parse().ok())
         .unwrap_or(4.0);
 
+    let defaults = HGridSettings::default();
     let settings = HGridSettings {
         radius,
+        height_noise_seed: seed.unwrap_or(defaults.height_noise_seed),
         point_spacing: 4.0,
-        ..HGridSettings::default()
+        ..defaults
     };
     let layout = HGridLayout::from_settings(&settings);
 
