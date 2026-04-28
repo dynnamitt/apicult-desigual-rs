@@ -41,10 +41,10 @@ json-v2-03: prep
 	$(call EXPORT,json-v2,$(OUT)/apicult-03.json,$(HSEED3))
 
 preview-html: prep
-	$(call RENDER,web/svg-preview.html,$(OUT)/index.html)
+	$(call RENDER,web/svg-preview.html,$(OUT)/svg-preview.html)
 
 terrain-html: prep
-	$(call RENDER,web/hex-terrain.html,$(OUT)/hex-terrain.html)
+	$(call RENDER,web/hex-terrain.html,$(OUT)/index.html)
 	cp web/hex-terrain.js $(OUT)/hex-terrain.js
 
 preview: svg-plain svg-rich json-v1 json-v2-01 json-v2-02 json-v2-03 preview-html terrain-html
