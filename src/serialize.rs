@@ -62,9 +62,9 @@ fn collect_frame(layout: &HGridLayout, pad: f32) -> SvgFrame {
     let hex_data: Vec<HexData> = hexes
         .iter()
         .filter_map(|&hex| {
+            let cell = layout.cell(&hex)?;
             let center = layout.hex_to_world_pos(hex);
-            let height = layout.height(&hex)?;
-            max_h = max_h.max(height);
+            max_h = max_h.max(cell.height);
             let mut corners = [(0.0f32, 0.0f32); 6];
             for i in 0..6u8 {
                 let v = layout.vertex(hex, i)?;
@@ -77,7 +77,7 @@ fn collect_frame(layout: &HGridLayout, pad: f32) -> SvgFrame {
             Some(HexData {
                 center,
                 corners,
-                height,
+                height: cell.height,
             })
         })
         .collect();
@@ -274,10 +274,13 @@ mod tests {
     use crate::HGridSettings;
 
     fn small_layout() -> HGridLayout {
-        HGridLayout::from_settings(&HGridSettings {
-            radius: 2,
-            ..HGridSettings::default()
-        })
+        HGridLayout::from_settings(
+            &HGridSettings {
+                radius: 2,
+                ..HGridSettings::default()
+            },
+            &[],
+        )
     }
 
     #[test]

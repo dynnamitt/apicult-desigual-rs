@@ -7,7 +7,7 @@ pub mod layout;
 pub mod math;
 pub mod serialize;
 
-pub use layout::{HGridLayout, HGridSettings};
+pub use layout::{HGridLayout, HGridSettings, NoiseType, Override};
 pub use math::{
     edge_cuboid_transform, gap_filler, gap_vertex_data, idw_interpolate_height, map_noise_to_range,
     quad_corner_indices,
