@@ -54,7 +54,7 @@ fn main() {
         point_spacing: 4.0,
         ..defaults
     };
-    let layout = HGridLayout::from_settings(&settings);
+    let layout = HGridLayout::from_settings(&settings, &[]);
 
     let stdout = io::stdout();
     let mut out = stdout.lock();

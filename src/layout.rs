@@ -1,9 +1,10 @@
 //! Hex grid layout: spatial mapping, noise-driven heights/radii, vertex computation.
 
-use std::collections::HashMap;
-
 use glam::{Vec2, Vec3};
-use hexx::{EdgeDirection, GridVertex, Hex, HexLayout, VertexDirection, shapes};
+use hexx::{
+    EdgeDirection, GridVertex, Hex, HexLayout, VertexDirection, shapes,
+    storage::{HexStore, HexagonalMap},
+};
 use noise::{Fbm, MultiFractal, NoiseFn, Perlin};
 
 use crate::math;
@@ -53,7 +54,15 @@ impl Default for HGridSettings {
     }
 }
 
-/// Encapsulates the hex layout, per-cell heights/radii, and vertex computation.
+/// Bundled per-hex data: axial position, terrain height, and visual radius.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct HexCell {
+    pub hex: Hex,
+    pub height: f32,
+    pub radius: f32,
+}
+
+/// Encapsulates the hex layout, per-cell data, and vertex computation.
 ///
 /// Owns only the data needed for grid generation and height interpolation —
 /// no ECS dependencies.
@@ -61,13 +70,24 @@ pub struct HGridLayout {
     layout: HexLayout,
     unit_corners: [Vec2; 6],
     grid_radius: u32,
-    heights: HashMap<Hex, f32>,
-    radii: HashMap<Hex, f32>,
+    cells: HexagonalMap<HexCell>,
 }
+
+/// Selects which per-hex channel an [`Override`] targets.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum NoiseType {
+    Height,
+    Size,
+}
+
+/// Per-hex override applied after noise sampling: replaces the value at `hex`
+/// for the given channel. Out-of-grid hexes are silently ignored.
+pub type Override = (NoiseType, Hex, f32);
 
 impl HGridLayout {
     /// Constructs the layout from grid settings, sampling noise for heights and radii.
-    pub fn from_settings(g: &HGridSettings) -> Self {
+    /// `overrides` replaces noise-derived values at specific hexes (post-sample).
+    pub fn from_settings(g: &HGridSettings, overrides: &[Override]) -> Self {
         let layout = HexLayout {
             scale: Vec2::splat(g.point_spacing),
             ..HexLayout::default()
@@ -84,34 +104,37 @@ impl HGridLayout {
         let radius_fbm: Fbm<Perlin> =
             Fbm::new(g.radius_noise_seed).set_octaves(g.radius_noise_octaves);
 
-        let mut heights = HashMap::new();
-        let mut radii = HashMap::new();
-
-        for hex in shapes::hexagon(Hex::ZERO, g.radius) {
+        let mut cells = HexagonalMap::new(Hex::ZERO, g.radius, |hex| {
             let pos = layout.hex_to_world_pos(hex);
-
-            let noise_val = height_fbm.get([
+            let h_noise = height_fbm.get([
                 pos.x as f64 / g.height_noise_scale,
                 pos.y as f64 / g.height_noise_scale,
             ]);
-            heights.insert(hex, math::map_noise_to_range(noise_val, 0.0, g.max_height));
-
-            let radius_noise = radius_fbm.get([
+            let r_noise = radius_fbm.get([
                 pos.x as f64 / g.radius_noise_scale,
                 pos.y as f64 / g.radius_noise_scale,
             ]);
-            radii.insert(
+            HexCell {
                 hex,
-                math::map_noise_to_range(radius_noise, g.min_hex_radius, g.max_hex_radius),
-            );
+                height: math::map_noise_to_range(h_noise, 0.0, g.max_height),
+                radius: math::map_noise_to_range(r_noise, g.min_hex_radius, g.max_hex_radius),
+            }
+        });
+
+        for &(channel, hex, value) in overrides {
+            if let Some(cell) = cells.get_mut(hex) {
+                match channel {
+                    NoiseType::Height => cell.height = value,
+                    NoiseType::Size => cell.radius = value,
+                }
+            }
         }
 
         Self {
             layout,
             unit_corners,
             grid_radius: g.radius,
-            heights,
-            radii,
+            cells,
         }
     }
 
@@ -131,21 +154,48 @@ impl HGridLayout {
 
     /// Noise-derived terrain height for a hex.
     pub fn height(&self, hex: &Hex) -> Option<f32> {
-        self.heights.get(hex).copied()
+        self.cells.get(*hex).map(|c| c.height)
     }
 
     /// Noise-derived visual radius for a hex.
-    pub fn radius(&self, hex: &Hex) -> Option<f32> {
-        self.radii.get(hex).copied()
+    pub fn hex_radius(&self, hex: &Hex) -> Option<f32> {
+        self.cells.get(*hex).map(|c| c.radius)
+    }
+
+    /// Bundled read view for a hex — `Some` only when the hex is in-grid.
+    pub fn cell(&self, hex: &Hex) -> Option<HexCell> {
+        self.cells.get(*hex).copied()
+    }
+
+    /// Iterates every in-grid hex as a bundled `HexCell`.
+    pub fn iter_cells(&self) -> impl ExactSizeIterator<Item = &HexCell> + '_ {
+        self.cells.values()
+    }
+
+    /// Cells along one outer side of the hexagon-shaped grid.
+    ///
+    /// `direction` selects the corner where the side begins; the side runs
+    /// counter-clockwise to the next corner, yielding `grid_radius + 1` cells.
+    /// Adjacent sides share their two corner cells.
+    pub fn borderline_cells(
+        &self,
+        direction: VertexDirection,
+    ) -> impl ExactSizeIterator<Item = &HexCell> + '_ {
+        Hex::ZERO
+            .ring_edge(self.grid_radius, direction)
+            .map(move |h| {
+                self.cells
+                    .get(h)
+                    .expect("ring_edge stays within the hexagon grid")
+            })
     }
 
     /// Computed world-space vertex position for `hex` at corner `index` (0..5).
     pub fn vertex(&self, hex: Hex, index: u8) -> Option<Vec3> {
-        let &height = self.heights.get(&hex)?;
-        let &radius = self.radii.get(&hex)?;
+        let cell = self.cells.get(hex)?;
         let center = self.layout.hex_to_world_pos(hex);
-        let offset = self.unit_corners[index as usize] * radius;
-        Some(Vec3::new(center.x + offset.x, height, center.y + offset.y))
+        let offset = self.unit_corners[index as usize] * cell.radius;
+        Some(Vec3::new(center.x + offset.x, cell.height, center.y + offset.y))
     }
 
     /// Unit corner offset for a given corner index (0..5).
@@ -167,7 +217,7 @@ impl HGridLayout {
             for edge_index in [0u8, 2, 4] {
                 let dir = EdgeDirection::ALL_DIRECTIONS[edge_index as usize];
                 let neighbor = hex.neighbor(dir);
-                if !self.heights.contains_key(&neighbor) {
+                if self.cells.get(neighbor).is_none() {
                     continue;
                 }
                 let (v0_idx, v1_idx, n0_idx, n1_idx) = math::quad_corner_indices(edge_index);
@@ -194,7 +244,7 @@ impl HGridLayout {
             for edge_index in [0u8, 2, 4] {
                 let dir = EdgeDirection::ALL_DIRECTIONS[edge_index as usize];
                 let neighbor = hex.neighbor(dir);
-                if !self.heights.contains_key(&neighbor) {
+                if self.cells.get(neighbor).is_none() {
                     continue;
                 }
                 let (v0_idx, v1_idx, n0_idx, n1_idx) = math::quad_corner_indices(edge_index);
@@ -218,9 +268,10 @@ impl HGridLayout {
     pub fn hex_face_tris(&self) -> Vec<[Vec3; 3]> {
         let mut tris = Vec::new();
         for hex in shapes::hexagon(Hex::ZERO, self.grid_radius) {
-            let Some(&height) = self.heights.get(&hex) else {
+            let Some(cell) = self.cells.get(hex) else {
                 continue;
             };
+            let height = cell.height;
             let center2 = self.layout.hex_to_world_pos(hex);
             let center = Vec3::new(center2.x, height, center2.y);
             for i in 0..6u8 {
@@ -263,7 +314,7 @@ impl HGridLayout {
                 if coords[0] != hex {
                     continue;
                 }
-                if !coords.iter().all(|c| self.heights.contains_key(c)) {
+                if !coords.iter().all(|c| self.cells.get(*c).is_some()) {
                     continue;
                 }
                 let idx1 = corner_index_for_vertex(coords[1], &gv);
@@ -300,7 +351,7 @@ impl HGridLayout {
             .flat_map(|h| (0..6u8).filter_map(move |i| self.vertex(h, i)))
             .collect();
         math::idw_interpolate_height(pos, &vertices)
-            .unwrap_or_else(|| self.heights.get(&hex).copied().unwrap_or(0.0))
+            .unwrap_or_else(|| self.cells.get(hex).map(|c| c.height).unwrap_or(0.0))
     }
 }
 
@@ -325,16 +376,15 @@ mod tests {
     #[test]
     fn from_settings_populates_all_hexes() {
         let g = default_settings();
-        let layout = HGridLayout::from_settings(&g);
+        let layout = HGridLayout::from_settings(&g, &[]);
         let expected = shapes::hexagon(Hex::ZERO, g.radius).count();
-        assert_eq!(layout.heights.len(), expected);
-        assert_eq!(layout.radii.len(), expected);
+        assert_eq!(layout.cells.len(), expected);
     }
 
     #[test]
     fn hex_to_world_and_back_roundtrip() {
         let g = default_settings();
-        let layout = HGridLayout::from_settings(&g);
+        let layout = HGridLayout::from_settings(&g, &[]);
         for hex in shapes::hexagon(Hex::ZERO, 3) {
             let world = layout.hex_to_world_pos(hex);
             let back = layout.world_pos_to_hex(world);
@@ -345,7 +395,7 @@ mod tests {
     #[test]
     fn vertex_returns_six_positions_per_hex() {
         let g = default_settings();
-        let layout = HGridLayout::from_settings(&g);
+        let layout = HGridLayout::from_settings(&g, &[]);
         for i in 0..6u8 {
             assert!(
                 layout.vertex(Hex::ZERO, i).is_some(),
@@ -360,7 +410,7 @@ mod tests {
             radius: 1,
             ..default_settings()
         };
-        let layout = HGridLayout::from_settings(&g);
+        let layout = HGridLayout::from_settings(&g, &[]);
         let h = layout.interpolate_height(Vec2::ZERO);
         let center_h = layout.height(&Hex::ZERO).unwrap();
         assert!(
@@ -372,7 +422,7 @@ mod tests {
     #[test]
     fn unit_corner_returns_six_distinct_offsets() {
         let g = default_settings();
-        let layout = HGridLayout::from_settings(&g);
+        let layout = HGridLayout::from_settings(&g, &[]);
         let corners: Vec<Vec2> = (0..6).map(|i| layout.unit_corner(i)).collect();
         for i in 0..6 {
             for j in (i + 1)..6 {
@@ -388,7 +438,7 @@ mod tests {
                 radius: r,
                 ..default_settings()
             };
-            let layout = HGridLayout::from_settings(&g);
+            let layout = HGridLayout::from_settings(&g, &[]);
             let hex_count = shapes::hexagon(Hex::ZERO, r).count();
             let tris = layout.hex_face_tris();
             assert_eq!(
@@ -407,7 +457,7 @@ mod tests {
             radius: 1,
             ..default_settings()
         };
-        let layout = HGridLayout::from_settings(&g);
+        let layout = HGridLayout::from_settings(&g, &[]);
         let tris = layout.hex_face_tris();
         for (i, tri) in tris.iter().enumerate() {
             let y0 = tri[0].y;
@@ -427,7 +477,7 @@ mod tests {
                 radius: r,
                 ..default_settings()
             };
-            let layout = HGridLayout::from_settings(&g);
+            let layout = HGridLayout::from_settings(&g, &[]);
             let quads = layout.gap_quads().len();
             let gap_tris = layout.gap_tris().len();
             let face_tris = layout.hex_face_tris().len();
@@ -441,13 +491,101 @@ mod tests {
     }
 
     #[test]
+    fn overrides_replace_noise_values() {
+        let g = HGridSettings {
+            radius: 2,
+            ..default_settings()
+        };
+        let baseline = HGridLayout::from_settings(&g, &[]);
+
+        let pinned_height = 12.5_f32;
+        let pinned_radius = 1.75_f32;
+        let off_grid = Hex::new(999, 999);
+        let neighbor = Hex::new(1, 0);
+        let overrides = [
+            (NoiseType::Height, Hex::ZERO, pinned_height),
+            (NoiseType::Size, Hex::ZERO, pinned_radius),
+            (NoiseType::Height, off_grid, 999.0),
+        ];
+        let pinned = HGridLayout::from_settings(&g, &overrides);
+
+        assert_eq!(pinned.height(&Hex::ZERO), Some(pinned_height));
+        assert_eq!(pinned.hex_radius(&Hex::ZERO), Some(pinned_radius));
+
+        assert_eq!(pinned.height(&neighbor), baseline.height(&neighbor));
+        assert_eq!(pinned.hex_radius(&neighbor), baseline.hex_radius(&neighbor));
+
+        assert_eq!(pinned.height(&off_grid), None);
+    }
+
+    #[test]
+    fn cell_bundles_hex_height_radius() {
+        let g = default_settings();
+        let layout = HGridLayout::from_settings(&g, &[]);
+        for hex in [Hex::ZERO, Hex::new(1, 0)] {
+            let cell = layout.cell(&hex).expect("in-grid hex");
+            assert_eq!(cell.hex, hex);
+            assert_eq!(cell.height, layout.height(&hex).unwrap());
+            assert_eq!(cell.radius, layout.hex_radius(&hex).unwrap());
+        }
+    }
+
+    #[test]
+    fn cell_returns_none_off_grid() {
+        let g = default_settings();
+        let layout = HGridLayout::from_settings(&g, &[]);
+        assert_eq!(layout.cell(&Hex::new(999, 999)), None);
+    }
+
+    #[test]
+    fn iter_cells_count_matches_grid() {
+        for r in [1u32, 2, 4] {
+            let g = HGridSettings {
+                radius: r,
+                ..default_settings()
+            };
+            let layout = HGridLayout::from_settings(&g, &[]);
+            let expected = shapes::hexagon(Hex::ZERO, r).count();
+            assert_eq!(layout.iter_cells().count(), expected);
+        }
+    }
+
+    #[test]
+    fn borderline_cells_walk_outer_ring() {
+        for r in [1u32, 2, 4] {
+            let g = HGridSettings {
+                radius: r,
+                ..default_settings()
+            };
+            let layout = HGridLayout::from_settings(&g, &[]);
+            for dir in VertexDirection::ALL_DIRECTIONS {
+                let side: Vec<&HexCell> = layout.borderline_cells(dir).collect();
+                assert_eq!(
+                    side.len() as u32,
+                    r + 1,
+                    "radius {r}, dir {dir:?}: expected {} cells",
+                    r + 1
+                );
+                for cell in &side {
+                    assert_eq!(
+                        cell.hex.length(),
+                        r as i32,
+                        "radius {r}, dir {dir:?}: cell {:?} not on outer ring",
+                        cell.hex
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
     fn quad_long_edges_count_matches_gap_filler() {
         for r in [1, 2, 4] {
             let g = HGridSettings {
                 radius: r,
                 ..default_settings()
             };
-            let layout = HGridLayout::from_settings(&g);
+            let layout = HGridLayout::from_settings(&g, &[]);
             let grid: Vec<Hex> = shapes::hexagon(Hex::ZERO, r).collect();
             let (expected_quads, _) = crate::math::gap_filler(&grid);
             let edges = layout.quad_long_edges();
