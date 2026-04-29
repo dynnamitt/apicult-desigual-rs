@@ -6,6 +6,7 @@
 //! cargo run --example geo_export -- 5 2.0 --format svg-rich     # rich SVG
 //! cargo run --example geo_export -- 5 2.0 --format json-v1      # gen1 JSON
 //! cargo run --example geo_export -- 5 2.0 --format json-v2      # gen2 JSON (tris only)
+//! cargo run --example geo_export -- 5 2.0 --format json-v3      # gen3 JSON (tris + quads)
 //! cargo run --example geo_export -- --seed 7                    # override height-noise seed
 //! ```
 //!
@@ -14,7 +15,7 @@
 use std::io::{self, Write};
 
 use apicult_desigual::{
-    HGridLayout, HGridSettings, JsonV1, JsonV2, SerializeGeo, SvgPlain, SvgRich,
+    HGridLayout, HGridSettings, JsonV1, JsonV2, JsonV3, SerializeGeo, SvgPlain, SvgRich,
 };
 
 fn main() {
@@ -34,7 +35,7 @@ fn main() {
             "--format" => match args.next() {
                 Some(f) => format = Some(f),
                 None => {
-                    eprintln!("--format requires a value (svg, svg-rich, json-v1, json-v2)");
+                    eprintln!("--format requires a value (svg, svg-rich, json-v1, json-v2, json-v3)");
                     std::process::exit(2);
                 }
             },
@@ -63,8 +64,9 @@ fn main() {
         "svg-rich" => SvgRich { pad }.write(&layout, &mut out),
         "json-v1" => JsonV1.write(&layout, &mut out),
         "json-v2" => JsonV2.write(&layout, &mut out),
+        "json-v3" => JsonV3.write(&layout, &mut out),
         other => {
-            eprintln!("unknown format '{other}' (expected svg, svg-rich, json-v1, json-v2)");
+            eprintln!("unknown format '{other}' (expected svg, svg-rich, json-v1, json-v2, json-v3)");
             std::process::exit(2);
         }
     };

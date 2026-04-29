@@ -8,6 +8,7 @@ import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
 import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
 import { weldedMesh, vertexCount, triangleCount } from "./hex-terrain.js";
+import { quadEdgesGeometry, createWireShader } from "./hex-terrain-shader.js";
 
 const MAX_PAYLOADS = 16;
 const BG_COLOR = 0x0a0e1a,
@@ -45,7 +46,7 @@ const showError = (canvas, msg) => {
  * wasted 404s for empty slots are negligible on a static host.
  *
  * @param {number} [max=MAX_PAYLOADS]
- * @returns {Promise<Array<{index: number, tris: Array<[Vec3, Vec3, Vec3]>}>>}
+ * @returns {Promise<Array<{index: number, tris: Array<[Vec3, Vec3, Vec3]>, quads: Array<[Vec3, Vec3, Vec3, Vec3]>}>>}
  */
 const loadPayloads = async (max = MAX_PAYLOADS) => {
   const names = Array.from(
@@ -57,12 +58,16 @@ const loadPayloads = async (max = MAX_PAYLOADS) => {
   for (let i = 0; i < responses.length; i++) {
     if (!responses[i].ok) break;
     const payload = await responses[i].json();
-    if (payload.version !== 2 || !Array.isArray(payload.tris)) {
+    if (
+      payload.version !== 3 ||
+      !Array.isArray(payload.tris) ||
+      !Array.isArray(payload.quads)
+    ) {
       throw new Error(
-        `${names[i]} is not a v2 payload — rebuild via \`make preview\``,
+        `${names[i]} is not a v3 payload — rebuild via \`make preview\``,
       );
     }
-    payloads.push({ index: i + 1, tris: payload.tris });
+    payloads.push({ index: i + 1, tris: payload.tris, quads: payload.quads });
   }
   if (payloads.length === 0) {
     throw new Error(
@@ -105,9 +110,10 @@ export async function mount(canvas, statsEl) {
     sun.position.set(15, 25, 10);
     scene.add(sun);
 
-    const state = { fill: true, wire: true, flat: true };
+    const state = { fill: true, wire: true, shader: false, flat: true };
     const meshes = [];
     const wireOverlays = [];
+    const shaderWireOverlays = [];
 
     for (const p of payloads) {
       p.geom = weldedMesh([], p.tris);
@@ -158,6 +164,19 @@ export async function mount(canvas, statsEl) {
       w.position.x = p.offsetX;
       scene.add(w);
       wireOverlays.push(w);
+
+      const sg = quadEdgesGeometry(p.quads);
+      const sm = createWireShader({
+        color: LINE_COLOR,
+        dashSize: p.medianEdge * DASH_SIZE_FACTOR,
+        gapSize: p.medianEdge * DASH_GAP_FACTOR,
+        speed: DASH_SPEED,
+      });
+      const sw = new THREE.LineSegments(sg, sm);
+      sw.position.x = p.offsetX;
+      sw.visible = state.shader;
+      scene.add(sw);
+      shaderWireOverlays.push(sw);
     }
 
     const totalVerts = payloads.reduce((s, p) => s + vertexCount(p.geom), 0);
@@ -174,6 +193,9 @@ export async function mount(canvas, statsEl) {
       wire: () => {
         for (const w of wireOverlays) w.visible = state.wire;
       },
+      shader: () => {
+        for (const s of shaderWireOverlays) s.visible = state.shader;
+      },
       flat: () => {
         for (const m of meshes) {
           m.material.flatShading = state.flat;
@@ -181,12 +203,25 @@ export async function mount(canvas, statsEl) {
         }
       },
     };
-    for (const k of ["fill", "wire", "flat"]) {
-      const btn = document.getElementById(`btn-${k}`);
-      btn.addEventListener("click", () => {
+    // wire and shader are mutually exclusive — turning one on flips the other off.
+    const wireExclusivePair = { wire: "shader", shader: "wire" };
+    const buttons = Object.fromEntries(
+      ["fill", "wire", "shader", "flat"].map((k) => [
+        k,
+        document.getElementById(`btn-${k}`),
+      ]),
+    );
+    for (const k of ["fill", "wire", "shader", "flat"]) {
+      buttons[k].addEventListener("click", () => {
         state[k] = !state[k];
-        btn.classList.toggle("on", state[k]);
+        buttons[k].classList.toggle("on", state[k]);
         effects[k]();
+        const peer = wireExclusivePair[k];
+        if (peer && state[k] && state[peer]) {
+          state[peer] = false;
+          buttons[peer].classList.remove("on");
+          effects[peer]();
+        }
       });
     }
 
@@ -232,6 +267,7 @@ export async function mount(canvas, statsEl) {
         for (const o of wireOverlays) o.material.resolution.set(w, h);
       }
       for (const o of wireOverlays) o.material.dashOffset -= dt * DASH_SPEED;
+      for (const s of shaderWireOverlays) s.material.uniforms.uTime.value += dt;
       controls.update();
       composer.render();
     };

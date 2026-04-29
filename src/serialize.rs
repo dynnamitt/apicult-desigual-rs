@@ -33,6 +33,11 @@ pub struct JsonV1;
 /// [`HGridLayout::all_tris`] — diagonal choice owned in rust, no per-source toggle.
 pub struct JsonV2;
 
+/// JSON v3 (gen3): `{ version: 3, tris, quads }`. Same `tris` as v2 (welded fill
+/// mesh) plus the raw `gap_quads()` 4-corner faces, intended for shader-driven
+/// wireframes that should ignore the in-quad triangulation diagonal.
+pub struct JsonV3;
+
 // ─── Internal helpers ─────────────────────────────────────────────────
 
 struct HexData {
@@ -268,6 +273,36 @@ impl SerializeGeo for JsonV2 {
     }
 }
 
+impl SerializeGeo for JsonV3 {
+    fn write(&self, layout: &HGridLayout, out: &mut dyn io::Write) -> io::Result<()> {
+        let tri_entries: Vec<String> = layout
+            .all_tris()
+            .iter()
+            .map(|t| format!("[{},{},{}]", fmt_v3(t[0]), fmt_v3(t[1]), fmt_v3(t[2])))
+            .collect();
+        let quad_entries: Vec<String> = layout
+            .gap_quads()
+            .iter()
+            .map(|q| {
+                format!(
+                    "[{},{},{},{}]",
+                    fmt_v3(q[0]),
+                    fmt_v3(q[1]),
+                    fmt_v3(q[2]),
+                    fmt_v3(q[3])
+                )
+            })
+            .collect();
+        writeln!(
+            out,
+            "{{\"version\":3,\"tris\":[{}],\"quads\":[{}]}}",
+            tri_entries.join(","),
+            quad_entries.join(","),
+        )?;
+        Ok(())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -305,6 +340,19 @@ mod tests {
         assert!(s.contains("\"tris\":["));
         assert!(!s.contains("\"hexes\""));
         assert!(!s.contains("\"quads\""));
+    }
+
+    #[test]
+    fn json_v3_has_version_tris_and_quads() {
+        let layout = small_layout();
+        let mut buf = Vec::new();
+        JsonV3.write(&layout, &mut buf).unwrap();
+        let s = String::from_utf8(buf).unwrap();
+        assert!(s.contains("\"version\":3"));
+        assert!(s.contains("\"tris\":["));
+        assert!(s.contains("\"quads\":["));
+        assert!(!s.contains("\"hexes\""));
+        assert!(!s.contains("\"edges\""));
     }
 
     #[test]

@@ -40,14 +40,23 @@ json-v2-02: prep
 json-v2-03: prep
 	$(call EXPORT,json-v2,$(OUT)/apicult-03.json,$(HSEED3))
 
+json-v3-01: prep
+	$(call EXPORT,json-v3,$(OUT)/apicult-01.json)
+
+json-v3-02: prep
+	$(call EXPORT,json-v3,$(OUT)/apicult-02.json,$(HSEED2))
+
+json-v3-03: prep
+	$(call EXPORT,json-v3,$(OUT)/apicult-03.json,$(HSEED3))
+
 preview-html: prep
 	$(call RENDER,web/svg-preview.html,$(OUT)/svg-preview.html)
 
 terrain-html: prep
 	$(call RENDER,web/hex-terrain.html,$(OUT)/index.html)
-	cp web/hex-terrain.js web/hex-terrain-scene.js $(OUT)/
+	cp web/hex-terrain.js web/hex-terrain-scene.js web/hex-terrain-shader.js $(OUT)/
 
-preview: svg-plain svg-rich json-v1 json-v2-01 json-v2-02 json-v2-03 preview-html terrain-html
+preview: svg-plain svg-rich json-v1 json-v3-01 json-v3-02 json-v3-03 preview-html terrain-html
 	@echo "preview built in $(OUT)/ (seeds=$(HSEED),$(HSEED2),$(HSEED3))"
 
-.PHONY: build test prep svg-plain svg-rich json-v1 json-v2-01 json-v2-02 json-v2-03 preview-html terrain-html preview
+.PHONY: build test prep svg-plain svg-rich json-v1 json-v2-01 json-v2-02 json-v2-03 json-v3-01 json-v3-02 json-v3-03 preview-html terrain-html preview
