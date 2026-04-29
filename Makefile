@@ -45,7 +45,7 @@ preview-html: prep
 
 terrain-html: prep
 	$(call RENDER,web/hex-terrain.html,$(OUT)/index.html)
-	cp web/hex-terrain.js $(OUT)/hex-terrain.js
+	cp web/hex-terrain.js web/hex-terrain-scene.js $(OUT)/
 
 preview: svg-plain svg-rich json-v1 json-v2-01 json-v2-02 json-v2-03 preview-html terrain-html
 	@echo "preview built in $(OUT)/ (seeds=$(HSEED),$(HSEED2),$(HSEED3))"
