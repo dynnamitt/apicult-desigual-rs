@@ -67,11 +67,11 @@ const showError = (canvas, msg) => {
 const generatePayloads = ({ radius, WasmLayout, count = MESH_COUNT }) => {
   const payloads = [];
   for (let i = 0; i < count; i++) {
-    const layout = new WasmLayout(radius, randomU32(), randomU32(), []);
+    const layout = new WasmLayout(radius, randomU32(), randomU32(), [], []);
     payloads.push({
       index: i + 1,
-      tris: layout.tris(),
-      wireEdges: layout.wire_edges(),
+      tris: layout.tris(false),
+      wireEdges: layout.wire_edges(false),
     });
     layout.free();
   }
