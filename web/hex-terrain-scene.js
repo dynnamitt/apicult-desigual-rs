@@ -9,12 +9,21 @@ import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js"
 import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
 import { weldedMesh, vertexCount, triangleCount } from "./hex-terrain.js";
 import { wireEdgesGeometry, createWireShader } from "./hex-terrain-shader.js";
+import { seamSpec, VERTEX_DIR_NAMES } from "./hex-seam.js";
 
-const MESH_COUNT = 3;
-const BG_COLOR = 0x0a0e1a,
-  FILL_COLOR = 0x6c9,
-  LINE_COLOR = 0xffee44,
-  SHADER_LINE_COLOR = 0x00ffff;
+const POINT_SPACING = 4.0; // matches HGridSettings::default().point_spacing
+const BG_COLOR = 0x0a0e1a;
+// One color per cluster slot (center=0, petals=1..6). Subtle hue rotation
+// keeps the 7 pieces individually legible while still reading as one mesh.
+const FILL_COLORS = [
+  0x66cc99, 0x6cd0a4, 0x72d4af, 0x78d8ba, 0x7ed4c0, 0x84c9c2, 0x8abec4,
+];
+const LINE_COLORS = [
+  0xffee44, 0xfde35a, 0xfbd870, 0xf9cd86, 0xf7c29c, 0xf5b7b2, 0xf3acc8,
+];
+const SHADER_LINE_COLORS = [
+  0x00ffff, 0x33fff0, 0x66ffe0, 0x99ffd0, 0xccffc0, 0xeeffac, 0xffff80,
+];
 const LINE_WIDTH = 2,
   LINE_OPACITY = 0.95;
 const DASH_SIZE_FACTOR = 0.08,
@@ -55,26 +64,48 @@ const showError = (canvas, msg) => {
 };
 
 /**
- * Build `count` mesh payloads in-browser via the wasm `WasmLayout`. Each
- * call picks fresh random u32 seeds for height + radius noise.
+ * Build a 7-mesh "flower" cluster: 1 center + 6 petals around it. Each petal
+ * shares its inward-facing ring of cells with the center via WFC-style
+ * overrides + entangle markers, so the center owns those seams visually.
+ * Petals 1..4 also seam to the previous-placed petal in the ring; petal 5
+ * (closing the ring) seams to both petal 4 and petal 0. The result is a
+ * single continuous-looking landscape across all 7 layouts with no
+ * z-fighting or doubled triangles.
  *
  * @param {object} opts
- * @param {number} opts.radius - hex grid radius (number of rings).
- * @param {Function} opts.WasmLayout - the `WasmLayout` class export.
- * @param {number} [opts.count=MESH_COUNT]
- * @returns {Array<{index: number, tris: Float32Array, wireEdges: Float32Array}>}
+ * @param {number} opts.radius
+ * @param {Function} opts.WasmLayout
+ * @returns {Array<{index, label, tris, wireEdges, tx, tz}>}
  */
-const generatePayloads = ({ radius, WasmLayout, count = MESH_COUNT }) => {
-  const payloads = [];
-  for (let i = 0; i < count; i++) {
-    const layout = new WasmLayout(radius, randomU32(), randomU32(), [], []);
-    payloads.push({
-      index: i + 1,
-      tris: layout.tris(false),
-      wireEdges: layout.wire_edges(false),
+const generateClusterPayloads = ({ radius, WasmLayout }) => {
+  const center = new WasmLayout(radius, randomU32(), randomU32(), [], []);
+  const payloads = [{
+    index: 0, label: "center",
+    tris: center.tris(false),
+    wireEdges: center.wire_edges(false),
+    tx: 0, tz: 0,
+  }];
+  // Keep all WasmLayouts alive while building so later petals can query
+  // borderline_cells on previously-placed neighbors. Free at the end.
+  const ringSoFar = new Array(6);
+  for (let dir = 0; dir < 6; dir++) {
+    const { overrides, entangle, tx, tz } = seamSpec({
+      centerLayout: center, ringSoFar, dir,
+      radius, pointSpacing: POINT_SPACING, WasmLayout,
     });
-    layout.free();
+    const petal = new WasmLayout(
+      radius, randomU32(), randomU32(), overrides, entangle,
+    );
+    payloads.push({
+      index: dir + 1, label: VERTEX_DIR_NAMES[dir],
+      tris: petal.tris(false),
+      wireEdges: petal.wire_edges(false),
+      tx, tz,
+    });
+    ringSoFar[dir] = petal;
   }
+  center.free();
+  for (const p of ringSoFar) p.free();
   return payloads;
 };
 
@@ -92,7 +123,7 @@ const generatePayloads = ({ radius, WasmLayout, count = MESH_COUNT }) => {
  */
 export function mount(canvas, statsEl, { radius, WasmLayout }) {
   try {
-    const payloads = generatePayloads({ radius, WasmLayout });
+    const payloads = generateClusterPayloads({ radius, WasmLayout });
 
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(BG_COLOR);
@@ -123,27 +154,16 @@ export function mount(canvas, statsEl, { radius, WasmLayout }) {
       p.medianEdge = medianTriEdgeLength(p.tris);
     }
 
-    const gap =
-      payloads.reduce((s, p) => s + p.medianEdge, 0) / payloads.length;
-    let cursor = 0;
-    for (const p of payloads) {
-      const bb = p.geom.boundingBox;
-      p.offsetX = cursor - bb.min.x;
-      cursor += bb.max.x - bb.min.x + gap;
-    }
-    const recenter = -(cursor - gap) / 2;
-    for (const p of payloads) p.offsetX += recenter;
-
     for (const p of payloads) {
       const mat = new THREE.MeshStandardMaterial({
-        color: FILL_COLOR,
+        color: FILL_COLORS[p.index],
         flatShading: state.flat,
         side: THREE.DoubleSide,
         roughness: 0.85,
         metalness: 0.05,
       });
       const m = new THREE.Mesh(p.geom, mat);
-      m.position.x = p.offsetX;
+      m.position.set(p.tx, 0, p.tz);
       scene.add(m);
       meshes.push(m);
 
@@ -153,7 +173,7 @@ export function mount(canvas, statsEl, { radius, WasmLayout }) {
       );
       wireGeom.dispose();
       const lineMat = new LineMaterial({
-        color: LINE_COLOR,
+        color: LINE_COLORS[p.index],
         linewidth: LINE_WIDTH,
         dashed: true,
         dashSize: p.medianEdge * DASH_SIZE_FACTOR,
@@ -164,13 +184,13 @@ export function mount(canvas, statsEl, { radius, WasmLayout }) {
       lineMat.resolution.set(canvas.clientWidth, canvas.clientHeight);
       const w = new LineSegments2(segGeom, lineMat);
       w.computeLineDistances();
-      w.position.x = p.offsetX;
+      w.position.set(p.tx, 0, p.tz);
       scene.add(w);
       wireOverlays.push(w);
 
       const sg = wireEdgesGeometry(p.wireEdges);
       const sm = createWireShader({
-        color: new THREE.Color(SHADER_LINE_COLOR).multiplyScalar(
+        color: new THREE.Color(SHADER_LINE_COLORS[p.index]).multiplyScalar(
           SHADER_INTENSITY,
         ),
         dashSize: p.medianEdge * SHADER_DASH_SIZE_FACTOR,
@@ -178,7 +198,7 @@ export function mount(canvas, statsEl, { radius, WasmLayout }) {
         speed: DASH_SPEED,
       });
       const sw = new THREE.LineSegments(sg, sm);
-      sw.position.x = p.offsetX;
+      sw.position.set(p.tx, 0, p.tz);
       sw.visible = state.shader;
       scene.add(sw);
       shaderWireOverlays.push(sw);
@@ -188,7 +208,7 @@ export function mount(canvas, statsEl, { radius, WasmLayout }) {
     const totalTris = payloads.reduce((s, p) => s + triangleCount(p.geom), 0);
     const sourceTris = payloads.reduce((s, p) => s + ((p.tris.length / 9) | 0), 0);
     statsEl.textContent =
-      `meshes: ${payloads.length} · welded vertices: ${totalVerts} · ` +
+      `cluster: 1+6 · welded vertices: ${totalVerts} · ` +
       `triangles: ${totalTris} · source tris: ${sourceTris}`;
 
     const effects = {
