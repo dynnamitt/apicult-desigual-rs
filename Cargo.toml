@@ -3,10 +3,23 @@ name = "apicult-desigual"
 version = "0.1.0"
 edition = "2024"
 
+[lib]
+crate-type = ["cdylib", "rlib"]
+
 [dependencies]
 glam = "0.30"
 hexx = "0.24"
 noise = "0.9"
+wasm-bindgen = { version = ">= 0.2.95", optional = true }
+
+[features]
+wasm = ["dep:wasm-bindgen"]
+
+# wasm-pack would otherwise try to download a binaryen release for `wasm-opt`,
+# which can fail in sandboxed CI runners. Skip it; the wasm binary stays a few
+# tens of KB larger but the build is hermetic.
+[package.metadata.wasm-pack.profile.release]
+wasm-opt = false
 
 [lints.rust]
 unused = { level = "deny" }
