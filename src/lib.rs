@@ -12,7 +12,7 @@ pub use math::{
     edge_cuboid_transform, gap_filler, gap_vertex_data, idw_interpolate_height, map_noise_to_range,
     quad_corner_indices,
 };
-pub use serialize::{SerializeGeo, SvgPlain, SvgRich};
+pub use serialize::{JsonV1, SerializeGeo, SvgPlain, SvgRich};
 
 #[cfg(feature = "wasm")]
 mod wasm;

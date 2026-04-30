@@ -26,22 +26,9 @@ pub struct SvgRich {
     pub pad: f32,
 }
 
-// ─── DEPRECATED: JSON serializers (v1/v2/v3) ─────────────────────────
-// Kept commented for reference. The web demo now reads geometry directly
-// from the wasm module (see hex-terrain.html); the SVG preview page that
-// fetched apicult-desigual.json (v1) will need a wasm-driven rewrite.
-//
-// /// JSON v1 (gen1): `{ hexes, edges, quads, tris }`. Backward-compatible payload.
-// pub struct JsonV1;
-//
-// /// JSON v2 (gen2): `{ version: 2, tris }`. Unified triangle stream from
-// /// [`HGridLayout::all_tris`] — diagonal choice owned in rust, no per-source toggle.
-// pub struct JsonV2;
-//
-// /// JSON v3 (gen3): `{ version: 3, tris, quads }`. Same `tris` as v2 (welded fill
-// /// mesh) plus the raw `gap_quads()` 4-corner faces, intended for shader-driven
-// /// wireframes that should ignore the in-quad triangulation diagonal.
-// pub struct JsonV3;
+/// JSON v1 (gen1): `{ hexes, edges, quads, tris }`. Backward-compatible payload
+/// consumed by the `web/svg-preview.html` 3D terrain.
+pub struct JsonV1;
 
 // ─── Internal helpers ─────────────────────────────────────────────────
 
@@ -202,112 +189,66 @@ impl SerializeGeo for SvgRich {
     }
 }
 
-// ─── DEPRECATED: JSON impls — see top-of-file note ──────────────────
-// fn fmt_v3(v: Vec3) -> String {
-//     format!("[{:.4},{:.4},{:.4}]", v.x, v.y, v.z)
-// }
-//
-// impl SerializeGeo for JsonV1 {
-//     fn write(&self, layout: &HGridLayout, out: &mut dyn io::Write) -> io::Result<()> {
-//         let f = collect_frame(layout, 0.0);
-//         let hex_entries: Vec<String> = f
-//             .hex_data
-//             .iter()
-//             .map(|hd| {
-//                 let corners: Vec<String> = hd
-//                     .corners
-//                     .iter()
-//                     .map(|(x, z)| format!("[{x:.4},{z:.4}]"))
-//                     .collect();
-//                 format!(
-//                     r#"{{"center":[{:.4},{:.4}],"corners":[{}],"height":{:.4}}}"#,
-//                     hd.center.x,
-//                     hd.center.y,
-//                     corners.join(","),
-//                     hd.height,
-//                 )
-//             })
-//             .collect();
-//         let edge_entries: Vec<String> = f
-//             .long_edges
-//             .iter()
-//             .map(|(a, b)| format!("[{},{}]", fmt_v3(*a), fmt_v3(*b)))
-//             .collect();
-//         let quad_entries: Vec<String> = layout
-//             .gap_quads()
-//             .iter()
-//             .map(|q| {
-//                 format!(
-//                     "[{},{},{},{}]",
-//                     fmt_v3(q[0]),
-//                     fmt_v3(q[1]),
-//                     fmt_v3(q[2]),
-//                     fmt_v3(q[3])
-//                 )
-//             })
-//             .collect();
-//         let tri_entries: Vec<String> = layout
-//             .gap_tris()
-//             .iter()
-//             .map(|t| format!("[{},{},{}]", fmt_v3(t[0]), fmt_v3(t[1]), fmt_v3(t[2])))
-//             .collect();
-//         writeln!(
-//             out,
-//             "{{\"hexes\":[{}],\"edges\":[{}],\"quads\":[{}],\"tris\":[{}]}}",
-//             hex_entries.join(","),
-//             edge_entries.join(","),
-//             quad_entries.join(","),
-//             tri_entries.join(","),
-//         )?;
-//         Ok(())
-//     }
-// }
-//
-// impl SerializeGeo for JsonV2 {
-//     fn write(&self, layout: &HGridLayout, out: &mut dyn io::Write) -> io::Result<()> {
-//         let tri_entries: Vec<String> = layout
-//             .all_tris()
-//             .iter()
-//             .map(|t| format!("[{},{},{}]", fmt_v3(t[0]), fmt_v3(t[1]), fmt_v3(t[2])))
-//             .collect();
-//         writeln!(
-//             out,
-//             "{{\"version\":2,\"tris\":[{}]}}",
-//             tri_entries.join(","),
-//         )?;
-//         Ok(())
-//     }
-// }
-//
-// impl SerializeGeo for JsonV3 {
-//     fn write(&self, layout: &HGridLayout, out: &mut dyn io::Write) -> io::Result<()> {
-//         let tri_entries: Vec<String> = layout
-//             .all_tris()
-//             .iter()
-//             .map(|t| format!("[{},{},{}]", fmt_v3(t[0]), fmt_v3(t[1]), fmt_v3(t[2])))
-//             .collect();
-//         let quad_entries: Vec<String> = layout
-//             .gap_quads()
-//             .iter()
-//             .map(|q| {
-//                 format!(
-//                     "[{},{},{},{}]",
-//                     fmt_v3(q[0]),
-//                     fmt_v3(q[1]),
-//                     fmt_v3(q[2]),
-//                     fmt_v3(q[3])
-//                 )
-//             })
-//             .collect();
-//         writeln!(
-//             out,
-//             "{{\"version\":3,\"tris\":[{}],\"quads\":[{}]}}",
-//             tri_entries.join(","),
-//             quad_entries.join(","),
-//         )?;
-//         Ok(())
-//     }
-// }
+fn fmt_v3(v: Vec3) -> String {
+    format!("[{:.4},{:.4},{:.4}]", v.x, v.y, v.z)
+}
+
+impl SerializeGeo for JsonV1 {
+    fn write(&self, layout: &HGridLayout, out: &mut dyn io::Write) -> io::Result<()> {
+        let f = collect_frame(layout, 0.0);
+        let hex_entries: Vec<String> = f
+            .hex_data
+            .iter()
+            .map(|hd| {
+                let corners: Vec<String> = hd
+                    .corners
+                    .iter()
+                    .map(|(x, z)| format!("[{x:.4},{z:.4}]"))
+                    .collect();
+                format!(
+                    r#"{{"center":[{:.4},{:.4}],"corners":[{}],"height":{:.4}}}"#,
+                    hd.center.x,
+                    hd.center.y,
+                    corners.join(","),
+                    hd.height,
+                )
+            })
+            .collect();
+        let edge_entries: Vec<String> = f
+            .long_edges
+            .iter()
+            .map(|(a, b)| format!("[{},{}]", fmt_v3(*a), fmt_v3(*b)))
+            .collect();
+        let quad_entries: Vec<String> = layout
+            .gap_quads()
+            .iter()
+            .map(|q| {
+                let c = q.corners;
+                format!(
+                    "[{},{},{},{}]",
+                    fmt_v3(c[0]),
+                    fmt_v3(c[1]),
+                    fmt_v3(c[2]),
+                    fmt_v3(c[3])
+                )
+            })
+            .collect();
+        let tri_entries: Vec<String> = layout
+            .gap_tris()
+            .iter()
+            .map(|t| format!("[{},{},{}]", fmt_v3(t[0]), fmt_v3(t[1]), fmt_v3(t[2])))
+            .collect();
+        writeln!(
+            out,
+            "{{\"hexes\":[{}],\"edges\":[{}],\"quads\":[{}],\"tris\":[{}]}}",
+            hex_entries.join(","),
+            edge_entries.join(","),
+            quad_entries.join(","),
+            tri_entries.join(","),
+        )?;
+        Ok(())
+    }
+}
 
 #[cfg(test)]
 mod tests {
@@ -325,13 +266,17 @@ mod tests {
         )
     }
 
-    // ─── DEPRECATED: JSON tests — see top-of-file note ──────────────
-    // #[test]
-    // fn json_v1_has_required_fields() { ... }
-    // #[test]
-    // fn json_v2_has_version_and_tris() { ... }
-    // #[test]
-    // fn json_v3_has_version_tris_and_quads() { ... }
+    #[test]
+    fn json_v1_has_required_fields() {
+        let layout = small_layout();
+        let mut buf = Vec::new();
+        JsonV1.write(&layout, &mut buf).unwrap();
+        let s = String::from_utf8(buf).unwrap();
+        assert!(s.contains("\"hexes\""));
+        assert!(s.contains("\"edges\""));
+        assert!(s.contains("\"quads\""));
+        assert!(s.contains("\"tris\""));
+    }
 
     #[test]
     fn svg_plain_emits_svg_root() {
