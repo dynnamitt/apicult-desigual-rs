@@ -1,18 +1,16 @@
-//! Export apicult-desigual geometry as SVG via the [`SerializeGeo`] trait.
+//! Export apicult-desigual geometry as SVG or JSON via the [`SerializeGeo`] trait.
 //!
 //! ```sh
 //! cargo run --example geo_export                                # plain SVG
 //! cargo run --example geo_export -- 5 2.0                       # plain SVG, custom radius/pad
 //! cargo run --example geo_export -- 5 2.0 --format svg-rich     # rich SVG
+//! cargo run --example geo_export -- 5 2.0 --format json-v1      # gen1 JSON
 //! cargo run --example geo_export -- --seed 7                    # override height-noise seed
 //! ```
-//!
-//! Backward-compat alias: `--rich` → `--format svg-rich`.
-//! (JSON formats are deprecated; the web demo reads geometry from wasm.)
 
 use std::io::{self, Write};
 
-use apicult_desigual::{HGridLayout, HGridSettings, SerializeGeo, SvgPlain, SvgRich};
+use apicult_desigual::{HGridLayout, HGridSettings, JsonV1, SerializeGeo, SvgPlain, SvgRich};
 
 fn main() {
     let mut positional: Vec<String> = Vec::new();
@@ -31,7 +29,7 @@ fn main() {
             "--format" => match args.next() {
                 Some(f) => format = Some(f),
                 None => {
-                    eprintln!("--format requires a value (svg, svg-rich)");
+                    eprintln!("--format requires a value (svg, svg-rich, json-v1)");
                     std::process::exit(2);
                 }
             },
@@ -58,8 +56,9 @@ fn main() {
     let result = match format.as_deref().unwrap_or("svg") {
         "svg" | "svg-plain" => SvgPlain { pad }.write(&layout, &mut out),
         "svg-rich" => SvgRich { pad }.write(&layout, &mut out),
+        "json-v1" => JsonV1.write(&layout, &mut out),
         other => {
-            eprintln!("unknown format '{other}' (expected svg, svg-rich)");
+            eprintln!("unknown format '{other}' (expected svg, svg-rich, json-v1)");
             std::process::exit(2);
         }
     };
