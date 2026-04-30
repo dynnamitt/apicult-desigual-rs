@@ -10,13 +10,21 @@ on:
       - "web/**"
       - "Makefile"
       - ".github/workflows/svg-preview.yml"
+  pull_request:
+    paths:
+      - "src/**"
+      - "examples/**"
+      - "Cargo.toml"
+      - "web/**"
+      - "Makefile"
+      - ".github/workflows/svg-preview.yml"
   workflow_dispatch:
 
 permissions:
   contents: write
 
 concurrency:
-  group: preview
+  group: preview-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -34,10 +42,14 @@ jobs:
         with:
           tool: wasm-pack
 
+      - name: Test
+        run: cargo test
+
       - name: Build preview
         run: make preview SHORT_SHA="${GITHUB_SHA::7}" OUT=deploy
 
       - name: Checkout gh-pages
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: actions/checkout@v4
         with:
           ref: gh-pages
@@ -45,6 +57,7 @@ jobs:
           fetch-depth: 1
 
       - name: Publish
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: |
           cd gh-pages
           find . -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
