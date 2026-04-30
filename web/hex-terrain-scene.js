@@ -13,12 +13,18 @@ import { wireEdgesGeometry, createWireShader } from "./hex-terrain-shader.js";
 const MESH_COUNT = 3;
 const BG_COLOR = 0x0a0e1a,
   FILL_COLOR = 0x6c9,
-  LINE_COLOR = 0xffee44;
+  LINE_COLOR = 0xffee44,
+  SHADER_LINE_COLOR = 0x00ffff;
 const LINE_WIDTH = 2,
   LINE_OPACITY = 0.95;
 const DASH_SIZE_FACTOR = 0.08,
   DASH_GAP_FACTOR = 0.15,
   DASH_SPEED = 0.6;
+// Shader-wire dots are punchier than the Line2 dashes: longer, more spaced,
+// HDR-bright so UnrealBloom blooms them harder.
+const SHADER_DASH_SIZE_FACTOR = 0.22,
+  SHADER_DASH_GAP_FACTOR = 0.28,
+  SHADER_INTENSITY = 2.8;
 const BLOOM_STRENGTH = 1.1,
   BLOOM_RADIUS = 0.5,
   BLOOM_THRESHOLD = 0.75;
@@ -164,9 +170,11 @@ export function mount(canvas, statsEl, { radius, WasmLayout }) {
 
       const sg = wireEdgesGeometry(p.wireEdges);
       const sm = createWireShader({
-        color: LINE_COLOR,
-        dashSize: p.medianEdge * DASH_SIZE_FACTOR,
-        gapSize: p.medianEdge * DASH_GAP_FACTOR,
+        color: new THREE.Color(SHADER_LINE_COLOR).multiplyScalar(
+          SHADER_INTENSITY,
+        ),
+        dashSize: p.medianEdge * SHADER_DASH_SIZE_FACTOR,
+        gapSize: p.medianEdge * SHADER_DASH_GAP_FACTOR,
         speed: DASH_SPEED,
       });
       const sw = new THREE.LineSegments(sg, sm);
