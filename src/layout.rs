@@ -175,6 +175,17 @@ impl HGridLayout {
         self.cells.get(*hex).copied()
     }
 
+    /// Marks every cell along one outer side as entangled (`grid_radius + 1`
+    /// cells, same iteration as [`borderline_cells`]). Idempotent; calling
+    /// for adjacent sides simply re-marks the shared corner cells.
+    pub fn entangle_borderline(&mut self, direction: VertexDirection) {
+        for hex in Hex::ZERO.ring_edge(self.grid_radius, direction) {
+            if let Some(cell) = self.cells.get_mut(hex) {
+                cell.entangled = true;
+            }
+        }
+    }
+
     /// Cells along one outer side of the hexagon-shaped grid.
     ///
     /// `direction` selects the corner where the side begins; the side runs
@@ -560,6 +571,36 @@ mod tests {
         assert_eq!(pinned.cell(&neighbor), baseline.cell(&neighbor));
 
         assert_eq!(pinned.cell(&off_grid), None);
+    }
+
+    #[test]
+    fn entangle_borderline_marks_outer_ring_side() {
+        for r in [1u32, 2, 4] {
+            let g = HGridSettings {
+                radius: r,
+                ..default_settings()
+            };
+            for dir in VertexDirection::ALL_DIRECTIONS {
+                let mut layout = HGridLayout::new(&g, &[], &[]);
+                layout.entangle_borderline(dir);
+                let side: Vec<Hex> = Hex::ZERO.ring_edge(r, dir).collect();
+                for hex in &side {
+                    assert!(
+                        layout.cell(hex).unwrap().entangled,
+                        "radius {r}, dir {dir:?}: {hex:?} should be entangled"
+                    );
+                }
+                let entangled_count = shapes::hexagon(Hex::ZERO, r)
+                    .filter(|h| layout.cell(h).unwrap().entangled)
+                    .count();
+                assert_eq!(
+                    entangled_count,
+                    side.len(),
+                    "radius {r}, dir {dir:?}: only the {} border cells should be entangled",
+                    side.len()
+                );
+            }
+        }
     }
 
     #[test]
