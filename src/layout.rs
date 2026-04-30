@@ -269,16 +269,22 @@ impl HGridLayout {
         tris
     }
 
-    /// Unified triangle stream: gap quads (split along the rust-canonical
-    /// `[v0, v2]` diagonal), gap junction tris, and hex face fan tris.
-    /// All tessellation decisions owned here so clients consume one flat
-    /// list with no per-source branching.
-    pub fn all_tris(&self) -> Vec<[Vec3; 3]> {
-        let mut out = Vec::new();
+    /// Returns the two triangles of every gap quad, split along the
+    /// rust-canonical `[v0, v2]` diagonal: `[a, b, c]` then `[a, c, d]`.
+    pub fn gap_quad_tris(&self) -> Vec<[Vec3; 3]> {
+        let mut tris = Vec::new();
         for [a, b, c, d] in self.gap_quads() {
-            out.push([a, b, c]);
-            out.push([a, c, d]);
+            tris.push([a, b, c]);
+            tris.push([a, c, d]);
         }
+        tris
+    }
+
+    /// Unified triangle stream: gap quad tris, gap junction tris, and hex
+    /// face fan tris. All tessellation decisions owned here so clients
+    /// consume one flat list with no per-source branching.
+    pub fn all_tris(&self) -> Vec<[Vec3; 3]> {
+        let mut out = self.gap_quad_tris();
         out.extend(self.gap_tris());
         out.extend(self.hex_face_tris());
         out
