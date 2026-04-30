@@ -55,7 +55,7 @@ preview-html: prep
 
 terrain-html: prep
 	$(call RENDER_TERRAIN,web/hex-terrain.html,$(OUT)/index.html)
-	cp web/hex-terrain.js web/hex-terrain-scene.js web/hex-terrain-shader.js $(OUT)/
+	cp web/hex-terrain.js web/hex-terrain-scene.js web/hex-terrain-shader.js web/hex-seam.js $(OUT)/
 
 preview: svg-plain svg-rich json-v1 wasm preview-html terrain-html
 	@echo "preview built in $(OUT)/ (seed=$(HSEED), radius=$(RADIUS))"
