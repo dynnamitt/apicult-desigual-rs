@@ -10,7 +10,7 @@ import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
 import { weldedMesh, vertexCount, triangleCount } from "./hex-terrain.js";
 import { quadEdgesGeometry, createWireShader } from "./hex-terrain-shader.js";
 
-const MAX_PAYLOADS = 16;
+const MESH_COUNT = 3;
 const BG_COLOR = 0x0a0e1a,
   FILL_COLOR = 0x6c9,
   LINE_COLOR = 0xffee44;
@@ -24,11 +24,19 @@ const BLOOM_STRENGTH = 1.1,
   BLOOM_THRESHOLD = 0.75;
 const CAMERA_FOV = 45;
 
-const dist = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
+const randomU32 = () => Math.floor(Math.random() * 0x1_0000_0000) >>> 0;
 
-const medianEdgeLength = (tris) => {
-  const lens = [];
-  for (const [a, b, c] of tris) lens.push(dist(a, b), dist(b, c), dist(c, a));
+const medianTriEdgeLength = (trisBuf) => {
+  const n = (trisBuf.length / 9) | 0;
+  const lens = new Array(n * 3);
+  for (let i = 0, k = 0; i < trisBuf.length; i += 9, k += 3) {
+    const ax = trisBuf[i],     ay = trisBuf[i + 1], az = trisBuf[i + 2];
+    const bx = trisBuf[i + 3], by = trisBuf[i + 4], bz = trisBuf[i + 5];
+    const cx = trisBuf[i + 6], cy = trisBuf[i + 7], cz = trisBuf[i + 8];
+    lens[k]     = Math.hypot(bx - ax, by - ay, bz - az);
+    lens[k + 1] = Math.hypot(cx - bx, cy - by, cz - bz);
+    lens[k + 2] = Math.hypot(ax - cx, ay - cy, az - cz);
+  }
   lens.sort((x, y) => x - y);
   return lens[lens.length >> 1];
 };
@@ -41,55 +49,39 @@ const showError = (canvas, msg) => {
 };
 
 /**
- * Speculatively fetch all candidate slots in parallel, then walk in order
- * and stop at the first 404. Cuts cold-load latency from N*RTT to ~1 RTT;
- * wasted 404s for empty slots are negligible on a static host.
+ * Generate `count` mesh payloads in-browser via the wasm module. Each call
+ * picks fresh random u32 seeds for height + radius noise.
  *
- * @param {number} [max=MAX_PAYLOADS]
- * @returns {Promise<Array<{index: number, tris: Array<[Vec3, Vec3, Vec3]>, quads: Array<[Vec3, Vec3, Vec3, Vec3]>}>>}
+ * @param {object} opts
+ * @param {number} opts.radius - hex grid radius (number of rings).
+ * @param {(radius: number, hSeed: number, rSeed: number, overrides: any[]) => {tris: Float32Array, quads: Float32Array}} opts.generate_geometry
+ * @param {number} [opts.count=MESH_COUNT]
+ * @returns {Array<{index: number, tris: Float32Array, quads: Float32Array}>}
  */
-const loadPayloads = async (max = MAX_PAYLOADS) => {
-  const names = Array.from(
-    { length: max },
-    (_, i) => `apicult-${String(i + 1).padStart(2, "0")}.json`,
-  );
-  const responses = await Promise.all(names.map((n) => fetch(n)));
+const generatePayloads = ({ radius, generate_geometry, count = MESH_COUNT }) => {
   const payloads = [];
-  for (let i = 0; i < responses.length; i++) {
-    if (!responses[i].ok) break;
-    const payload = await responses[i].json();
-    if (
-      payload.version !== 3 ||
-      !Array.isArray(payload.tris) ||
-      !Array.isArray(payload.quads)
-    ) {
-      throw new Error(
-        `${names[i]} is not a v3 payload — rebuild via \`make preview\``,
-      );
-    }
-    payloads.push({ index: i + 1, tris: payload.tris, quads: payload.quads });
-  }
-  if (payloads.length === 0) {
-    throw new Error(
-      "no apicult-NN.json files found (start with apicult-01.json)",
-    );
+  for (let i = 0; i < count; i++) {
+    const g = generate_geometry(radius, randomU32(), randomU32(), []);
+    payloads.push({ index: i + 1, tris: g.tris, quads: g.quads });
   }
   return payloads;
 };
 
 /**
- * Mount the welded-hex-terrain scene onto a canvas. Loads `apicult-NN.json`
- * v2 payloads, builds welded meshes laid out side-by-side, and runs an
- * animation loop with dashed glowing wireframes via post-process bloom.
- * Errors are caught and rendered as a message after the canvas.
+ * Mount the welded-hex-terrain scene onto a canvas. Generates `MESH_COUNT`
+ * meshes via the supplied wasm `generate_geometry`, lays them out
+ * side-by-side, and runs an animation loop with dashed glowing wireframes
+ * via post-process bloom.
  *
  * @param {HTMLCanvasElement} canvas
  * @param {HTMLElement} statsEl - element receiving the per-mesh stats line.
- * @returns {Promise<void>}
+ * @param {object} opts
+ * @param {number} opts.radius
+ * @param {Function} opts.generate_geometry - wasm `generate_geometry` export.
  */
-export async function mount(canvas, statsEl) {
+export function mount(canvas, statsEl, { radius, generate_geometry }) {
   try {
-    const payloads = await loadPayloads();
+    const payloads = generatePayloads({ radius, generate_geometry });
 
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(BG_COLOR);
@@ -116,8 +108,8 @@ export async function mount(canvas, statsEl) {
     const shaderWireOverlays = [];
 
     for (const p of payloads) {
-      p.geom = weldedMesh([], p.tris);
-      p.medianEdge = medianEdgeLength(p.tris);
+      p.geom = weldedMesh(p.quads, p.tris);
+      p.medianEdge = medianTriEdgeLength(p.tris);
     }
 
     const gap =
@@ -181,7 +173,10 @@ export async function mount(canvas, statsEl) {
 
     const totalVerts = payloads.reduce((s, p) => s + vertexCount(p.geom), 0);
     const totalTris = payloads.reduce((s, p) => s + triangleCount(p.geom), 0);
-    const sourceTris = payloads.reduce((s, p) => s + p.tris.length, 0);
+    const sourceTris = payloads.reduce(
+      (s, p) => s + (p.tris.length / 9 + p.quads.length / 6) | 0,
+      0,
+    );
     statsEl.textContent =
       `meshes: ${payloads.length} · welded vertices: ${totalVerts} · ` +
       `triangles: ${totalTris} · source tris: ${sourceTris}`;
@@ -274,6 +269,6 @@ export async function mount(canvas, statsEl) {
     animate();
   } catch (e) {
     console.error(e);
-    showError(canvas, `terrain load failed: ${e.message}`);
+    showError(canvas, `terrain init failed: ${e.message}`);
   }
 }

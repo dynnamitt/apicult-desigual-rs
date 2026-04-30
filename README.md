@@ -42,12 +42,20 @@ cargo run --example geo_export                                   # plain SVG (gr
 cargo run --example geo_export -- 5 2.0 --format svg-rich        # green fill, outlined strokes, height labels
 cargo run --example geo_export -- 5 2.0 --format json-v1         # gen1: {hexes, edges, quads, tris}
 cargo run --example geo_export -- 5 2.0 --format json-v2         # gen2: {version: 2, tris}  — welded-mesh consumers
+cargo run --example geo_export -- 5 2.0 --format json-v3         # gen3: {version: 3, tris, quads}
 cargo run --example geo_export -- --seed 7                       # override the height-noise seed
 ```
 
 `--rich` and `--json` remain as backward-compat aliases for `--format svg-rich` and `--format json-v1`.
 
-To build the whole preview page (both SVGs + both JSON variants + HTML) locally, use the root Makefile target:
+The web 3D demo loads geometry directly from a `wasm-bindgen` build of the lib (no JSON fetch at runtime). Build the wasm bindings with:
+
+```sh
+rustup target add wasm32-unknown-unknown      # one-time setup
+wasm-pack build --target web --features wasm  # writes web/pkg/{apicult_desigual.js, _bg.wasm, .d.ts}
+```
+
+To build the whole preview page (SVGs + v1 JSON + wasm pkg + HTML) locally, use the root Makefile target:
 
 ```sh
 make preview                        # writes into target/svg-preview/ with a random HSEED

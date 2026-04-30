@@ -47,8 +47,13 @@
   <p class="hint">drag to orbit &middot; scroll to zoom &middot; right-drag to pan</p>
 
 <script type="module">
+import init, { generate_geometry } from './pkg/apicult_desigual.js';
 import { mount } from './hex-terrain-scene.js';
-mount(document.getElementById('stage'), document.getElementById('stats'));
+await init();
+mount(document.getElementById('stage'), document.getElementById('stats'), {
+  radius: __RADIUS__,
+  generate_geometry,
+});
 </script>
 </body>
 </html>

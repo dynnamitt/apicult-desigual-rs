@@ -1,7 +1,5 @@
 import * as THREE from 'three';
 
-const dist = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
-
 /**
  * Builds a non-indexed `THREE.BufferGeometry` of line segments — one segment
  * per quad boundary edge (a→b, b→c, c→d, d→a). Used with `THREE.LineSegments`
@@ -12,26 +10,33 @@ const dist = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
  * the segment (0 at start, world-space length at end). The fragment shader
  * uses this as the "distance along the line" for dash-pattern animation.
  *
- * @param {Array<[Vec3, Vec3, Vec3, Vec3]>} quads - CCW quads, each four
- *   `[x, y, z]` corners (as emitted by Rust `gap_quads()` / JSON v3 `quads`).
+ * @param {Float32Array} quadsBuf - flat `n * 12` floats (4 corners × 3
+ *   components, CCW), as emitted by `WasmLayout.quads()` /
+ *   `Geometry.quads`.
  * @returns {THREE.BufferGeometry} non-indexed geometry with `position` (vec3)
  *   and `aArc` (float) attributes plus a computed bounding box.
- *
- * @typedef {[number, number, number]} Vec3
  */
-export const quadEdgesGeometry = (quads) => {
-  const positions = new Float32Array(quads.length * 24);
-  const arcs = new Float32Array(quads.length * 8);
-  for (let qi = 0; qi < quads.length; qi++) {
-    const q = quads[qi];
+export const quadEdgesGeometry = (quadsBuf) => {
+  const nQuads = (quadsBuf.length / 12) | 0;
+  const positions = new Float32Array(nQuads * 24);
+  const arcs = new Float32Array(nQuads * 8);
+  for (let qi = 0; qi < nQuads; qi++) {
+    const q = qi * 12;
     for (let ei = 0; ei < 4; ei++) {
-      const p = q[ei];
-      const r = q[(ei + 1) & 3];
+      const p = q + ei * 3;
+      const r = q + ((ei + 1) & 3) * 3;
       const off = qi * 24 + ei * 6;
-      positions.set(p, off);
-      positions.set(r, off + 3);
+      positions[off]     = quadsBuf[p];
+      positions[off + 1] = quadsBuf[p + 1];
+      positions[off + 2] = quadsBuf[p + 2];
+      positions[off + 3] = quadsBuf[r];
+      positions[off + 4] = quadsBuf[r + 1];
+      positions[off + 5] = quadsBuf[r + 2];
+      const dx = quadsBuf[r] - quadsBuf[p];
+      const dy = quadsBuf[r + 1] - quadsBuf[p + 1];
+      const dz = quadsBuf[r + 2] - quadsBuf[p + 2];
       arcs[qi * 8 + ei * 2] = 0;
-      arcs[qi * 8 + ei * 2 + 1] = dist(p, r);
+      arcs[qi * 8 + ei * 2 + 1] = Math.hypot(dx, dy, dz);
     }
   }
   const g = new THREE.BufferGeometry();
