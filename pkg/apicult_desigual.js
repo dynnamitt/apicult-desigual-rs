@@ -1,6 +1,65 @@
 /* @ts-self-types="./apicult_desigual.d.ts" */
 
 /**
+ * Per-hex entangle marker from JS. Maps to `hexx::Hex::new(q, r)`.
+ */
+export class EntangleSpec {
+    static __unwrap(jsValue) {
+        if (!(jsValue instanceof EntangleSpec)) {
+            return 0;
+        }
+        return jsValue.__destroy_into_raw();
+    }
+    __destroy_into_raw() {
+        const ptr = this.__wbg_ptr;
+        this.__wbg_ptr = 0;
+        EntangleSpecFinalization.unregister(this);
+        return ptr;
+    }
+    free() {
+        const ptr = this.__destroy_into_raw();
+        wasm.__wbg_entanglespec_free(ptr, 0);
+    }
+    /**
+     * @param {number} q
+     * @param {number} r
+     */
+    constructor(q, r) {
+        const ret = wasm.entanglespec_new(q, r);
+        this.__wbg_ptr = ret;
+        EntangleSpecFinalization.register(this, this.__wbg_ptr, this);
+        return this;
+    }
+    /**
+     * @returns {number}
+     */
+    get q() {
+        const ret = wasm.__wbg_get_entanglespec_q(this.__wbg_ptr);
+        return ret;
+    }
+    /**
+     * @returns {number}
+     */
+    get r() {
+        const ret = wasm.__wbg_get_entanglespec_r(this.__wbg_ptr);
+        return ret;
+    }
+    /**
+     * @param {number} arg0
+     */
+    set q(arg0) {
+        wasm.__wbg_set_entanglespec_q(this.__wbg_ptr, arg0);
+    }
+    /**
+     * @param {number} arg0
+     */
+    set r(arg0) {
+        wasm.__wbg_set_entanglespec_r(this.__wbg_ptr, arg0);
+    }
+}
+if (Symbol.dispose) EntangleSpec.prototype[Symbol.dispose] = EntangleSpec.prototype.free;
+
+/**
  * Flattened `HexCell` (`hex` decomposed into `q`/`r` since `Hex` is foreign
  * and can't carry `#[wasm_bindgen]`).
  */
@@ -20,6 +79,13 @@ export class HexCellView {
     free() {
         const ptr = this.__destroy_into_raw();
         wasm.__wbg_hexcellview_free(ptr, 0);
+    }
+    /**
+     * @returns {boolean}
+     */
+    get entangled() {
+        const ret = wasm.__wbg_get_hexcellview_entangled(this.__wbg_ptr);
+        return ret !== 0;
     }
     /**
      * @returns {number}
@@ -48,6 +114,12 @@ export class HexCellView {
     get radius() {
         const ret = wasm.__wbg_get_hexcellview_radius(this.__wbg_ptr);
         return ret;
+    }
+    /**
+     * @param {boolean} arg0
+     */
+    set entangled(arg0) {
+        wasm.__wbg_set_hexcellview_entangled(this.__wbg_ptr, arg0);
     }
     /**
      * @param {number} arg0
@@ -215,41 +287,47 @@ export class WasmLayout {
     /**
      * Build a layout with project defaults (`HGridSettings::default()`)
      * overridden by the explicit `radius` and noise seeds. `overrides`
-     * pin per-hex height/radius values after noise sampling.
+     * pin per-hex height/radius values after noise sampling; `entangle`
+     * marks the listed hexes as entangled.
      * @param {number} radius
      * @param {number} height_seed
      * @param {number} radius_seed
      * @param {OverrideSpec[]} overrides
+     * @param {EntangleSpec[]} entangle
      */
-    constructor(radius, height_seed, radius_seed, overrides) {
+    constructor(radius, height_seed, radius_seed, overrides, entangle) {
         const ptr0 = passArrayJsValueToWasm0(overrides, wasm.__wbindgen_malloc);
         const len0 = WASM_VECTOR_LEN;
-        const ret = wasm.wasmlayout_new(radius, height_seed, radius_seed, ptr0, len0);
+        const ptr1 = passArrayJsValueToWasm0(entangle, wasm.__wbindgen_malloc);
+        const len1 = WASM_VECTOR_LEN;
+        const ret = wasm.wasmlayout_new(radius, height_seed, radius_seed, ptr0, len0, ptr1, len1);
         this.__wbg_ptr = ret;
         WasmLayoutFinalization.register(this, this.__wbg_ptr, this);
         return this;
     }
     /**
-     * Canonical unified mesh stream. Flat `n_tris * 9` floats: hex face
-     * fans + junction tris + gap quads tessellated along the rust-canonical
-     * diagonal. Welds into a complete surface on its own.
+     * Unified mesh stream filtered by entanglement. Flat `n_tris * 9` floats:
+     * gap quad tris + hex face fans matching `entangled`, plus junction tris
+     * when `entangled = false`.
+     * @param {boolean} entangled
      * @returns {Float32Array}
      */
-    tris() {
-        const ret = wasm.wasmlayout_tris(this.__wbg_ptr);
+    tris(entangled) {
+        const ret = wasm.wasmlayout_tris(this.__wbg_ptr, entangled);
         var v1 = getArrayF32FromWasm0(ret[0], ret[1]).slice();
         wasm.__wbindgen_free(ret[0], ret[1] * 4, 4);
         return v1;
     }
     /**
-     * Gap-quad perimeter segments. Flat `n_edges * 6` floats
-     * (`x1,y1,z1,x2,y2,z2`); 4 segments per quad walking
-     * `q[0]→q[1]→q[2]→q[3]→q[0]`. No tessellation diagonal — feed
-     * straight into a `THREE.LineSegments` geometry.
+     * Gap-quad perimeter segments matching `entangled`. Flat `n_edges * 6`
+     * floats (`x1,y1,z1,x2,y2,z2`); 4 segments per quad walking
+     * `q[0]→q[1]→q[2]→q[3]→q[0]`. No tessellation diagonal — feed straight
+     * into a `THREE.LineSegments` geometry.
+     * @param {boolean} entangled
      * @returns {Float32Array}
      */
-    wire_edges() {
-        const ret = wasm.wasmlayout_wire_edges(this.__wbg_ptr);
+    wire_edges(entangled) {
+        const ret = wasm.wasmlayout_wire_edges(this.__wbg_ptr, entangled);
         var v1 = getArrayF32FromWasm0(ret[0], ret[1]).slice();
         wasm.__wbindgen_free(ret[0], ret[1] * 4, 4);
         return v1;
@@ -261,6 +339,10 @@ function __wbg_get_imports() {
         __proto__: null,
         __wbg___wbindgen_throw_9c75d47bf9e7731e: function(arg0, arg1) {
             throw new Error(getStringFromWasm0(arg0, arg1));
+        },
+        __wbg_entanglespec_unwrap: function(arg0) {
+            const ret = EntangleSpec.__unwrap(arg0);
+            return ret;
         },
         __wbg_hexcellview_new: function(arg0) {
             const ret = HexCellView.__wrap(arg0);
@@ -286,6 +368,9 @@ function __wbg_get_imports() {
     };
 }
 
+const EntangleSpecFinalization = (typeof FinalizationRegistry === 'undefined')
+    ? { register: () => {}, unregister: () => {} }
+    : new FinalizationRegistry(ptr => wasm.__wbg_entanglespec_free(ptr, 1));
 const HexCellViewFinalization = (typeof FinalizationRegistry === 'undefined')
     ? { register: () => {}, unregister: () => {} }
     : new FinalizationRegistry(ptr => wasm.__wbg_hexcellview_free(ptr, 1));
