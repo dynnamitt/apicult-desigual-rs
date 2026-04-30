@@ -3,25 +3,24 @@ import * as THREE from 'three';
 const keyOf = (x, y, z) => `${x},${y},${z}`;
 
 /**
- * Builds a single indexed `THREE.BufferGeometry` from quad and tri faces,
+ * Builds a single indexed `THREE.BufferGeometry` from a flat triangle stream,
  * welding (deduplicating) shared vertex positions so neighboring faces meet
  * seamlessly and `computeVertexNormals()` produces continuous shading across
  * the seam.
  *
- * Inputs are flat Float32Arrays as emitted by the wasm module:
- *   - `quadsBuf` is `n * 12` floats (4 corners × 3 components, CCW).
- *     Each quad is triangulated as `(a, b, c)` + `(a, c, d)`.
- *   - `trisBuf` is `m * 9` floats (3 corners × 3 components, CCW).
+ * Input is the canonical unified mesh stream as emitted by
+ * `WasmLayout.tris()` — a flat `n * 9` Float32Array (3 corners × 3 components,
+ * CCW). Includes hex face fans, junction tris, and tessellated gap quads, so
+ * no separate quad pass is needed.
  *
  * Welding is exact: vertices are matched by stringified coordinates, so
  * inputs must already share identical floats at seams (no epsilon merge).
  *
- * @param {Float32Array} quadsBuf
  * @param {Float32Array} trisBuf
  * @returns {THREE.BufferGeometry} Indexed geometry with `position` attribute,
  *   computed vertex normals, and computed bounding box.
  */
-export function weldedMesh(quadsBuf, trisBuf) {
+export function weldedMesh(trisBuf) {
   const positions = [];
   const indices = [];
   const lookup = new Map();
@@ -37,13 +36,6 @@ export function weldedMesh(quadsBuf, trisBuf) {
     return idx;
   };
 
-  for (let i = 0; i + 12 <= quadsBuf.length; i += 12) {
-    const ia = indexOf(quadsBuf[i],     quadsBuf[i + 1],  quadsBuf[i + 2]);
-    const ib = indexOf(quadsBuf[i + 3], quadsBuf[i + 4],  quadsBuf[i + 5]);
-    const ic = indexOf(quadsBuf[i + 6], quadsBuf[i + 7],  quadsBuf[i + 8]);
-    const id = indexOf(quadsBuf[i + 9], quadsBuf[i + 10], quadsBuf[i + 11]);
-    indices.push(ia, ib, ic, ia, ic, id);
-  }
   for (let i = 0; i + 9 <= trisBuf.length; i += 9) {
     const ia = indexOf(trisBuf[i],     trisBuf[i + 1], trisBuf[i + 2]);
     const ib = indexOf(trisBuf[i + 3], trisBuf[i + 4], trisBuf[i + 5]);

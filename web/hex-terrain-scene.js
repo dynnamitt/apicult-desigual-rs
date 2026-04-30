@@ -8,7 +8,7 @@ import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
 import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
 import { weldedMesh, vertexCount, triangleCount } from "./hex-terrain.js";
-import { quadEdgesGeometry, createWireShader } from "./hex-terrain-shader.js";
+import { wireEdgesGeometry, createWireShader } from "./hex-terrain-shader.js";
 
 const MESH_COUNT = 3;
 const BG_COLOR = 0x0a0e1a,
@@ -49,27 +49,32 @@ const showError = (canvas, msg) => {
 };
 
 /**
- * Generate `count` mesh payloads in-browser via the wasm module. Each call
- * picks fresh random u32 seeds for height + radius noise.
+ * Build `count` mesh payloads in-browser via the wasm `WasmLayout`. Each
+ * call picks fresh random u32 seeds for height + radius noise.
  *
  * @param {object} opts
  * @param {number} opts.radius - hex grid radius (number of rings).
- * @param {(radius: number, hSeed: number, rSeed: number, overrides: any[]) => {tris: Float32Array, quads: Float32Array}} opts.generate_geometry
+ * @param {Function} opts.WasmLayout - the `WasmLayout` class export.
  * @param {number} [opts.count=MESH_COUNT]
- * @returns {Array<{index: number, tris: Float32Array, quads: Float32Array}>}
+ * @returns {Array<{index: number, tris: Float32Array, wireEdges: Float32Array}>}
  */
-const generatePayloads = ({ radius, generate_geometry, count = MESH_COUNT }) => {
+const generatePayloads = ({ radius, WasmLayout, count = MESH_COUNT }) => {
   const payloads = [];
   for (let i = 0; i < count; i++) {
-    const g = generate_geometry(radius, randomU32(), randomU32(), []);
-    payloads.push({ index: i + 1, tris: g.tris, quads: g.quads });
+    const layout = new WasmLayout(radius, randomU32(), randomU32(), []);
+    payloads.push({
+      index: i + 1,
+      tris: layout.tris(),
+      wireEdges: layout.wire_edges(),
+    });
+    layout.free();
   }
   return payloads;
 };
 
 /**
  * Mount the welded-hex-terrain scene onto a canvas. Generates `MESH_COUNT`
- * meshes via the supplied wasm `generate_geometry`, lays them out
+ * meshes via the supplied wasm `WasmLayout` class, lays them out
  * side-by-side, and runs an animation loop with dashed glowing wireframes
  * via post-process bloom.
  *
@@ -77,11 +82,11 @@ const generatePayloads = ({ radius, generate_geometry, count = MESH_COUNT }) => 
  * @param {HTMLElement} statsEl - element receiving the per-mesh stats line.
  * @param {object} opts
  * @param {number} opts.radius
- * @param {Function} opts.generate_geometry - wasm `generate_geometry` export.
+ * @param {Function} opts.WasmLayout - wasm `WasmLayout` class export.
  */
-export function mount(canvas, statsEl, { radius, generate_geometry }) {
+export function mount(canvas, statsEl, { radius, WasmLayout }) {
   try {
-    const payloads = generatePayloads({ radius, generate_geometry });
+    const payloads = generatePayloads({ radius, WasmLayout });
 
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(BG_COLOR);
@@ -108,7 +113,7 @@ export function mount(canvas, statsEl, { radius, generate_geometry }) {
     const shaderWireOverlays = [];
 
     for (const p of payloads) {
-      p.geom = weldedMesh(p.quads, p.tris);
+      p.geom = weldedMesh(p.tris);
       p.medianEdge = medianTriEdgeLength(p.tris);
     }
 
@@ -157,7 +162,7 @@ export function mount(canvas, statsEl, { radius, generate_geometry }) {
       scene.add(w);
       wireOverlays.push(w);
 
-      const sg = quadEdgesGeometry(p.quads);
+      const sg = wireEdgesGeometry(p.wireEdges);
       const sm = createWireShader({
         color: LINE_COLOR,
         dashSize: p.medianEdge * DASH_SIZE_FACTOR,
@@ -173,10 +178,7 @@ export function mount(canvas, statsEl, { radius, generate_geometry }) {
 
     const totalVerts = payloads.reduce((s, p) => s + vertexCount(p.geom), 0);
     const totalTris = payloads.reduce((s, p) => s + triangleCount(p.geom), 0);
-    const sourceTris = payloads.reduce(
-      (s, p) => s + (p.tris.length / 9 + p.quads.length / 6) | 0,
-      0,
-    );
+    const sourceTris = payloads.reduce((s, p) => s + ((p.tris.length / 9) | 0), 0);
     statsEl.textContent =
       `meshes: ${payloads.length} · welded vertices: ${totalVerts} · ` +
       `triangles: ${totalTris} · source tris: ${sourceTris}`;
