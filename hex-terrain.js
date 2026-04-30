@@ -1,54 +1,46 @@
 import * as THREE from 'three';
 
-const keyOf = (v) => `${v[0]},${v[1]},${v[2]}`;
+const keyOf = (x, y, z) => `${x},${y},${z}`;
 
 /**
- * Builds a single indexed `THREE.BufferGeometry` from quad and tri faces,
+ * Builds a single indexed `THREE.BufferGeometry` from a flat triangle stream,
  * welding (deduplicating) shared vertex positions so neighboring faces meet
  * seamlessly and `computeVertexNormals()` produces continuous shading across
  * the seam.
  *
- * Each unique `[x, y, z]` becomes one vertex in the position buffer; faces
- * become triangle indices into that buffer:
- *   - Quads `[a, b, c, d]` are triangulated as `(a, b, c)` + `(a, c, d)`
- *     (CCW fan from `a`).
- *   - Tris `[a, b, c]` are emitted as-is.
+ * Input is the canonical unified mesh stream as emitted by
+ * `WasmLayout.tris()` — a flat `n * 9` Float32Array (3 corners × 3 components,
+ * CCW). Includes hex face fans, junction tris, and tessellated gap quads, so
+ * no separate quad pass is needed.
  *
  * Welding is exact: vertices are matched by stringified coordinates, so
  * inputs must already share identical floats at seams (no epsilon merge).
  *
- * @param {Array<[Vec3, Vec3, Vec3, Vec3]>} quads - CCW quads, each four
- *   `[x, y, z]` corners.
- * @param {Array<[Vec3, Vec3, Vec3]>} [tris=[]] - CCW triangles, each three
- *   `[x, y, z]` corners. Used for 3-hex junction gaps and (optionally) hex
- *   face fans.
+ * @param {Float32Array} trisBuf
  * @returns {THREE.BufferGeometry} Indexed geometry with `position` attribute,
  *   computed vertex normals, and computed bounding box.
- *
- * @typedef {[number, number, number]} Vec3
  */
-export function weldedMesh(quads, tris = []) {
+export function weldedMesh(trisBuf) {
   const positions = [];
   const indices = [];
   const lookup = new Map();
 
-  const indexOf = (v) => {
-    const k = keyOf(v);
+  const indexOf = (x, y, z) => {
+    const k = keyOf(x, y, z);
     let idx = lookup.get(k);
     if (idx === undefined) {
       idx = positions.length / 3;
-      positions.push(v[0], v[1], v[2]);
+      positions.push(x, y, z);
       lookup.set(k, idx);
     }
     return idx;
   };
 
-  for (const [a, b, c, d] of quads) {
-    const ia = indexOf(a), ib = indexOf(b), ic = indexOf(c), id = indexOf(d);
-    indices.push(ia, ib, ic, ia, ic, id);
-  }
-  for (const [a, b, c] of tris) {
-    indices.push(indexOf(a), indexOf(b), indexOf(c));
+  for (let i = 0; i + 9 <= trisBuf.length; i += 9) {
+    const ia = indexOf(trisBuf[i],     trisBuf[i + 1], trisBuf[i + 2]);
+    const ib = indexOf(trisBuf[i + 3], trisBuf[i + 4], trisBuf[i + 5]);
+    const ic = indexOf(trisBuf[i + 6], trisBuf[i + 7], trisBuf[i + 8]);
+    indices.push(ia, ib, ic);
   }
 
   const geom = new THREE.BufferGeometry();

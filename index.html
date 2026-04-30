@@ -34,7 +34,7 @@
 </head>
 <body>
   <h1>welded hex terrain &mdash; one mesh, vec3-deduped</h1>
-  <p class="meta">generated from <a href="https://github.com/dynnamitt/apicult-desigual-rs">dynnamitt/apicult-desigual-rs</a> &mdash; <span id="sha">1d7b40e</span> &middot; <a href="svg-preview.html">grid preview</a></p>
+  <p class="meta">generated from <a href="https://github.com/dynnamitt/apicult-desigual-rs">dynnamitt/apicult-desigual-rs</a> &mdash; <span id="sha">aef5d2e</span> &middot; <a href="svg-preview.html">grid preview</a></p>
 
   <div class="controls">
     <button id="btn-fill" type="button" class="on">filled</button>
@@ -47,8 +47,13 @@
   <p class="hint">drag to orbit &middot; scroll to zoom &middot; right-drag to pan</p>
 
 <script type="module">
+import init, { WasmLayout } from './pkg/apicult_desigual.js';
 import { mount } from './hex-terrain-scene.js';
-mount(document.getElementById('stage'), document.getElementById('stats'));
+await init();
+mount(document.getElementById('stage'), document.getElementById('stats'), {
+  radius: 2,
+  WasmLayout,
+});
 </script>
 </body>
 </html>

@@ -1,0 +1,140 @@
+/* tslint:disable */
+/* eslint-disable */
+
+/**
+ * Flattened `HexCell` (`hex` decomposed into `q`/`r` since `Hex` is foreign
+ * and can't carry `#[wasm_bindgen]`).
+ */
+export class HexCellView {
+    private constructor();
+    free(): void;
+    [Symbol.dispose](): void;
+    height: number;
+    q: number;
+    r: number;
+    radius: number;
+}
+
+/**
+ * Mirror of `crate::NoiseType` exposed as a C-like enum for `wasm-bindgen`.
+ */
+export enum NoiseChannel {
+    Height = 0,
+    Size = 1,
+}
+
+/**
+ * Per-hex override input from JS. Maps to `crate::Override = (NoiseType, Hex, f32)`.
+ */
+export class OverrideSpec {
+    free(): void;
+    [Symbol.dispose](): void;
+    constructor(kind: NoiseChannel, q: number, r: number, value: number);
+    kind: NoiseChannel;
+    q: number;
+    r: number;
+    value: number;
+}
+
+/**
+ * Mirror of `hexx::VertexDirection` (a tuple struct in hexx, so re-expressed
+ * here as a 6-variant enum). Indices match `VertexDirection::ALL_DIRECTIONS`.
+ */
+export enum VertexDir {
+    East = 0,
+    SouthEast = 1,
+    SouthWest = 2,
+    West = 3,
+    NorthWest = 4,
+    NorthEast = 5,
+}
+
+/**
+ * Opaque handle wrapping `HGridLayout`. Build once, query repeatedly.
+ */
+export class WasmLayout {
+    free(): void;
+    [Symbol.dispose](): void;
+    /**
+     * Cells along one outer side of the hexagon-shaped grid (see
+     * `HGridLayout::borderline_cells`). Returns `grid_radius + 1` views.
+     */
+    borderline_cells(direction: VertexDir): HexCellView[];
+    /**
+     * Build a layout with project defaults (`HGridSettings::default()`)
+     * overridden by the explicit `radius` and noise seeds. `overrides`
+     * pin per-hex height/radius values after noise sampling.
+     */
+    constructor(radius: number, height_seed: number, radius_seed: number, overrides: OverrideSpec[]);
+    /**
+     * Canonical unified mesh stream. Flat `n_tris * 9` floats: hex face
+     * fans + junction tris + gap quads tessellated along the rust-canonical
+     * diagonal. Welds into a complete surface on its own.
+     */
+    tris(): Float32Array;
+    /**
+     * Gap-quad perimeter segments. Flat `n_edges * 6` floats
+     * (`x1,y1,z1,x2,y2,z2`); 4 segments per quad walking
+     * `q[0]→q[1]→q[2]→q[3]→q[0]`. No tessellation diagonal — feed
+     * straight into a `THREE.LineSegments` geometry.
+     */
+    wire_edges(): Float32Array;
+}
+
+export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembly.Module;
+
+export interface InitOutput {
+    readonly memory: WebAssembly.Memory;
+    readonly __wbg_get_hexcellview_height: (a: number) => number;
+    readonly __wbg_get_hexcellview_q: (a: number) => number;
+    readonly __wbg_get_hexcellview_r: (a: number) => number;
+    readonly __wbg_get_hexcellview_radius: (a: number) => number;
+    readonly __wbg_get_overridespec_kind: (a: number) => number;
+    readonly __wbg_hexcellview_free: (a: number, b: number) => void;
+    readonly __wbg_overridespec_free: (a: number, b: number) => void;
+    readonly __wbg_set_hexcellview_height: (a: number, b: number) => void;
+    readonly __wbg_set_hexcellview_q: (a: number, b: number) => void;
+    readonly __wbg_set_hexcellview_r: (a: number, b: number) => void;
+    readonly __wbg_set_hexcellview_radius: (a: number, b: number) => void;
+    readonly __wbg_set_overridespec_kind: (a: number, b: number) => void;
+    readonly __wbg_wasmlayout_free: (a: number, b: number) => void;
+    readonly overridespec_new: (a: number, b: number, c: number, d: number) => number;
+    readonly wasmlayout_borderline_cells: (a: number, b: number) => [number, number];
+    readonly wasmlayout_new: (a: number, b: number, c: number, d: number, e: number) => number;
+    readonly wasmlayout_tris: (a: number) => [number, number];
+    readonly wasmlayout_wire_edges: (a: number) => [number, number];
+    readonly __wbg_set_overridespec_q: (a: number, b: number) => void;
+    readonly __wbg_set_overridespec_r: (a: number, b: number) => void;
+    readonly __wbg_set_overridespec_value: (a: number, b: number) => void;
+    readonly __wbg_get_overridespec_q: (a: number) => number;
+    readonly __wbg_get_overridespec_r: (a: number) => number;
+    readonly __wbg_get_overridespec_value: (a: number) => number;
+    readonly __wbindgen_externrefs: WebAssembly.Table;
+    readonly __externref_drop_slice: (a: number, b: number) => void;
+    readonly __wbindgen_free: (a: number, b: number, c: number) => void;
+    readonly __externref_table_alloc: () => number;
+    readonly __wbindgen_malloc: (a: number, b: number) => number;
+    readonly __wbindgen_start: () => void;
+}
+
+export type SyncInitInput = BufferSource | WebAssembly.Module;
+
+/**
+ * Instantiates the given `module`, which can either be bytes or
+ * a precompiled `WebAssembly.Module`.
+ *
+ * @param {{ module: SyncInitInput }} module - Passing `SyncInitInput` directly is deprecated.
+ *
+ * @returns {InitOutput}
+ */
+export function initSync(module: { module: SyncInitInput } | SyncInitInput): InitOutput;
+
+/**
+ * If `module_or_path` is {RequestInfo} or {URL}, makes a request and
+ * for everything else, calls `WebAssembly.instantiate` directly.
+ *
+ * @param {{ module_or_path: InitInput | Promise<InitInput> }} module_or_path - Passing `InitInput` directly is deprecated.
+ *
+ * @returns {Promise<InitOutput>}
+ */
+export default function __wbg_init (module_or_path?: { module_or_path: InitInput | Promise<InitInput> } | InitInput | Promise<InitInput>): Promise<InitOutput>;
