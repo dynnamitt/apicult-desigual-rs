@@ -152,24 +152,9 @@ impl HGridLayout {
 
     // ── Per-hex data access ────────────────────────────────────────
 
-    /// Noise-derived terrain height for a hex.
-    pub fn height(&self, hex: &Hex) -> Option<f32> {
-        self.cells.get(*hex).map(|c| c.height)
-    }
-
-    /// Noise-derived visual radius for a hex.
-    pub fn hex_radius(&self, hex: &Hex) -> Option<f32> {
-        self.cells.get(*hex).map(|c| c.radius)
-    }
-
     /// Bundled read view for a hex — `Some` only when the hex is in-grid.
     pub fn cell(&self, hex: &Hex) -> Option<HexCell> {
         self.cells.get(*hex).copied()
-    }
-
-    /// Iterates every in-grid hex as a bundled `HexCell`.
-    pub fn iter_cells(&self) -> impl ExactSizeIterator<Item = &HexCell> + '_ {
-        self.cells.values()
     }
 
     /// Cells along one outer side of the hexagon-shaped grid.
@@ -412,7 +397,7 @@ mod tests {
         };
         let layout = HGridLayout::from_settings(&g, &[]);
         let h = layout.interpolate_height(Vec2::ZERO);
-        let center_h = layout.height(&Hex::ZERO).unwrap();
+        let center_h = layout.cell(&Hex::ZERO).unwrap().height;
         assert!(
             (h - center_h).abs() < 2.0,
             "interpolated height {h} should be near center height {center_h}"
@@ -509,24 +494,22 @@ mod tests {
         ];
         let pinned = HGridLayout::from_settings(&g, &overrides);
 
-        assert_eq!(pinned.height(&Hex::ZERO), Some(pinned_height));
-        assert_eq!(pinned.hex_radius(&Hex::ZERO), Some(pinned_radius));
+        let pinned_zero = pinned.cell(&Hex::ZERO).unwrap();
+        assert_eq!(pinned_zero.height, pinned_height);
+        assert_eq!(pinned_zero.radius, pinned_radius);
 
-        assert_eq!(pinned.height(&neighbor), baseline.height(&neighbor));
-        assert_eq!(pinned.hex_radius(&neighbor), baseline.hex_radius(&neighbor));
+        assert_eq!(pinned.cell(&neighbor), baseline.cell(&neighbor));
 
-        assert_eq!(pinned.height(&off_grid), None);
+        assert_eq!(pinned.cell(&off_grid), None);
     }
 
     #[test]
-    fn cell_bundles_hex_height_radius() {
+    fn cell_returns_in_grid_data() {
         let g = default_settings();
         let layout = HGridLayout::from_settings(&g, &[]);
         for hex in [Hex::ZERO, Hex::new(1, 0)] {
             let cell = layout.cell(&hex).expect("in-grid hex");
             assert_eq!(cell.hex, hex);
-            assert_eq!(cell.height, layout.height(&hex).unwrap());
-            assert_eq!(cell.radius, layout.hex_radius(&hex).unwrap());
         }
     }
 
@@ -535,19 +518,6 @@ mod tests {
         let g = default_settings();
         let layout = HGridLayout::from_settings(&g, &[]);
         assert_eq!(layout.cell(&Hex::new(999, 999)), None);
-    }
-
-    #[test]
-    fn iter_cells_count_matches_grid() {
-        for r in [1u32, 2, 4] {
-            let g = HGridSettings {
-                radius: r,
-                ..default_settings()
-            };
-            let layout = HGridLayout::from_settings(&g, &[]);
-            let expected = shapes::hexagon(Hex::ZERO, r).count();
-            assert_eq!(layout.iter_cells().count(), expected);
-        }
     }
 
     #[test]
