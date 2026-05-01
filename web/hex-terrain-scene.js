@@ -10,7 +10,7 @@ import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
 import { weldedMesh, vertexCount, triangleCount } from "./hex-terrain.js";
 import { wireEdgesGeometry, createWireShader } from "./hex-terrain-shader.js";
 import { seamSpecForCell } from "./hex-seam.js";
-import { StreamingCluster } from "./hex-stream.js";
+import { StreamingCluster, axialKey } from "./hex-stream.js";
 
 const BG_COLOR = 0x0a0e1a;
 // One color per cluster slot (center=0, petals=1..6). Subtle hue rotation
@@ -214,7 +214,7 @@ export function mount(canvas, statsEl, { initialSettings, WasmLayout }) {
         flatShading: state.flat,
       });
       tile.threeObjs.shaderOverlay.material.uniforms.uSpeed.value = state.dashSpeed;
-      threeObjsByKey.set(`${tile.axial.q},${tile.axial.r}`, tile.threeObjs);
+      threeObjsByKey.set(axialKey(tile.axial), tile.threeObjs);
     };
 
     const buildCluster = () => {

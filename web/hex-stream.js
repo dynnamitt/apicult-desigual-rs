@@ -79,6 +79,10 @@ export const clusterFootprint = (anchor) => {
 //   spawn:   axial coords {q, r} that are in new but not old (3 of them)
 //   despawn: axial keys (strings) that are in old but not new (3 of them)
 //   survive: axial coords {q, r} that are in both (4 of them)
+// Note: this is the raw set-diff; StreamingCluster.tick exposes the same
+// data to the scene under the past-tense names `spawned` / `despawned`.
+// The plural shapes are intentionally distinct: this layer is pure math,
+// the cluster's return is a step-result.
 // Caller passes both anchors; this function recomputes both footprints.
 export const axialDiff = (oldAnchor, newAnchor) => {
   const oldFp = clusterFootprint(oldAnchor);
@@ -135,13 +139,22 @@ export class StreamingCluster {
   }
 
   // Returns null if no step boundary crossed this frame; otherwise an object
-  // { spawned, despawned } produced by performStep(). Step paths land in
-  // the next task.
+  // { spawned, despawned } merging every step that fits in the elapsed time.
+  // The while-loop guards against tab-catch-up frames (browser hidden, GC
+  // pause) where dt can spike high enough to span multiple petalSpacings —
+  // a single-step tick would silently drop visited cells in that case.
   tick(dt, speed) {
     if (speed === 0) return null;
     this.accumulator += speed * dt;
     if (this.accumulator < this.petalSpacing) return null;
-    return this.performStep();
+    const spawned = [];
+    const despawned = [];
+    while (this.accumulator >= this.petalSpacing) {
+      const diff = this.performStep();
+      spawned.push(...diff.spawned);
+      despawned.push(...diff.despawned);
+    }
+    return { spawned, despawned };
   }
 
   // Build the initial 7 tiles centered on (0, 0). Returns the tile array so
