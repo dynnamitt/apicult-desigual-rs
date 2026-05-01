@@ -52,3 +52,41 @@ test("petalAxialToWorld(neighbor d, 60) matches angle d*60°", () => {
     assert.ok(Math.abs(p.z - 60 * Math.sin(angle)) < 1e-9, `d=${d} z`);
   }
 });
+
+import { seedForCell } from "../hex-stream.js";
+
+test("seedForCell with null worldSeed yields fresh randomness each call", () => {
+  const a = seedForCell(null, 0, 0);
+  const b = seedForCell(null, 0, 0);
+  assert.equal(a.length, 2);
+  assert.equal(typeof a[0], "number");
+  // Cannot assert non-equality reliably (extremely small collision chance);
+  // assert types and length only.
+});
+
+test("seedForCell is deterministic with a fixed worldSeed", () => {
+  const a = seedForCell(42, 3, -1);
+  const b = seedForCell(42, 3, -1);
+  assert.deepEqual(a, b);
+});
+
+test("seedForCell varies with (q, r)", () => {
+  const a = seedForCell(42, 0, 0);
+  const b = seedForCell(42, 1, 0);
+  const c = seedForCell(42, 0, 1);
+  assert.notDeepEqual(a, b);
+  assert.notDeepEqual(a, c);
+  assert.notDeepEqual(b, c);
+});
+
+test("seedForCell varies with worldSeed", () => {
+  const a = seedForCell(42, 5, 5);
+  const b = seedForCell(43, 5, 5);
+  assert.notDeepEqual(a, b);
+});
+
+test("seedForCell returns u32 values", () => {
+  const [h, r] = seedForCell(42, 100, -100);
+  assert.ok(Number.isInteger(h) && h >= 0 && h <= 0xFFFFFFFF);
+  assert.ok(Number.isInteger(r) && r >= 0 && r <= 0xFFFFFFFF);
+});
