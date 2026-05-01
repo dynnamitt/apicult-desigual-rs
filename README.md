@@ -4,6 +4,12 @@
 [![WebAssembly](https://img.shields.io/badge/wasm--bindgen-654FF0?style=for-the-badge&logo=webassembly&logoColor=white)](https://rustwasm.github.io/wasm-bindgen/)
 [![Live WebGL Demo](https://img.shields.io/badge/Live_Demo-WebGL-0A6CB1?style=for-the-badge&logo=webgl&logoColor=white&labelColor=000000)](https://dynnamitt.github.io/apicult-desigual-rs/)
 
+**apicult(desigual)** is a hexagonal layout system where each cell can shrink below its normal-form (100%) size, with bridge geometry filling the gaps to its neighbors. Random seeds drive per-cell size and 3D height.
+
+_apicult_ — from **apiculture** (beekeeping); the honeycomb. _desigual_ — Spanish for "uneven", in the spirit of Norwegian _kupert_: hilly, uneasy terrain.
+
+---
+
 A Rust hex-grid geometry library — noise-driven terrain layout, spatial math, gap analysis, and SVG/JSON serialization. Compiles to a `wasm32-unknown-unknown` target via `wasm-bindgen` for zero-copy mesh streaming into browser renderers.
 
 Zero game-engine dependencies — `glam` for vectors, `hexx` for hex coordinates, `noise` for Fbm terrain generation.
@@ -65,8 +71,8 @@ make RADIUS=4 PAD=1.0 preview       # override grid params
 
 ## Dependencies
 
-| Crate | Purpose |
-|-------|---------|
-| `glam` 0.30 | Vec2, Vec3, Quat |
+| Crate       | Purpose                          |
+| ----------- | -------------------------------- |
+| `glam` 0.30 | Vec2, Vec3, Quat                 |
 | `hexx` 0.24 | Hex coordinates, layouts, shapes |
-| `noise` 0.9 | Fbm/Perlin terrain generation |
+| `noise` 0.9 | Fbm/Perlin terrain generation    |
