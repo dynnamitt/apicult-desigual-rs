@@ -65,7 +65,7 @@ wasm-pack build --target web --features wasm  # writes web/pkg/{apicult_desigual
 To build the whole preview page (SVGs + v1 JSON + wasm pkg + HTML) locally, use the root Makefile target:
 
 ```sh
-make preview                        # writes into target/svg-preview/ with a random HSEED
+make preview                        # writes into target/www-preview/ with a random HSEED
 make HSEED=42 preview               # pin the seed for a reproducible bundle
 make RADIUS=4 PAD=1.0 preview       # override grid params
 ```

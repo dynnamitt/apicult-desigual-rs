@@ -1,4 +1,4 @@
-OUT ?= target/svg-preview
+OUT ?= target/www-preview
 RADIUS ?= 2
 PAD ?= 0.6
 SHORT_SHA ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo local)
