@@ -49,9 +49,9 @@ export const PETAL_DISTANCE_FACTOR = 3.0;
  * spaces petals farther apart (visible gaps), lowering it overlaps them.
  */
 export const petalTranslation = (
-  dir, radius, pointSpacing, petalDistanceFactor = PETAL_DISTANCE_FACTOR,
+  dir, radius, nominalHexRadius, petalDistanceFactor = PETAL_DISTANCE_FACTOR,
 ) => {
-  const mag = petalDistanceFactor * radius * pointSpacing;
+  const mag = petalDistanceFactor * radius * nominalHexRadius;
   const a = (dir * Math.PI) / 3;
   return { tx: mag * Math.cos(a), tz: mag * Math.sin(a) };
 };
@@ -121,11 +121,11 @@ export const seamFromNeighbor = ({
  *   already-placed petal at slot i (undefined until slot i is placed).
  * @param {number} args.dir - this petal's slot, 0..5.
  * @param {number} args.radius
- * @param {number} args.pointSpacing
+ * @param {number} args.nominalHexRadius
  * @param {Function} args.WasmLayout
  */
 export const seamSpec = ({
-  centerLayout, ringSoFar, dir, radius, pointSpacing, WasmLayout,
+  centerLayout, ringSoFar, dir, radius, nominalHexRadius, WasmLayout,
   petalDistanceFactor = PETAL_DISTANCE_FACTOR,
 }) => {
   const overrides = [];
@@ -162,7 +162,7 @@ export const seamSpec = ({
   }
 
   const { tx, tz } = petalTranslation(
-    dir, radius, pointSpacing, petalDistanceFactor,
+    dir, radius, nominalHexRadius, petalDistanceFactor,
   );
   return { overrides, entangle, tx, tz };
 };
