@@ -32,10 +32,12 @@ pub struct HGridSettings {
     pub radius_noise_scale: f64,
     /// Maximum terrain elevation produced by the noise function.
     pub max_height: f32,
-    /// Smallest visual hex radius (noise-derived per cell).
-    pub min_hex_radius: f32,
-    /// Largest visual hex radius (noise-derived per cell).
-    pub max_hex_radius: f32,
+    /// Lower bound for noise-sampled per-cell radius, as a fraction of `nominal_hex_radius`.
+    /// Range `0.0..=1.0`. Cell radii below 1.0 leave room for bridge geometry.
+    pub min_radius_ratio: f32,
+    /// Upper bound for noise-sampled per-cell radius, as a fraction of `nominal_hex_radius`.
+    /// Range `0.0..=1.0` (`> 1.0` causes neighbor overlap).
+    pub max_radius_ratio: f32,
 }
 
 impl Default for HGridSettings {
@@ -50,8 +52,8 @@ impl Default for HGridSettings {
             height_noise_scale: 50.0,
             radius_noise_scale: 30.0,
             max_height: 20.0,
-            min_hex_radius: 0.2,
-            max_hex_radius: 2.6,
+            min_radius_ratio: 0.05,
+            max_radius_ratio: 0.65,
         }
     }
 }
@@ -130,7 +132,8 @@ impl HGridLayout {
             HexCell {
                 hex,
                 height: math::map_noise_to_range(h_noise, 0.0, g.max_height),
-                radius: math::map_noise_to_range(r_noise, g.min_hex_radius, g.max_hex_radius),
+                radius: g.nominal_hex_radius
+                    * math::map_noise_to_range(r_noise, g.min_radius_ratio, g.max_radius_ratio),
                 entangled: false,
             }
         });
@@ -730,5 +733,31 @@ mod tests {
         };
         let layout = HGridLayout::new(&s, &[], &[]);
         assert_eq!(layout.nominal_hex_radius(), 4.0);
+    }
+
+    #[test]
+    fn ratio_bounds_produce_legacy_world_radii() {
+        // With nominal=4.0 and ratio bounds 0.05..=0.65, per-cell radii must
+        // land inside [0.2, 2.6] — the same world-space interval the old
+        // absolute fields used.
+        let s = HGridSettings {
+            nominal_hex_radius: 4.0,
+            min_radius_ratio: 0.05,
+            max_radius_ratio: 0.65,
+            radius: 5,
+            ..HGridSettings::default()
+        };
+        let layout = HGridLayout::new(&s, &[], &[]);
+
+        let mut min_r = f32::INFINITY;
+        let mut max_r = f32::NEG_INFINITY;
+        for hex in hexx::shapes::hexagon(Hex::ZERO, s.radius) {
+            let r = layout.cell(&hex).unwrap().radius;
+            if r < min_r { min_r = r; }
+            if r > max_r { max_r = r; }
+        }
+
+        assert!(min_r >= 0.2 - 1e-4, "min radius {} below floor 0.2", min_r);
+        assert!(max_r <= 2.6 + 1e-4, "max radius {} above ceiling 2.6", max_r);
     }
 }
