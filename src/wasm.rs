@@ -14,6 +14,12 @@
 //! wire_edges are flat `n_edges * 6` floats (2 endpoints × 3 floats). Both
 //! arrive as `Float32Array` on the JS side.
 //!
+//! `wire_edges` per-quad order is fixed: 4 segments walking the CCW corner
+//! sequence `q[0]→q[1]→q[2]→q[3]→q[0]`. Quad-local edge indices `0` and `2`
+//! are **bridge** segments (cross-gap, hex→neighbor); `1` and `3` are **rim**
+//! segments (along one hex's side). Consumers wanting a single role can
+//! derive it from the quad-local index without any extra metadata.
+//!
 //! Mirror types (`OverrideSpec`, `EntangleSpec`, `NoiseChannel`, `VertexDir`,
 //! `HexCellView`) exist because `#[wasm_bindgen]` can't attach to foreign
 //! types (`hexx::Hex`, `hexx::VertexDirection`) or to structs/tuples
@@ -162,8 +168,10 @@ impl WasmLayout {
 
     /// Gap-quad perimeter segments matching `entangled`. Flat `n_edges * 6`
     /// floats (`x1,y1,z1,x2,y2,z2`); 4 segments per quad walking
-    /// `q[0]→q[1]→q[2]→q[3]→q[0]`. No tessellation diagonal — feed straight
-    /// into a `THREE.LineSegments` geometry.
+    /// `q[0]→q[1]→q[2]→q[3]→q[0]`. Quad-local edges `0`/`2` are bridge
+    /// (cross-gap), `1`/`3` are rim (along one hex's side); see module docs.
+    /// No tessellation diagonal — feed straight into a `THREE.LineSegments`
+    /// geometry.
     pub fn wire_edges(&self, entangled: bool) -> Vec<f32> {
         flatten_wire_edges(self.inner.gap_quads(), entangled)
     }

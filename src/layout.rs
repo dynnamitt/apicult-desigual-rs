@@ -219,13 +219,16 @@ impl HGridLayout {
 
     // ── Compute methods ────────────────────────────────────────────
 
-    /// Returns the two long-side edges of each quad gap as `(from, to)` pairs
-    /// in world-space XZ (projected, Y=0). Uses the even-edge `[0,2,4]` ownership
-    /// rule so each gap is emitted exactly once — no overlaps.
+    /// Returns the two **bridge** edges of each gap quad as `(from, to)` pairs:
+    /// the edges that span across the gap connecting hex→neighbor (v0→n0 and
+    /// v1→n1). The other two perimeter edges of a gap quad — the **rim** edges
+    /// — run along one hex's side and are not returned here. Uses the even-edge
+    /// `[0,2,4]` ownership rule so each gap is emitted exactly once.
     ///
-    /// "Long sides" are the edges that bridge hex→neighbor (v0→n0 and v1→n1),
-    /// not the short edges running along each hex's perimeter.
-    pub fn quad_long_edges(&self) -> Vec<(Vec3, Vec3)> {
+    /// "Bridge" vs "rim" is a topological distinction (cross-gap vs along-hex),
+    /// independent of relative size — the rim can be longer than the bridge
+    /// when the hex radius is much larger than the gap padding.
+    pub fn quad_bridge_edges(&self) -> Vec<(Vec3, Vec3)> {
         let mut edges = Vec::new();
         for hex in shapes::hexagon(Hex::ZERO, self.grid_radius) {
             for edge_index in [0u8, 2, 4] {
@@ -252,7 +255,7 @@ impl HGridLayout {
     /// Returns every gap quad as `[hex.v0, neighbor.n0, neighbor.n1, hex.v1]`
     /// in CCW order, paired with an `entangled` flag (true iff both adjacent
     /// cells are entangled). Same `[0,2,4]` even-edge ownership as
-    /// [`quad_long_edges`].
+    /// [`quad_bridge_edges`].
     pub fn gap_quads(&self) -> Vec<GapQuad> {
         let mut quads = Vec::new();
         for hex in shapes::hexagon(Hex::ZERO, self.grid_radius) {
@@ -696,7 +699,7 @@ mod tests {
     }
 
     #[test]
-    fn quad_long_edges_count_matches_gap_filler() {
+    fn quad_bridge_edges_count_matches_gap_filler() {
         for r in [1, 2, 4] {
             let g = HGridSettings {
                 radius: r,
@@ -705,11 +708,11 @@ mod tests {
             let layout = HGridLayout::new(&g, &[], &[]);
             let grid: Vec<Hex> = shapes::hexagon(Hex::ZERO, r).collect();
             let (expected_quads, _) = crate::math::gap_filler(&grid);
-            let edges = layout.quad_long_edges();
+            let edges = layout.quad_bridge_edges();
             assert_eq!(
                 edges.len(),
                 expected_quads * 2,
-                "radius {r}: expected {} long edges ({}×2), got {}",
+                "radius {r}: expected {} bridge edges ({}×2), got {}",
                 expected_quads * 2,
                 expected_quads,
                 edges.len()

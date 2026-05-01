@@ -40,7 +40,7 @@ struct HexData {
 
 struct SvgFrame {
     hex_data: Vec<HexData>,
-    long_edges: Vec<(Vec3, Vec3)>,
+    bridge_edges: Vec<(Vec3, Vec3)>,
     max_h: f32,
     vb_x: f32,
     vb_z: f32,
@@ -81,7 +81,7 @@ fn collect_frame(layout: &HGridLayout, pad: f32) -> SvgFrame {
 
     SvgFrame {
         hex_data,
-        long_edges: layout.quad_long_edges(),
+        bridge_edges: layout.quad_bridge_edges(),
         max_h,
         vb_x: min_x - pad,
         vb_z: min_z - pad,
@@ -153,7 +153,7 @@ fn write_svg(
     }
 
     for (color, width) in hex_strokes {
-        for (from, to) in &f.long_edges {
+        for (from, to) in &f.bridge_edges {
             writeln!(
                 out,
                 r##"  <line x1="{:.2}" y1="{:.2}" x2="{:.2}" y2="{:.2}" stroke="{color}" stroke-width="{width:.2}" stroke-linecap="round"/>"##,
@@ -215,7 +215,7 @@ impl SerializeGeo for JsonV1 {
             })
             .collect();
         let edge_entries: Vec<String> = f
-            .long_edges
+            .bridge_edges
             .iter()
             .map(|(a, b)| format!("[{},{}]", fmt_v3(*a), fmt_v3(*b)))
             .collect();

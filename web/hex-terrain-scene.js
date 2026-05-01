@@ -13,16 +13,25 @@ import { seamSpec, VERTEX_DIR_NAMES } from "./hex-seam.js";
 
 const BG_COLOR = 0x0a0e1a;
 // One color per cluster slot (center=0, petals=1..6). Subtle hue rotation
-// keeps the 7 pieces individually legible while still reading as one mesh.
-// Center wire colors sit in the middle of the petal luminance range (matching
-// petal 3) so the center mesh doesn't read brighter than its surroundings —
-// saturated yellow / pure cyan as anchors made it stand out under bloom.
+// across petals keeps the 7 pieces individually legible while still reading
+// as one mesh. LINE_COLORS are the HSL complements of FILL_COLORS so each
+// wireframe sits opposite its fill on the color wheel — saturation and
+// lightness are boosted so the small per-petal hue spread (which the eye
+// barely registers in the magenta range at the fill's mid-saturation) reads
+// as distinct, vivid line colors instead of a single uniform purple.
+const COMPLEMENT_SATURATION = 0.95;
+const COMPLEMENT_LIGHTNESS  = 0.70;
+const complementHex = (hex) => {
+  const c = new THREE.Color(hex);
+  const hsl = { h: 0, s: 0, l: 0 };
+  c.getHSL(hsl);
+  c.setHSL((hsl.h + 0.5) % 1, COMPLEMENT_SATURATION, COMPLEMENT_LIGHTNESS);
+  return c.getHex();
+};
 const FILL_COLORS = [
   0x66cc99, 0x6cd0a4, 0x72d4af, 0x78d8ba, 0x7ed4c0, 0x84c9c2, 0x8abec4,
 ];
-const LINE_COLORS = [
-  0xf9cd86, 0xfde35a, 0xfbd870, 0xf9cd86, 0xf7c29c, 0xf5b7b2, 0xf3acc8,
-];
+const LINE_COLORS = FILL_COLORS.map(complementHex);
 const SHADER_LINE_COLORS = [
   0x99ffd0, 0x33fff0, 0x66ffe0, 0x99ffd0, 0xccffc0, 0xeeffac, 0xffff80,
 ];
