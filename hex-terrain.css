@@ -1,0 +1,243 @@
+:root {
+  --bg: #050810;
+  --panel: #0a0e1a;
+  --panel-2: #1a2030;
+  --panel-3: #243250;
+  --line: #2a3550;
+  --line-2: #4a6fb0;
+  --text: #aaa;
+  --text-bright: #cde;
+  --text-dim: #667;
+  --text-faint: #556;
+  --accent: #9bd;
+  --accent-bg: #2d4470;
+  --link: #6a8;
+  --error: #f77;
+
+  --sidebar-width: 300px;
+  --row-input-width: 96px;
+  --radius-sm: 3px;
+  --radius-md: 4px;
+
+  --font-mono: ui-monospace, SFMono-Regular, "JetBrains Mono", Menlo, monospace;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-mono);
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+}
+
+/* ── topbar ────────────────────────────────────────────────────────── */
+
+.topbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem 1.5rem;
+  padding: 0.9rem 1.5rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.topbar h1 {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: normal;
+  color: var(--text-bright);
+  letter-spacing: 0.02em;
+}
+
+.topbar h1 .accent { color: var(--accent); }
+
+.topbar .meta {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--text-dim);
+}
+
+.topbar .meta a { color: var(--link); }
+.topbar .meta .sep { padding: 0 0.4rem; color: var(--line); }
+
+/* ── main grid: canvas + sidebar ───────────────────────────────────── */
+
+main {
+  display: grid;
+  grid-template-columns: 1fr var(--sidebar-width);
+  gap: 1rem;
+  padding: 1rem 1.25rem;
+  min-height: 0;
+}
+
+.stage-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+#stage {
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-height: min(70vh, 640px);
+  background: var(--panel);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--line);
+}
+
+.stats {
+  font-size: 0.72rem;
+  color: var(--text-dim);
+  padding: 0 0.25rem;
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── sidebar control panel ─────────────────────────────────────────── */
+
+.controls {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  min-width: 0;
+}
+
+.controls fieldset {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  padding: 0.75rem 0.9rem 0.9rem;
+  margin: 0;
+  background: rgba(10, 14, 26, 0.4);
+}
+
+.controls legend {
+  padding: 0 0.4rem;
+  color: var(--accent);
+  font-size: 0.72rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: 1fr var(--row-input-width);
+  gap: 0.5rem;
+  align-items: center;
+  margin: 0.35rem 0;
+  font-size: 0.78rem;
+}
+
+.row span {
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.row input {
+  background: var(--panel-2);
+  color: var(--text-bright);
+  border: 1px solid var(--line);
+  padding: 0.35rem 0.5rem;
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  width: 100%;
+  min-width: 0;
+}
+
+.row input:focus {
+  outline: none;
+  border-color: var(--line-2);
+  background: var(--panel-3);
+}
+
+.row input::placeholder { color: var(--text-faint); }
+
+.button-row {
+  display: flex;
+  gap: 0.4rem;
+  margin-top: 0.6rem;
+}
+
+.button-row button { flex: 1; }
+
+.toggle-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.4rem;
+}
+
+.controls button {
+  background: var(--panel-2);
+  color: var(--accent);
+  border: 1px solid var(--line);
+  padding: 0.5rem 0.7rem;
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  min-height: 44px;
+}
+
+.controls button:hover,
+.controls button:focus {
+  background: var(--panel-3);
+  outline: none;
+  border-color: var(--line-2);
+}
+
+.controls button:active { background: var(--panel-3); }
+
+.controls button.on {
+  background: var(--accent-bg);
+  border-color: var(--line-2);
+  color: var(--text-bright);
+}
+
+.controls button.primary {
+  background: var(--accent-bg);
+  color: var(--text-bright);
+  border-color: var(--line-2);
+}
+
+.controls button.primary:hover,
+.controls button.primary:focus { background: #3a5690; }
+
+/* ── footer hint ───────────────────────────────────────────────────── */
+
+.hint {
+  font-size: 0.72rem;
+  color: var(--text-faint);
+  text-align: center;
+  padding: 0.75rem;
+  border-top: 1px solid var(--line);
+  margin: 0;
+}
+
+.hint .sep { padding: 0 0.4rem; color: var(--line); }
+
+/* ── error injection target ────────────────────────────────────────── */
+
+.error-msg {
+  color: var(--error);
+  text-align: center;
+  padding: 0.6rem;
+  font-size: 0.85rem;
+}
+
+/* ── responsive collapse ───────────────────────────────────────────── */
+
+@media (max-width: 860px) {
+  main {
+    grid-template-columns: 1fr;
+  }
+  #stage { min-height: 50vh; }
+}

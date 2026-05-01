@@ -88,8 +88,10 @@ export class WasmLayout {
     /**
      * Gap-quad perimeter segments matching `entangled`. Flat `n_edges * 6`
      * floats (`x1,y1,z1,x2,y2,z2`); 4 segments per quad walking
-     * `q[0]→q[1]→q[2]→q[3]→q[0]`. No tessellation diagonal — feed straight
-     * into a `THREE.LineSegments` geometry.
+     * `q[0]→q[1]→q[2]→q[3]→q[0]`. Quad-local edges `0`/`2` are bridge
+     * (cross-gap), `1`/`3` are rim (along one hex's side); see module docs.
+     * No tessellation diagonal — feed straight into a `THREE.LineSegments`
+     * geometry.
      */
     wire_edges(entangled: boolean): Float32Array;
 }

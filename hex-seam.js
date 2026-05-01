@@ -40,14 +40,18 @@ export const RING_FACING_NEXT = [2, 3, 4, 5, 0, 1]; // (d + 2) % 6
 // is just twice the world distance from center to that midpoint cell.
 // For an R-radius hex grid, the midpoint cell of any side sits at world
 // distance 1.5 * R * point_spacing. So petal distance = 3 * R * point_spacing.
-const PETAL_DISTANCE_FACTOR = 3.0;
+export const PETAL_DISTANCE_FACTOR = 3.0;
 
 /**
  * World-space (X, Z) translation for the petal at slot `dir`.
  * Returns 3D-friendly { tx, tz } — y stays at 0, terrain heights handle Y.
+ * `petalDistanceFactor` defaults to the geometrically-derived 3.0; raising it
+ * spaces petals farther apart (visible gaps), lowering it overlaps them.
  */
-export const petalTranslation = (dir, radius, pointSpacing) => {
-  const mag = PETAL_DISTANCE_FACTOR * radius * pointSpacing;
+export const petalTranslation = (
+  dir, radius, pointSpacing, petalDistanceFactor = PETAL_DISTANCE_FACTOR,
+) => {
+  const mag = petalDistanceFactor * radius * pointSpacing;
   const a = (dir * Math.PI) / 3;
   return { tx: mag * Math.cos(a), tz: mag * Math.sin(a) };
 };
@@ -122,6 +126,7 @@ export const seamFromNeighbor = ({
  */
 export const seamSpec = ({
   centerLayout, ringSoFar, dir, radius, pointSpacing, WasmLayout,
+  petalDistanceFactor = PETAL_DISTANCE_FACTOR,
 }) => {
   const overrides = [];
   const entangle = [];
@@ -156,6 +161,8 @@ export const seamSpec = ({
     });
   }
 
-  const { tx, tz } = petalTranslation(dir, radius, pointSpacing);
+  const { tx, tz } = petalTranslation(
+    dir, radius, pointSpacing, petalDistanceFactor,
+  );
   return { overrides, entangle, tx, tz };
 };
