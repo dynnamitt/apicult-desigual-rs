@@ -1,14 +1,14 @@
 # apicult-desigual
 
-## 🌐 [**Live WebGL demo →**](https://dynnamitt.github.io/apicult-desigual-rs/)
+[![Rust 2024](https://img.shields.io/badge/Rust-2024-CE422B?style=for-the-badge&logo=rust&logoColor=white)](https://www.rust-lang.org/)
+[![WebAssembly](https://img.shields.io/badge/wasm--bindgen-654FF0?style=for-the-badge&logo=webassembly&logoColor=white)](https://rustwasm.github.io/wasm-bindgen/)
+[![Live WebGL Demo](https://img.shields.io/badge/Live_Demo-WebGL-0A6CB1?style=for-the-badge&logo=webgl&logoColor=white&labelColor=000000)](https://dynnamitt.github.io/apicult-desigual-rs/)
 
-Interactive three.js terrain viewer (orbit / zoom / pan) rendered from the crate's own JSON output. The same page also shows the plain and rich SVG variants.
+A Rust hex-grid geometry library — noise-driven terrain layout, spatial math, gap analysis, and SVG/JSON serialization. Compiles to a `wasm32-unknown-unknown` target via `wasm-bindgen` for zero-copy mesh streaming into browser renderers.
 
----
+Zero game-engine dependencies — `glam` for vectors, `hexx` for hex coordinates, `noise` for Fbm terrain generation.
 
-Hex grid geometry library: noise-driven terrain layout, spatial math, gap analysis, and SVG/JSON serialization.
-
-Zero game-engine dependencies -- uses `glam` for vectors, `hexx` for hex coordinates, and `noise` for Fbm terrain generation.
+The [live demo](https://dynnamitt.github.io/apicult-desigual-rs/) constructs the layout entirely inside the wasm module on page load and pulls flat `Float32Array` buffers (welded mesh + wireframe edges) straight into a thin three.js viewer — no JSON round-trip, no JS-side geometry. The same page also shows the plain and rich SVG variants for comparison.
 
 ## What it does
 
