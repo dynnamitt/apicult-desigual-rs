@@ -24,3 +24,12 @@ export const axialDirToSide = (delta) => {
   const idx = NEIGHBOR_LOOKUP.get(axialKey(delta));
   return idx === undefined ? null : idx;
 };
+
+// Petal-axial (q, r) → world (x, z). Each unit step in petal-axial is one
+// petal-spacing in the world. The basis is petal-dir-0 along +x and
+// petal-dir-1 at +60° (CCW), giving the standard pointy-top axial → cartesian
+// transform scaled by petalSpacing.
+export const petalAxialToWorld = ({ q, r }, petalSpacing) => ({
+  x: petalSpacing * (q + r / 2),
+  z: petalSpacing * (r * Math.sqrt(3) / 2),
+});
