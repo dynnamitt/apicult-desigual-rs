@@ -96,13 +96,13 @@ const showError = (canvas, msg) => {
  *
  * @param {object} opts
  * @param {number} opts.radius
- * @param {number} opts.pointSpacing
+ * @param {number} opts.nominalHexRadius
  * @param {number} opts.petalDistanceFactor
  * @param {number|null} opts.seed - null = fresh random per mesh; integer = reproducible.
  * @param {Function} opts.WasmLayout
  */
 const generateClusterPayloads = ({
-  radius, pointSpacing, petalDistanceFactor, seed, WasmLayout,
+  radius, nominalHexRadius, petalDistanceFactor, seed, WasmLayout,
 }) => {
   // 14 seeds: 7 layouts × {h_seed, r_seed}, deterministic when seed is set.
   const seeds = seed === null
@@ -124,7 +124,7 @@ const generateClusterPayloads = ({
   for (let dir = 0; dir < 6; dir++) {
     const { overrides, entangle, tx, tz } = seamSpec({
       centerLayout: center, ringSoFar, dir,
-      radius, pointSpacing, petalDistanceFactor, WasmLayout,
+      radius, nominalHexRadius, petalDistanceFactor, WasmLayout,
     });
     const [hSeedI, rSeedI] = seedAt(dir + 1);
     const petal = new WasmLayout(
@@ -268,7 +268,7 @@ export function mount(canvas, statsEl, { initialSettings, WasmLayout }) {
     const buildCluster = () => {
       payloads = generateClusterPayloads({
         radius: state.radius,
-        pointSpacing: state.pointSpacing,
+        nominalHexRadius: state.nominalHexRadius,
         petalDistanceFactor: state.petalDistanceFactor,
         seed: state.seed,
         WasmLayout,
@@ -358,10 +358,12 @@ export function mount(canvas, statsEl, { initialSettings, WasmLayout }) {
 
     return {
       regenerate(settings) {
+        // No re-frame: the user's orbit/zoom is preserved across every
+        // re-roll and apply, regardless of which inputs changed. Initial
+        // mount frames once (above); after that the camera is theirs.
         Object.assign(state, settings);
         disposeClusterObjects(scene, objs);
         buildCluster();
-        frameCamera();
       },
 
       updateLive(settings) {
