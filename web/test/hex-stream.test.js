@@ -202,3 +202,65 @@ test("StreamingCluster.tick accumulates speed*dt below threshold", () => {
   assert.equal(c.tick(1, 10), null);
   assert.equal(c.accumulator, 20);
 });
+
+test("StreamingCluster.bootstrap returns 7 tiles centered on (0,0)", () => {
+  const c = new StreamingCluster(baseOpts);
+  const tiles = c.bootstrap();
+  assert.equal(tiles.length, 7);
+  const keys = new Set(tiles.map((t) => `${t.axial.q},${t.axial.r}`));
+  assert.ok(keys.has("0,0"));
+  for (let d = 0; d < 6; d++) {
+    const n = AXIAL_NEIGHBORS[d];
+    assert.ok(keys.has(`${n.q},${n.r}`));
+  }
+  assert.equal(c.tiles.size, 7);
+});
+
+test("StreamingCluster.bootstrap tiles carry worldPos = axial × petalSpacing", () => {
+  const c = new StreamingCluster(baseOpts);
+  const tiles = c.bootstrap();
+  const center = tiles.find((t) => t.axial.q === 0 && t.axial.r === 0);
+  assert.equal(center.worldPos.x, 0);
+  assert.equal(center.worldPos.z, 0);
+  const east = tiles.find((t) => t.axial.q === 1 && t.axial.r === 0);
+  assert.equal(east.worldPos.x, 60);
+  assert.equal(east.worldPos.z, 0);
+});
+
+test("performStep returns 3 spawn / 3 despawn after east step", () => {
+  const c = new StreamingCluster({ ...baseOpts, dirIndex: 0 });
+  c.bootstrap();
+  // Force the accumulator to threshold and tick a non-zero speed:
+  c.accumulator = c.petalSpacing - 0.01;
+  const result = c.tick(0.01, 1);  // adds 0.01 → exactly threshold → step
+  assert.notEqual(result, null);
+  assert.equal(result.spawned.length, 3);
+  assert.equal(result.despawned.length, 3);
+  assert.deepEqual(c.anchor, { q: 1, r: 0 });
+  assert.equal(c.tiles.size, 7);
+});
+
+test("performStep frees despawned wasm handles", () => {
+  const c = new StreamingCluster({ ...baseOpts, dirIndex: 0 });
+  c.bootstrap();
+  const oldDespawnTargets = ["-1,1", "-1,0", "0,-1"];  // east step → west side drops
+  const oldHandles = oldDespawnTargets.map((k) => c.tiles.get(k).wasmHandle);
+  c.accumulator = c.petalSpacing;
+  c.tick(0, 1);  // 0*1=0 added; already at threshold → step
+  for (const h of oldHandles) assert.equal(h.freed, true);
+});
+
+test("performStep places spawned tiles at correct worldPos", () => {
+  const c = new StreamingCluster({ ...baseOpts, dirIndex: 0 });
+  c.bootstrap();
+  c.accumulator = c.petalSpacing;
+  const result = c.tick(0, 1);
+  for (const tile of result.spawned) {
+    const expected = {
+      x: c.petalSpacing * (tile.axial.q + tile.axial.r / 2),
+      z: c.petalSpacing * (tile.axial.r * Math.sqrt(3) / 2),
+    };
+    assert.ok(Math.abs(tile.worldPos.x - expected.x) < 1e-9);
+    assert.ok(Math.abs(tile.worldPos.z - expected.z) < 1e-9);
+  }
+});

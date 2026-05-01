@@ -144,10 +144,107 @@ export class StreamingCluster {
     return this.performStep();
   }
 
-  // Stub for now — implemented in Task 8.
+  // Build the initial 7 tiles centered on (0, 0). Returns the tile array so
+  // the scene can attach Three objects per tile. Each tile's wasm layout is
+  // already constructed and stored in the tiles map by the time we return.
+  bootstrap() {
+    const cells = [
+      this.anchor,
+      ...AXIAL_NEIGHBORS.map((n) => ({
+        q: this.anchor.q + n.q,
+        r: this.anchor.r + n.r,
+      })),
+    ];
+    // Center first, then petals in CCW order. Each new tile may seam against
+    // any already-built tile (center seams to nothing; petal d seams to
+    // center + petal d-1; petal 5 closes the ring against petal 0).
+    const result = [];
+    for (const cell of cells) {
+      const tile = this.buildTile(cell);
+      result.push(tile);
+      this.tiles.set(axialKey(cell), tile);
+    }
+    return result;
+  }
+
+  // Accumulator already crossed one petal-spacing. Compute the diff, despawn
+  // the 3 trailing tiles (free wasm handles), build the 3 leading tiles in
+  // mutual-neighbor-aware order so seamSpecForCell finds every existing
+  // sibling. Returns { spawned: ClusterTile[], despawned: axialKey[] } for
+  // the scene to apply.
   performStep() {
     this.accumulator -= this.petalSpacing;
-    return { spawned: [], despawned: [] };
+    const step = AXIAL_NEIGHBORS[this.dirIndex];
+    const newAnchor = {
+      q: this.anchor.q + step.q,
+      r: this.anchor.r + step.r,
+    };
+
+    const diff = axialDiff(this.anchor, newAnchor);
+    this.anchor = newAnchor;
+
+    // Despawn first so seamSpecForCell during spawn doesn't accidentally pull
+    // from a tile that's about to disappear.
+    const despawned = [];
+    for (const key of diff.despawn) {
+      const tile = this.tiles.get(key);
+      tile.wasmHandle.free();
+      this.tiles.delete(key);
+      despawned.push(key);
+    }
+
+    // Sort the 3 spawn targets so the one with the most existing-tile
+    // neighbors is built first; that lets later spawns in the same step
+    // chain through it. (Two of the three spawns are mutual neighbors.)
+    const sortedSpawn = [...diff.spawn].sort((a, b) =>
+      this.countExistingNeighbors(b) - this.countExistingNeighbors(a),
+    );
+
+    const spawned = [];
+    for (const cell of sortedSpawn) {
+      const tile = this.buildTile(cell);
+      this.tiles.set(axialKey(cell), tile);
+      spawned.push(tile);
+    }
+
+    return { spawned, despawned };
+  }
+
+  countExistingNeighbors(cell) {
+    let n = 0;
+    for (const off of AXIAL_NEIGHBORS) {
+      if (this.tiles.has(axialKey({ q: cell.q + off.q, r: cell.r + off.r }))) n++;
+    }
+    return n;
+  }
+
+  // Construct a single ClusterTile, seaming against whatever is already in
+  // this.tiles. Caller is responsible for inserting the tile into the map
+  // *after* this returns (so seamSpecForCell doesn't see the tile-being-built
+  // as its own neighbor — though the math would tolerate it).
+  buildTile(cell) {
+    const [hSeed, rSeed] = seedForCell(this.worldSeed, cell.q, cell.r);
+    const seamArgs = {
+      myAxial: cell,
+      existingTiles: this.tiles,
+      radius: this.radius,
+      WasmLayout: this.WasmLayout,
+    };
+    const { overrides, entangle } = this.seamFn(seamArgs);
+    const wasmHandle = new this.WasmLayout(
+      this.radius, hSeed, rSeed, overrides, entangle,
+    );
+    return {
+      axial: cell,
+      worldPos: petalAxialToWorld(cell, this.petalSpacing),
+      payload: {
+        tris: wasmHandle.tris(false),
+        wireEdges: wasmHandle.wire_edges(false),
+        label: axialKey(cell),
+      },
+      threeObjs: null,
+      wasmHandle,
+    };
   }
 
   dispose() {
