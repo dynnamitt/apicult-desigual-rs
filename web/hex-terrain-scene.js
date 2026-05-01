@@ -9,7 +9,8 @@ import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js"
 import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
 import { weldedMesh, vertexCount, triangleCount } from "./hex-terrain.js";
 import { wireEdgesGeometry, createWireShader } from "./hex-terrain-shader.js";
-import { seamSpec, VERTEX_DIR_NAMES } from "./hex-seam.js";
+import { seamSpecForCell, VERTEX_DIR_NAMES } from "./hex-seam.js";
+import { StreamingCluster } from "./hex-stream.js";
 
 const BG_COLOR = 0x0a0e1a;
 // One color per cluster slot (center=0, petals=1..6). Subtle hue rotation
@@ -45,28 +46,6 @@ const CAMERA_FOV = 45;
 
 const TOGGLE_KEYS = ["fill", "wire", "shader", "flat"];
 
-const randomU32 = () => Math.floor(Math.random() * 0x1_0000_0000) >>> 0;
-
-// SplitMix32 — cheap reversible mixer used to derive 14 stable per-mesh seeds
-// (center + 6 petals × {h_seed, r_seed}) from one user-typed seed, so the same
-// input always reproduces the same cluster.
-const splitmix32 = (s) => {
-  s = (s + 0x9E3779B9) >>> 0;
-  s = Math.imul(s ^ (s >>> 16), 0x85EBCA6B) >>> 0;
-  s = Math.imul(s ^ (s >>> 13), 0xC2B2AE35) >>> 0;
-  return (s ^ (s >>> 16)) >>> 0;
-};
-
-const seedSequence = (root, n) => {
-  const out = new Array(n);
-  let s = root >>> 0;
-  for (let i = 0; i < n; i++) {
-    s = splitmix32(s);
-    out[i] = s;
-  }
-  return out;
-};
-
 const medianTriEdgeLength = (trisBuf) => {
   const n = (trisBuf.length / 9) | 0;
   const lens = new Array(n * 3);
@@ -90,85 +69,34 @@ const showError = (canvas, msg) => {
 };
 
 /**
- * Build a 7-mesh "flower" cluster: 1 center + 6 petals around it. Each petal
- * shares its inward-facing ring of cells with the center via WFC-style
- * overrides + entangle markers, so the center owns those seams visually.
- *
- * @param {object} opts
- * @param {number} opts.radius
- * @param {number} opts.nominalHexRadius
- * @param {number} opts.petalDistanceFactor
- * @param {number|null} opts.seed - null = fresh random per mesh; integer = reproducible.
- * @param {Function} opts.WasmLayout
- */
-const generateClusterPayloads = ({
-  radius, nominalHexRadius, petalDistanceFactor, seed, WasmLayout,
-}) => {
-  // 14 seeds: 7 layouts × {h_seed, r_seed}, deterministic when seed is set.
-  const seeds = seed === null
-    ? Array.from({ length: 14 }, randomU32)
-    : seedSequence(seed, 14);
-  const seedAt = (i) => [seeds[i * 2], seeds[i * 2 + 1]];
-
-  const [hSeed0, rSeed0] = seedAt(0);
-  const center = new WasmLayout(radius, hSeed0, rSeed0, [], []);
-  const payloads = [{
-    index: 0, label: "center",
-    tris: center.tris(false),
-    wireEdges: center.wire_edges(false),
-    tx: 0, tz: 0,
-  }];
-  // Keep all WasmLayouts alive while building so later petals can query
-  // borderline_cells on previously-placed neighbors. Free at the end.
-  const ringSoFar = new Array(6);
-  for (let dir = 0; dir < 6; dir++) {
-    const { overrides, entangle, tx, tz } = seamSpec({
-      centerLayout: center, ringSoFar, dir,
-      radius, nominalHexRadius, petalDistanceFactor, WasmLayout,
-    });
-    const [hSeedI, rSeedI] = seedAt(dir + 1);
-    const petal = new WasmLayout(
-      radius, hSeedI, rSeedI, overrides, entangle,
-    );
-    payloads.push({
-      index: dir + 1, label: VERTEX_DIR_NAMES[dir],
-      tris: petal.tris(false),
-      wireEdges: petal.wire_edges(false),
-      tx, tz,
-    });
-    ringSoFar[dir] = petal;
-  }
-  center.free();
-  for (const p of ringSoFar) p.free();
-  return payloads;
-};
-
-/**
- * Build the visible objects for a single cluster payload (mesh, wire overlay,
- * shader-wire overlay) and add them to the scene. Returns the trio so the
+ * Build the visible objects for a single cluster tile (mesh, wire overlay,
+ * shader-wire overlay) and add them to the group. Returns the trio so the
  * caller can dispose them later.
  */
-const buildClusterObjects = ({ scene, payload, lineWidth, canvas, fillVisible, wireVisible, shaderVisible, flatShading }) => {
-  const geom = weldedMesh(payload.tris);
-  const medianEdge = medianTriEdgeLength(payload.tris);
+const buildClusterObjects = ({
+  group, tile, slotIndex, lineWidth, canvas,
+  fillVisible, wireVisible, shaderVisible, flatShading,
+}) => {
+  const geom = weldedMesh(tile.payload.tris);
+  const medianEdge = medianTriEdgeLength(tile.payload.tris);
 
   const mat = new THREE.MeshStandardMaterial({
-    color: FILL_COLORS[payload.index],
+    color: FILL_COLORS[slotIndex % FILL_COLORS.length],
     flatShading,
     side: THREE.DoubleSide,
     roughness: 0.85,
     metalness: 0.05,
   });
   const mesh = new THREE.Mesh(geom, mat);
-  mesh.position.set(payload.tx, 0, payload.tz);
+  mesh.position.set(tile.worldPos.x, 0, tile.worldPos.z);
   mesh.visible = fillVisible;
-  scene.add(mesh);
+  group.add(mesh);
 
   const wireGeom = new THREE.WireframeGeometry(geom);
   const segGeom = new LineSegmentsGeometry().fromWireframeGeometry(wireGeom);
   wireGeom.dispose();
   const lineMat = new LineMaterial({
-    color: LINE_COLORS[payload.index],
+    color: LINE_COLORS[slotIndex % LINE_COLORS.length],
     linewidth: lineWidth,
     dashed: true,
     dashSize: medianEdge * DASH_SIZE_FACTOR,
@@ -179,65 +107,65 @@ const buildClusterObjects = ({ scene, payload, lineWidth, canvas, fillVisible, w
   lineMat.resolution.set(canvas.clientWidth, canvas.clientHeight);
   const wireOverlay = new LineSegments2(segGeom, lineMat);
   wireOverlay.computeLineDistances();
-  wireOverlay.position.set(payload.tx, 0, payload.tz);
+  wireOverlay.position.set(tile.worldPos.x, 0, tile.worldPos.z);
   wireOverlay.visible = wireVisible;
-  scene.add(wireOverlay);
+  group.add(wireOverlay);
 
-  const shaderGeom = wireEdgesGeometry(payload.wireEdges);
+  const shaderGeom = wireEdgesGeometry(tile.payload.wireEdges);
   const shaderMat = createWireShader({
-    color: new THREE.Color(SHADER_LINE_COLORS[payload.index]).multiplyScalar(SHADER_INTENSITY),
+    color: new THREE.Color(SHADER_LINE_COLORS[slotIndex % SHADER_LINE_COLORS.length])
+      .multiplyScalar(SHADER_INTENSITY),
     dashSize: medianEdge * SHADER_DASH_SIZE_FACTOR,
     gapSize: medianEdge * SHADER_DASH_GAP_FACTOR,
     speed: 0,
   });
   const shaderOverlay = new THREE.LineSegments(shaderGeom, shaderMat);
-  shaderOverlay.position.set(payload.tx, 0, payload.tz);
+  shaderOverlay.position.set(tile.worldPos.x, 0, tile.worldPos.z);
   shaderOverlay.visible = shaderVisible;
-  scene.add(shaderOverlay);
+  group.add(shaderOverlay);
 
   return { mesh, wireOverlay, shaderOverlay, geom };
 };
 
-const disposeClusterObjects = (scene, objs) => {
-  for (const { mesh, wireOverlay, shaderOverlay, geom } of objs) {
-    scene.remove(mesh);
-    scene.remove(wireOverlay);
-    scene.remove(shaderOverlay);
-    mesh.material.dispose();
-    geom.dispose();
-    wireOverlay.geometry.dispose();
-    wireOverlay.material.dispose();
-    shaderOverlay.geometry.dispose();
-    shaderOverlay.material.dispose();
-  }
+const disposeClusterObjects = (group, threeObjs) => {
+  const { mesh, wireOverlay, shaderOverlay, geom } = threeObjs;
+  group.remove(mesh);
+  group.remove(wireOverlay);
+  group.remove(shaderOverlay);
+  mesh.material.dispose();
+  geom.dispose();
+  wireOverlay.geometry.dispose();
+  wireOverlay.material.dispose();
+  shaderOverlay.geometry.dispose();
+  shaderOverlay.material.dispose();
 };
 
-const writeStats = (statsEl, payloads, objs) => {
-  const acc = objs.reduce(
-    (s, o, i) => ({
-      verts: s.verts + vertexCount(o.geom),
-      tris:  s.tris  + triangleCount(o.geom),
-      source: s.source + ((payloads[i].tris.length / 9) | 0),
-    }),
-    { verts: 0, tris: 0, source: 0 },
-  );
+const writeStats = (statsEl, cluster) => {
+  let verts = 0, tris = 0, source = 0;
+  for (const tile of cluster.tiles.values()) {
+    if (!tile.threeObjs) continue;
+    verts += vertexCount(tile.threeObjs.geom);
+    tris  += triangleCount(tile.threeObjs.geom);
+    source += (tile.payload.tris.length / 9) | 0;
+  }
   statsEl.textContent =
-    `cluster: 1+6 · welded vertices: ${acc.verts} · ` +
-    `triangles: ${acc.tris} · source tris: ${acc.source}`;
+    `cluster: ${cluster.tiles.size} tiles · welded vertices: ${verts} · ` +
+    `triangles: ${tris} · source tris: ${source}`;
 };
 
 /**
  * Mount the welded-hex-terrain scene onto a canvas. Returns an imperative API
  * the host page (sidebar controls) drives: regenerate to rebuild the cluster
  * with new shape settings, updateLive to mutate purely visual props (bloom,
- * dash speed, line width) without rebuilding, setToggle for display flags.
+ * dash speed, line width) without rebuilding, setToggle for display flags,
+ * setDirection to change the streaming direction.
  *
  * @param {HTMLCanvasElement} canvas
  * @param {HTMLElement} statsEl - element receiving the per-cluster stats line.
  * @param {object} opts
  * @param {object} opts.initialSettings - all knob values + display flags.
  * @param {Function} opts.WasmLayout - wasm `WasmLayout` class export.
- * @returns {{ regenerate: (s: object) => void, updateLive: (s: object) => void, setToggle: (k: string, on: boolean) => void }}
+ * @returns {{ regenerate: (s: object) => void, updateLive: (s: object) => void, setToggle: (k: string, on: boolean) => void, setDirection: (d: number) => void }}
  */
 export function mount(canvas, statsEl, { initialSettings, WasmLayout }) {
   try {
@@ -262,31 +190,58 @@ export function mount(canvas, statsEl, { initialSettings, WasmLayout }) {
     sun.position.set(15, 25, 10);
     scene.add(sun);
 
-    let payloads = [];
-    let objs = [];
+    const clusterGroup = new THREE.Group();
+    scene.add(clusterGroup);
 
-    const buildCluster = () => {
-      payloads = generateClusterPayloads({
-        radius: state.radius,
-        nominalHexRadius: state.nominalHexRadius,
-        petalDistanceFactor: state.petalDistanceFactor,
-        seed: state.seed,
-        WasmLayout,
-      });
-      objs = payloads.map((p) => buildClusterObjects({
-        scene, payload: p,
+    let cluster = null;
+    let slotCounter = 0;
+
+    // Mirrors cluster.tiles for despawn cleanup: cluster.performStep removes
+    // a tile from its own map before returning, so the scene needs a parallel
+    // lookup to find the threeObjs trio for the despawned key.
+    const threeObjsByKey = new Map();
+
+    const attachThree = (tile) => {
+      tile.threeObjs = buildClusterObjects({
+        group: clusterGroup,
+        tile,
+        slotIndex: slotCounter++,
         lineWidth: state.lineWidth,
         canvas,
         fillVisible: state.fill,
         wireVisible: state.wire,
         shaderVisible: state.shader,
         flatShading: state.flat,
-      }));
-      // Initial uniform / dash state (the live updater handles subsequent changes).
-      for (const o of objs) {
-        o.shaderOverlay.material.uniforms.uSpeed.value = state.dashSpeed;
+      });
+      tile.threeObjs.shaderOverlay.material.uniforms.uSpeed.value = state.dashSpeed;
+      threeObjsByKey.set(`${tile.axial.q},${tile.axial.r}`, tile.threeObjs);
+    };
+
+    const buildCluster = () => {
+      cluster = new StreamingCluster({
+        worldSeed: state.seed,
+        radius: state.radius,
+        nominalHexRadius: state.nominalHexRadius,
+        petalDistanceFactor: state.petalDistanceFactor,
+        dirIndex: state.dirIndex ?? 0,
+        WasmLayout,
+        seamFn: seamSpecForCell,
+      });
+      slotCounter = 0;
+      const tiles = cluster.bootstrap();
+      for (const tile of tiles) attachThree(tile);
+      writeStats(statsEl, cluster);
+    };
+
+    const tearDownCluster = () => {
+      if (!cluster) return;
+      for (const objs of threeObjsByKey.values()) {
+        disposeClusterObjects(clusterGroup, objs);
       }
-      writeStats(statsEl, payloads, objs);
+      threeObjsByKey.clear();
+      cluster.dispose();
+      clusterGroup.position.set(0, 0, 0);
+      cluster = null;
     };
 
     buildCluster();
@@ -297,7 +252,9 @@ export function mount(canvas, statsEl, { initialSettings, WasmLayout }) {
 
     const frameCamera = () => {
       const combined = new THREE.Box3();
-      for (const { mesh } of objs) combined.expandByObject(mesh);
+      for (const tile of cluster.tiles.values()) {
+        if (tile.threeObjs) combined.expandByObject(tile.threeObjs.mesh);
+      }
       const target = combined.getCenter(new THREE.Vector3());
       const span = combined.getSize(new THREE.Vector3()).length();
       camera.position.set(
@@ -323,6 +280,13 @@ export function mount(canvas, statsEl, { initialSettings, WasmLayout }) {
 
     const clock = new THREE.Clock();
 
+    // Unit vector in the world-frame direction the cluster group drifts.
+    // Layout flow is in -D; +D is what the viewer perceives moving toward.
+    const directionWorldVec = (dirIndex) => {
+      const angle = dirIndex * Math.PI / 3;
+      return { x: -Math.cos(angle), z: -Math.sin(angle) };
+    };
+
     const animate = () => {
       requestAnimationFrame(animate);
       const dt = clock.getDelta();
@@ -333,36 +297,60 @@ export function mount(canvas, statsEl, { initialSettings, WasmLayout }) {
         composer.setSize(w, h);
         camera.aspect = w / h;
         camera.updateProjectionMatrix();
-        for (const o of objs) o.wireOverlay.material.resolution.set(w, h);
+        for (const tile of cluster.tiles.values()) {
+          if (tile.threeObjs) tile.threeObjs.wireOverlay.material.resolution.set(w, h);
+        }
       }
-      for (const o of objs) {
-        o.wireOverlay.material.dashOffset -= dt * state.dashSpeed;
-        o.shaderOverlay.material.uniforms.uTime.value += dt;
+
+      // Group-level scroll: layouts flow past the (parked) camera.
+      const speed = state.speed ?? 0;
+      if (speed > 0) {
+        const v = directionWorldVec(cluster.dirIndex);
+        clusterGroup.position.x += v.x * speed * dt;
+        clusterGroup.position.z += v.z * speed * dt;
+
+        const diff = cluster.tick(dt, speed);
+        if (diff) {
+          for (const key of diff.despawned) {
+            const objs = threeObjsByKey.get(key);
+            if (objs) {
+              disposeClusterObjects(clusterGroup, objs);
+              threeObjsByKey.delete(key);
+            }
+          }
+          for (const tile of diff.spawned) attachThree(tile);
+          writeStats(statsEl, cluster);
+        }
+      }
+
+      for (const tile of cluster.tiles.values()) {
+        if (!tile.threeObjs) continue;
+        tile.threeObjs.wireOverlay.material.dashOffset -= dt * state.dashSpeed;
+        tile.threeObjs.shaderOverlay.material.uniforms.uTime.value += dt;
       }
       controls.update();
       composer.render();
     };
+
     animate();
 
     const applyDisplayState = () => {
-      for (const o of objs) {
-        o.mesh.visible = state.fill;
-        o.wireOverlay.visible = state.wire;
-        o.shaderOverlay.visible = state.shader;
-        if (o.mesh.material.flatShading !== state.flat) {
-          o.mesh.material.flatShading = state.flat;
-          o.mesh.material.needsUpdate = true;
+      for (const tile of cluster.tiles.values()) {
+        if (!tile.threeObjs) continue;
+        tile.threeObjs.mesh.visible = state.fill;
+        tile.threeObjs.wireOverlay.visible = state.wire;
+        tile.threeObjs.shaderOverlay.visible = state.shader;
+        if (tile.threeObjs.mesh.material.flatShading !== state.flat) {
+          tile.threeObjs.mesh.material.flatShading = state.flat;
+          tile.threeObjs.mesh.material.needsUpdate = true;
         }
       }
     };
 
     return {
       regenerate(settings) {
-        // No re-frame: the user's orbit/zoom is preserved across every
-        // re-roll and apply, regardless of which inputs changed. Initial
-        // mount frames once (above); after that the camera is theirs.
         Object.assign(state, settings);
-        disposeClusterObjects(scene, objs);
+        tearDownCluster();
         buildCluster();
       },
 
@@ -371,9 +359,10 @@ export function mount(canvas, statsEl, { initialSettings, WasmLayout }) {
         bloomPass.strength  = state.bloomStrength;
         bloomPass.radius    = state.bloomRadius;
         bloomPass.threshold = state.bloomThreshold;
-        for (const o of objs) {
-          o.wireOverlay.material.linewidth = state.lineWidth;
-          o.shaderOverlay.material.uniforms.uSpeed.value = state.dashSpeed;
+        for (const tile of cluster.tiles.values()) {
+          if (!tile.threeObjs) continue;
+          tile.threeObjs.wireOverlay.material.linewidth = state.lineWidth;
+          tile.threeObjs.shaderOverlay.material.uniforms.uSpeed.value = state.dashSpeed;
         }
       },
 
@@ -382,10 +371,15 @@ export function mount(canvas, statsEl, { initialSettings, WasmLayout }) {
         state[key] = on;
         applyDisplayState();
       },
+
+      setDirection(dirIndex) {
+        state.dirIndex = dirIndex;
+        if (cluster) cluster.setDirection(dirIndex);
+      },
     };
   } catch (e) {
     console.error(e);
     showError(canvas, `terrain init failed: ${e.message}`);
-    return { regenerate() {}, updateLive() {}, setToggle() {} };
+    return { regenerate() {}, updateLive() {}, setToggle() {}, setDirection() {} };
   }
 }
