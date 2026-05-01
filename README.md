@@ -4,7 +4,7 @@
 [![WebAssembly](https://img.shields.io/badge/wasm--bindgen-654FF0?style=for-the-badge&logo=webassembly&logoColor=white)](https://rustwasm.github.io/wasm-bindgen/)
 [![Live WebGL Demo](https://img.shields.io/badge/Live_Demo-WebGL-0A6CB1?style=for-the-badge&logo=webgl&logoColor=white&labelColor=000000)](https://dynnamitt.github.io/apicult-desigual-rs/)
 
-**apicult(desigual)** is a hexagonal layout system where each cell can shrink below its normal-form (100%) size, with bridge geometry filling the gaps to its neighbors. Random seeds drive per-cell size and 3D height.
+**apicult(desigual)** is a hexagonal layout system where each cell can shrink below its normal-form (100%) size — controlled by `min_radius_ratio` / `max_radius_ratio` in `[0.0, 1.0]` — with bridge geometry filling the gaps to its neighbors. Random seeds drive per-cell size and 3D height.
 
 - _apicult_ — from **apiculture** (beekeeping); the honeycomb.
 - _desigual_ — Spanish for "uneven", in the spirit of Norwegian _kupert_: hilly, uneasy terrain.
