@@ -39,6 +39,10 @@ const BLOOM_STRENGTH = 1.1,
   BLOOM_THRESHOLD = 0.75;
 const CAMERA_FOV = 45;
 
+const TOGGLE_KEYS = ["fill", "wire", "shader", "flat"];
+// wire and shader are mutually exclusive — turning one on flips the other off.
+const WIRE_EXCLUSIVE_PAIR = { wire: "shader", shader: "wire" };
+
 const randomU32 = () => Math.floor(Math.random() * 0x1_0000_0000) >>> 0;
 
 const medianTriEdgeLength = (trisBuf) => {
@@ -150,11 +154,10 @@ export function mount(canvas, statsEl, { radius, WasmLayout }) {
     const shaderWireOverlays = [];
 
     for (const p of payloads) {
-      p.geom = weldedMesh(p.tris);
-      p.medianEdge = medianTriEdgeLength(p.tris);
-    }
+      const geom = weldedMesh(p.tris);
+      const medianEdge = medianTriEdgeLength(p.tris);
+      p.geom = geom;
 
-    for (const p of payloads) {
       const mat = new THREE.MeshStandardMaterial({
         color: FILL_COLORS[p.index],
         flatShading: state.flat,
@@ -162,12 +165,12 @@ export function mount(canvas, statsEl, { radius, WasmLayout }) {
         roughness: 0.85,
         metalness: 0.05,
       });
-      const m = new THREE.Mesh(p.geom, mat);
+      const m = new THREE.Mesh(geom, mat);
       m.position.set(p.tx, 0, p.tz);
       scene.add(m);
       meshes.push(m);
 
-      const wireGeom = new THREE.WireframeGeometry(p.geom);
+      const wireGeom = new THREE.WireframeGeometry(geom);
       const segGeom = new LineSegmentsGeometry().fromWireframeGeometry(
         wireGeom,
       );
@@ -176,8 +179,8 @@ export function mount(canvas, statsEl, { radius, WasmLayout }) {
         color: LINE_COLORS[p.index],
         linewidth: LINE_WIDTH,
         dashed: true,
-        dashSize: p.medianEdge * DASH_SIZE_FACTOR,
-        gapSize: p.medianEdge * DASH_GAP_FACTOR,
+        dashSize: medianEdge * DASH_SIZE_FACTOR,
+        gapSize: medianEdge * DASH_GAP_FACTOR,
         transparent: true,
         opacity: LINE_OPACITY,
       });
@@ -193,8 +196,8 @@ export function mount(canvas, statsEl, { radius, WasmLayout }) {
         color: new THREE.Color(SHADER_LINE_COLORS[p.index]).multiplyScalar(
           SHADER_INTENSITY,
         ),
-        dashSize: p.medianEdge * SHADER_DASH_SIZE_FACTOR,
-        gapSize: p.medianEdge * SHADER_DASH_GAP_FACTOR,
+        dashSize: medianEdge * SHADER_DASH_SIZE_FACTOR,
+        gapSize: medianEdge * SHADER_DASH_GAP_FACTOR,
         speed: DASH_SPEED,
       });
       const sw = new THREE.LineSegments(sg, sm);
@@ -204,12 +207,17 @@ export function mount(canvas, statsEl, { radius, WasmLayout }) {
       shaderWireOverlays.push(sw);
     }
 
-    const totalVerts = payloads.reduce((s, p) => s + vertexCount(p.geom), 0);
-    const totalTris = payloads.reduce((s, p) => s + triangleCount(p.geom), 0);
-    const sourceTris = payloads.reduce((s, p) => s + ((p.tris.length / 9) | 0), 0);
+    const stats = payloads.reduce(
+      (s, p) => ({
+        verts: s.verts + vertexCount(p.geom),
+        tris: s.tris + triangleCount(p.geom),
+        source: s.source + ((p.tris.length / 9) | 0),
+      }),
+      { verts: 0, tris: 0, source: 0 },
+    );
     statsEl.textContent =
-      `cluster: 1+6 · welded vertices: ${totalVerts} · ` +
-      `triangles: ${totalTris} · source tris: ${sourceTris}`;
+      `cluster: 1+6 · welded vertices: ${stats.verts} · ` +
+      `triangles: ${stats.tris} · source tris: ${stats.source}`;
 
     const effects = {
       fill: () => {
@@ -228,20 +236,15 @@ export function mount(canvas, statsEl, { radius, WasmLayout }) {
         }
       },
     };
-    // wire and shader are mutually exclusive — turning one on flips the other off.
-    const wireExclusivePair = { wire: "shader", shader: "wire" };
     const buttons = Object.fromEntries(
-      ["fill", "wire", "shader", "flat"].map((k) => [
-        k,
-        document.getElementById(`btn-${k}`),
-      ]),
+      TOGGLE_KEYS.map((k) => [k, document.getElementById(`btn-${k}`)]),
     );
-    for (const k of ["fill", "wire", "shader", "flat"]) {
+    for (const k of TOGGLE_KEYS) {
       buttons[k].addEventListener("click", () => {
         state[k] = !state[k];
         buttons[k].classList.toggle("on", state[k]);
         effects[k]();
-        const peer = wireExclusivePair[k];
+        const peer = WIRE_EXCLUSIVE_PAIR[k];
         if (peer && state[k] && state[peer]) {
           state[peer] = false;
           buttons[peer].classList.remove("on");

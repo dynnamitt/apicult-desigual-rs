@@ -26,7 +26,6 @@ export const wireEdgesGeometry = (edgesBuf) => {
     const dx = edgesBuf[o + 3] - edgesBuf[o];
     const dy = edgesBuf[o + 4] - edgesBuf[o + 1];
     const dz = edgesBuf[o + 5] - edgesBuf[o + 2];
-    arcs[ei * 2] = 0;
     arcs[ei * 2 + 1] = Math.hypot(dx, dy, dz);
   }
   const g = new THREE.BufferGeometry();
