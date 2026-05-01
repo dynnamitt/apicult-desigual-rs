@@ -3,26 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>welded hex terrain</title>
-<style>
-  body { margin: 0; background: #050810; display: flex; flex-direction: column; align-items: center; min-height: 100vh; font-family: monospace; color: #aaa; }
-  h1 { margin: 1.5rem 0 0.25rem; font-size: 1.2rem; font-weight: normal; }
-  .meta { font-size: 0.8rem; color: #666; margin-bottom: 1rem; }
-  .meta a { color: #6a8; }
-  .controls { display: flex; flex-wrap: wrap; justify-content: center; gap: 0.5rem; margin: 0 0 0.6rem; }
-  .controls button {
-    background: #1a2030; color: #9bd; border: 1px solid #2a3550;
-    padding: 0.5rem 0.9rem; font-family: monospace; font-size: 0.85rem;
-    border-radius: 4px; cursor: pointer; min-width: 44px; min-height: 44px;
-  }
-  .controls button.on { background: #2d4470; border-color: #4a6fb0; color: #cde; }
-  .controls button:hover, .controls button:focus { background: #243250; outline: none; }
-  .controls button:active { background: #324570; }
-  .stats { font-size: 0.75rem; color: #667; margin: 0 0 0.6rem; }
-  .stage { width: min(95vw, 1100px); }
-  #stage { display: block; width: 100%; height: min(70vh, 600px); background: #0a0e1a; border-radius: 4px; }
-  .hint { font-size: 0.75rem; color: #556; margin: 0.4rem 0 1.5rem; text-align: center; }
-</style>
+<title>welded hex terrain — apicult-desigual</title>
+<link rel="stylesheet" href="hex-terrain.css">
 <script type="importmap">
 {
   "imports": {
@@ -33,26 +15,102 @@
 </script>
 </head>
 <body>
-  <h1>welded hex terrain &mdash; one mesh, vec3-deduped</h1>
-  <p class="meta">generated from <a href="https://github.com/dynnamitt/apicult-desigual-rs">dynnamitt/apicult-desigual-rs</a> &mdash; <span id="sha">__SHA__</span> &middot; <a href="svg-preview.html">grid preview</a></p>
+  <header class="topbar">
+    <h1><span class="accent">apicult-desigual</span> &middot; welded hex terrain</h1>
+    <p class="meta">
+      <a href="https://github.com/dynnamitt/apicult-desigual-rs">dynnamitt/apicult-desigual-rs</a>
+      <span class="sep">/</span>
+      <span id="sha">__SHA__</span>
+      <span class="sep">/</span>
+      <a href="svg-preview.html">grid preview</a>
+    </p>
+  </header>
 
-  <div class="controls">
-    <button id="btn-fill" type="button" class="on">filled</button>
-    <button id="btn-wire" type="button" class="on">wireframe</button>
-    <button id="btn-shader" type="button">shader wire</button>
-    <button id="btn-flat" type="button" class="on">flat shading</button>
-  </div>
-  <p class="stats" id="stats">loading…</p>
-  <div class="stage"><canvas id="stage"></canvas></div>
-  <p class="hint">drag to orbit &middot; scroll to zoom &middot; right-drag to pan</p>
+  <main>
+    <div class="stage-wrap">
+      <canvas id="stage"></canvas>
+      <p class="stats" id="stats">loading…</p>
+    </div>
+
+    <aside class="controls" aria-label="terrain controls">
+      <fieldset>
+        <legend>grid</legend>
+        <label class="row"><span>radius</span>
+          <input id="ctl-radius" type="number" min="1" max="8" step="1" value="__RADIUS__">
+        </label>
+        <label class="row"><span>seed</span>
+          <input id="ctl-seed" type="text" inputmode="numeric" placeholder="random">
+        </label>
+        <label class="row"><span>point spacing</span>
+          <input id="ctl-point-spacing" type="number" min="1" max="20" step="0.5" value="4">
+        </label>
+        <label class="row"><span>petal distance</span>
+          <input id="ctl-petal-distance" type="number" min="1.5" max="6" step="0.1" value="3">
+        </label>
+        <div class="button-row">
+          <button id="btn-apply" type="button" class="primary">apply</button>
+          <button id="btn-regen" type="button">re-roll</button>
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>visuals</legend>
+        <label class="row"><span>bloom strength</span>
+          <input id="ctl-bloom-strength" type="number" min="0" max="3" step="0.05" value="0.8">
+        </label>
+        <label class="row"><span>bloom radius</span>
+          <input id="ctl-bloom-radius" type="number" min="0" max="2" step="0.05" value="0.5">
+        </label>
+        <label class="row"><span>bloom threshold</span>
+          <input id="ctl-bloom-threshold" type="number" min="0" max="1.5" step="0.05" value="0.75">
+        </label>
+        <label class="row"><span>dash speed</span>
+          <input id="ctl-dash-speed" type="number" min="0" max="3" step="0.05" value="0.6">
+        </label>
+        <label class="row"><span>line width</span>
+          <input id="ctl-line-width" type="number" min="1" max="6" step="0.5" value="2">
+        </label>
+      </fieldset>
+
+      <fieldset>
+        <legend>display</legend>
+        <div class="toggle-grid">
+          <button id="btn-fill"   type="button" class="on">filled</button>
+          <button id="btn-wire"   type="button" class="on">wireframe</button>
+          <button id="btn-shader" type="button">shader wire</button>
+          <button id="btn-flat"   type="button" class="on">flat shading</button>
+        </div>
+      </fieldset>
+    </aside>
+  </main>
+
+  <p class="hint">
+    drag to orbit
+    <span class="sep">·</span>
+    scroll to zoom
+    <span class="sep">·</span>
+    right-drag to pan
+  </p>
 
 <script type="module">
 import init, { WasmLayout } from './pkg/apicult_desigual.js';
 import { mount } from './hex-terrain-scene.js';
+import { bindControls, readSettingsFromDOM } from './hex-terrain-controls.js';
+
 await init();
-mount(document.getElementById('stage'), document.getElementById('stats'), {
-  radius: __RADIUS__,
-  WasmLayout,
+
+const stageEl    = document.getElementById('stage');
+const statsEl    = document.getElementById('stats');
+const controlsEl = document.querySelector('.controls');
+
+const initialSettings = readSettingsFromDOM(controlsEl);
+const api = mount(stageEl, statsEl, { initialSettings, WasmLayout });
+
+bindControls(controlsEl, {
+  initialSettings,
+  onApply:  (s) => api.regenerate(s),
+  onLive:   (s) => api.updateLive(s),
+  onToggle: (k, on) => api.setToggle(k, on),
 });
 </script>
 </body>

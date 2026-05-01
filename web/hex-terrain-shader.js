@@ -1,8 +1,8 @@
 import * as THREE from 'three';
 
 /**
- * Builds a non-indexed `THREE.BufferGeometry` of line segments straight from a
- * flat edge buffer. Used with `THREE.LineSegments` (gl.LINES draw mode) for
+ * Builds a non-indexed `THREE.BufferGeometry` of line segments from a flat
+ * edge buffer. Used with `THREE.LineSegments` (gl.LINES draw mode) for
  * shader-driven wireframes.
  *
  * Each vertex carries an `aArc` Float32 attribute encoding its position along
@@ -10,24 +10,40 @@ import * as THREE from 'three';
  * fragment shader uses this as the "distance along the line" for dash-pattern
  * animation.
  *
- * @param {Float32Array} edgesBuf - flat `n_edges * 6` floats
- *   (`x1,y1,z1, x2,y2,z2` per segment), as emitted by `WasmLayout.wire_edges()`.
- *   Already perimeter-walked Rust-side; no in-quad diagonals.
+ * The input buffer is `WasmLayout.wire_edges()` which emits 4 perimeter
+ * segments per gap quad in CCW order. Two of those are **bridge** edges
+ * (cross-gap, hex→neighbor, quad-local indices 0 and 2) and two are **rim**
+ * edges (along one hex's side, indices 1 and 3). This function keeps only
+ * the **rim** edges — bridges are intentionally undecorated so the dotted
+ * shader effect reads as "pinned along each hex's outline" rather than
+ * smearing across the gaps. The split is purely topological; relative
+ * lengths flip when hex radius dwarfs gap padding.
+ *
+ * @param {Float32Array} edgesBuf - flat `n_quads * 24` floats (4 edges × 6
+ *   floats per quad), as emitted by `WasmLayout.wire_edges()`.
  * @returns {THREE.BufferGeometry} non-indexed geometry with `position` (vec3)
- *   and `aArc` (float) attributes plus a computed bounding box.
+ *   and `aArc` (float) attributes plus a computed bounding box. Vertex count
+ *   is `nQuads * 4` (2 rim edges × 2 endpoints per quad).
  */
+const QUAD_FLOATS = 24;
+const RIM_EDGE_OFFSETS = [6, 18];
+
 export const wireEdgesGeometry = (edgesBuf) => {
-  const nEdges = (edgesBuf.length / 6) | 0;
+  const nQuads = (edgesBuf.length / QUAD_FLOATS) | 0;
+  const nEdges = nQuads * RIM_EDGE_OFFSETS.length;
   const positions = new Float32Array(nEdges * 6);
   const arcs = new Float32Array(nEdges * 2);
-  positions.set(edgesBuf);
-  for (let ei = 0; ei < nEdges; ei++) {
-    const o = ei * 6;
-    const dx = edgesBuf[o + 3] - edgesBuf[o];
-    const dy = edgesBuf[o + 4] - edgesBuf[o + 1];
-    const dz = edgesBuf[o + 5] - edgesBuf[o + 2];
-    arcs[ei * 2] = 0;
-    arcs[ei * 2 + 1] = Math.hypot(dx, dy, dz);
+  for (let qi = 0; qi < nQuads; qi++) {
+    const inBase = qi * QUAD_FLOATS;
+    RIM_EDGE_OFFSETS.forEach((edgeOffset, k) => {
+      const src = inBase + edgeOffset;
+      const dst = (qi * RIM_EDGE_OFFSETS.length + k) * 6;
+      for (let i = 0; i < 6; i++) positions[dst + i] = edgesBuf[src + i];
+      const dx = edgesBuf[src + 3] - edgesBuf[src];
+      const dy = edgesBuf[src + 4] - edgesBuf[src + 1];
+      const dz = edgesBuf[src + 5] - edgesBuf[src + 2];
+      arcs[(qi * RIM_EDGE_OFFSETS.length + k) * 2 + 1] = Math.hypot(dx, dy, dz);
+    });
   }
   const g = new THREE.BufferGeometry();
   g.setAttribute('position', new THREE.BufferAttribute(positions, 3));
