@@ -166,3 +166,61 @@ export const seamSpec = ({
   );
   return { overrides, entangle, tx, tz };
 };
+
+// Order-agnostic seam builder for the streaming cluster. Unlike `seamSpec`
+// (which assumes the strict CCW center→d0→d1→…→d5 build order), this walks
+// the 6 axial neighbors of `myAxial` and seams against any that are already
+// present in `existingTiles`. Each existing neighbor contributes one
+// `seamFromNeighbor` call.
+//
+// `existingTiles` is a Map<axialKey, { axial, wasmHandle }>. The map must
+// already contain any sibling tiles built earlier in the current spawn batch
+// (see Build Order in the design spec).
+//
+// Returns { overrides, entangle } accumulator arrays ready to pass into
+// `new WasmLayout(...)`.
+//
+// @param {object} args
+// @param {{q:number,r:number}} args.myAxial - the cell about to be built.
+// @param {Map<string, {axial:{q,r}, wasmHandle:WasmLayout}>} args.existingTiles
+// @param {number} args.radius
+// @param {Function} args.WasmLayout
+export const seamSpecForCell = ({
+  myAxial, existingTiles, radius, WasmLayout,
+}) => {
+  const overrides = [];
+  const entangle = [];
+
+  // 6 neighbor offsets are imported from hex-stream.js indirectly via the
+  // dir indices: dir d's offset is the same { q, r } in axial space we use
+  // there. Inline the literal table here so hex-seam.js stays standalone.
+  const neighborOffsets = [
+    { q:  1, r:  0 },
+    { q:  0, r:  1 },
+    { q: -1, r:  1 },
+    { q: -1, r:  0 },
+    { q:  0, r: -1 },
+    { q:  1, r: -1 },
+  ];
+
+  for (let d = 0; d < 6; d++) {
+    const off = neighborOffsets[d];
+    const neighborAxial = { q: myAxial.q + off.q, r: myAxial.r + off.r };
+    const key = `${neighborAxial.q},${neighborAxial.r}`;
+    const tile = existingTiles.get(key);
+    if (!tile) continue;
+    const mySide = (d + 3) % 6;        // OPPOSITE[d]
+    const neighborSide = d;             // neighbor's side facing me is its dir d
+    seamFromNeighbor({
+      neighborLayout: tile.wasmHandle,
+      neighborSide,
+      mySide,
+      radius,
+      WasmLayout,
+      overrides,
+      entangle,
+    });
+  }
+
+  return { overrides, entangle };
+};
