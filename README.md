@@ -6,7 +6,8 @@
 
 **apicult(desigual)** is a hexagonal layout system where each cell can shrink below its normal-form (100%) size, with bridge geometry filling the gaps to its neighbors. Random seeds drive per-cell size and 3D height.
 
-_apicult_ — from **apiculture** (beekeeping); the honeycomb. _desigual_ — Spanish for "uneven", in the spirit of Norwegian _kupert_: hilly, uneasy terrain.
+- _apicult_ — from **apiculture** (beekeeping); the honeycomb.
+- _desigual_ — Spanish for "uneven", in the spirit of Norwegian _kupert_: hilly, uneasy terrain.
 
 ---
 
