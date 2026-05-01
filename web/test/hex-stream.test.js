@@ -144,3 +144,61 @@ test("axialDiff at d=0 (east) survives include old anchor and old +0 neighbor", 
   assert.ok(survSet.has("0,0"));
   assert.ok(survSet.has("1,0"));
 });
+
+// Minimal stub of the wasm-bindgen WasmLayout class for unit tests. Records
+// constructor args; returns empty Float32Arrays for the buffers; no-ops free.
+class FakeWasmLayout {
+  constructor(radius, hSeed, rSeed, overrides, entangle) {
+    this.radius = radius;
+    this.hSeed = hSeed;
+    this.rSeed = rSeed;
+    this.overridesLen = overrides.length;
+    this.entangleLen = entangle.length;
+    this.freed = false;
+  }
+  tris(_localize) { return new Float32Array(0); }
+  wire_edges(_localize) { return new Float32Array(0); }
+  borderline_cells(_side) { return []; }
+  free() { this.freed = true; }
+}
+
+import { StreamingCluster } from "../hex-stream.js";
+
+const baseOpts = {
+  worldSeed: 42,
+  radius: 5,
+  nominalHexRadius: 4,
+  petalDistanceFactor: 3,
+  dirIndex: 0,
+  WasmLayout: FakeWasmLayout,
+};
+
+test("StreamingCluster constructor stashes settings and zeroes accumulator", () => {
+  const c = new StreamingCluster(baseOpts);
+  assert.deepEqual(c.anchor, { q: 0, r: 0 });
+  assert.equal(c.accumulator, 0);
+  assert.equal(c.dirIndex, 0);
+  assert.equal(c.petalSpacing, 3 * 5 * 4);  // 60
+});
+
+test("StreamingCluster.setDirection resets accumulator and changes dir", () => {
+  const c = new StreamingCluster(baseOpts);
+  c.accumulator = 30;
+  c.setDirection(2);
+  assert.equal(c.accumulator, 0);
+  assert.equal(c.dirIndex, 2);
+});
+
+test("StreamingCluster.tick with speed=0 returns null and leaves accumulator alone", () => {
+  const c = new StreamingCluster(baseOpts);
+  assert.equal(c.tick(0.5, 0), null);
+  assert.equal(c.accumulator, 0);
+});
+
+test("StreamingCluster.tick accumulates speed*dt below threshold", () => {
+  const c = new StreamingCluster(baseOpts);
+  assert.equal(c.tick(1, 10), null);
+  assert.equal(c.accumulator, 10);
+  assert.equal(c.tick(1, 10), null);
+  assert.equal(c.accumulator, 20);
+});

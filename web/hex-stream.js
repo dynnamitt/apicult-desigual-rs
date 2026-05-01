@@ -96,3 +96,62 @@ export const axialDiff = (oldAnchor, newAnchor) => {
   const despawn = [...oldFp].filter((k) => !newFpKeys.has(k));
   return { spawn, despawn, survive };
 };
+
+// Streaming-cluster state machine. Owns the axial map of live tiles, the
+// integration accumulator, and the step-trigger / spawn-despawn diff. Holds
+// no Three.js objects: returns plain ClusterTile records and lets the scene
+// translate them into renderable trios.
+//
+// `seamFn` is injected so unit tests can pass a no-op while the browser
+// passes seamSpecForCell from hex-seam.js. Default no-op makes constructor
+// usable without seam plumbing for the diff-only test surface.
+export class StreamingCluster {
+  constructor({
+    worldSeed,
+    radius,
+    nominalHexRadius,
+    petalDistanceFactor,
+    dirIndex,
+    WasmLayout,
+    seamFn = () => ({ overrides: [], entangle: [] }),
+  }) {
+    this.worldSeed = worldSeed;
+    this.radius = radius;
+    this.nominalHexRadius = nominalHexRadius;
+    this.petalDistanceFactor = petalDistanceFactor;
+    this.dirIndex = dirIndex;
+    this.WasmLayout = WasmLayout;
+    this.seamFn = seamFn;
+
+    this.petalSpacing = petalDistanceFactor * radius * nominalHexRadius;
+    this.anchor = { q: 0, r: 0 };
+    this.accumulator = 0;
+    this.tiles = new Map();  // axialKey → ClusterTile
+  }
+
+  setDirection(dirIndex) {
+    this.dirIndex = dirIndex;
+    this.accumulator = 0;
+  }
+
+  // Returns null if no step boundary crossed this frame; otherwise an object
+  // { spawned, despawned } produced by performStep(). Step paths land in
+  // the next task.
+  tick(dt, speed) {
+    if (speed === 0) return null;
+    this.accumulator += speed * dt;
+    if (this.accumulator < this.petalSpacing) return null;
+    return this.performStep();
+  }
+
+  // Stub for now — implemented in Task 8.
+  performStep() {
+    this.accumulator -= this.petalSpacing;
+    return { spawned: [], despawned: [] };
+  }
+
+  dispose() {
+    for (const tile of this.tiles.values()) tile.wasmHandle.free();
+    this.tiles.clear();
+  }
+}
