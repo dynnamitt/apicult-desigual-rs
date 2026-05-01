@@ -46,7 +46,7 @@ fn main() {
     let settings = HGridSettings {
         radius,
         height_noise_seed: seed.unwrap_or(defaults.height_noise_seed),
-        point_spacing: 4.0,
+        nominal_hex_radius: 4.0,
         ..defaults
     };
     let layout = HGridLayout::new(&settings, &[], &[]);

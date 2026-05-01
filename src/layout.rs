@@ -14,8 +14,10 @@ use crate::math;
 pub struct HGridSettings {
     /// Number of hex rings around the origin (~1200 hexes at 20).
     pub radius: u32,
-    /// Distance in world-units between adjacent hex centers.
-    pub point_spacing: f32,
+    /// Hex size — center-to-corner distance of a 100% / normal-form cell, in world units.
+    /// Pointy-top width is √3·nominal_hex_radius; flat-top width is 2·nominal_hex_radius.
+    /// Drives `HexLayout.scale`.
+    pub nominal_hex_radius: f32,
     /// Seed for the height noise generator.
     pub height_noise_seed: u32,
     /// Seed for the per-hex radius noise generator.
@@ -40,7 +42,7 @@ impl Default for HGridSettings {
     fn default() -> Self {
         Self {
             radius: 20,
-            point_spacing: 4.0,
+            nominal_hex_radius: 4.0,
             height_noise_seed: 43,
             radius_noise_seed: 137,
             height_noise_octaves: 4,
@@ -100,7 +102,7 @@ impl HGridLayout {
     /// `entangle` marks the listed hexes as entangled (out-of-grid hexes ignored).
     pub fn new(g: &HGridSettings, overrides: &[Override], entangle: &[Hex]) -> Self {
         let layout = HexLayout {
-            scale: Vec2::splat(g.point_spacing),
+            scale: Vec2::splat(g.nominal_hex_radius),
             ..HexLayout::default()
         };
         let unit_layout = HexLayout {
@@ -380,8 +382,8 @@ impl HGridLayout {
         self.grid_radius
     }
 
-    /// World-units between adjacent hex centers (the layout `scale.x`).
-    pub fn point_spacing(&self) -> f32 {
+    /// Nominal hex radius (center-to-corner of a 100% cell), reading the layout's `scale.x`.
+    pub fn nominal_hex_radius(&self) -> f32 {
         self.layout.scale.x
     }
 
@@ -718,5 +720,15 @@ mod tests {
                 edges.len()
             );
         }
+    }
+
+    #[test]
+    fn nominal_hex_radius_field_and_accessor_exist() {
+        let s = HGridSettings {
+            nominal_hex_radius: 4.0,
+            ..HGridSettings::default()
+        };
+        let layout = HGridLayout::new(&s, &[], &[]);
+        assert_eq!(layout.nominal_hex_radius(), 4.0);
     }
 }

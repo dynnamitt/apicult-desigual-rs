@@ -2,7 +2,7 @@
 //
 // Layout slots: center + 6 petals, one per VertexDirection (d = 0..5).
 // Each petal placed at slot d sits at world angle d * 60° around the center,
-// at distance 3 * R * point_spacing — exactly the offset that makes its
+// at distance 3 * R * nominal_hex_radius — exactly the offset that makes its
 // OPPOSITE[d] side coincide with center's d side, sharing R+1 cells.
 //
 // As petals are placed CCW around the ring, each one entangles every side
@@ -39,7 +39,7 @@ export const RING_FACING_NEXT = [2, 3, 4, 5, 0, 1]; // (d + 2) % 6
 // magnitude that makes side d (center) coincide with side OPPOSITE[d] (petal)
 // is just twice the world distance from center to that midpoint cell.
 // For an R-radius hex grid, the midpoint cell of any side sits at world
-// distance 1.5 * R * point_spacing. So petal distance = 3 * R * point_spacing.
+// distance 1.5 * R * nominal_hex_radius. So petal distance = 3 * R * nominal_hex_radius.
 export const PETAL_DISTANCE_FACTOR = 3.0;
 
 /**

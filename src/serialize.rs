@@ -163,7 +163,7 @@ fn write_svg(
     }
 
     if rich {
-        let font = layout.point_spacing() * 0.22;
+        let font = layout.nominal_hex_radius() * 0.22;
         for hd in &f.hex_data {
             writeln!(
                 out,
