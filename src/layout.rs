@@ -119,6 +119,9 @@ impl HGridLayout {
         let radius_fbm: Fbm<Perlin> =
             Fbm::new(g.radius_noise_seed).set_octaves(g.radius_noise_octaves);
 
+        let radius_lo = g.nominal_hex_radius * g.min_radius_ratio;
+        let radius_hi = g.nominal_hex_radius * g.max_radius_ratio;
+
         let mut cells = HexagonalMap::new(Hex::ZERO, g.radius, |hex| {
             let pos = layout.hex_to_world_pos(hex);
             let h_noise = height_fbm.get([
@@ -132,8 +135,7 @@ impl HGridLayout {
             HexCell {
                 hex,
                 height: math::map_noise_to_range(h_noise, 0.0, g.max_height),
-                radius: g.nominal_hex_radius
-                    * math::map_noise_to_range(r_noise, g.min_radius_ratio, g.max_radius_ratio),
+                radius: math::map_noise_to_range(r_noise, radius_lo, radius_hi),
                 entangled: false,
             }
         });
@@ -736,10 +738,7 @@ mod tests {
     }
 
     #[test]
-    fn ratio_bounds_produce_legacy_world_radii() {
-        // With nominal=4.0 and ratio bounds 0.05..=0.65, per-cell radii must
-        // land inside [0.2, 2.6] — the same world-space interval the old
-        // absolute fields used.
+    fn per_cell_radii_respect_ratio_bounds() {
         let s = HGridSettings {
             nominal_hex_radius: 4.0,
             min_radius_ratio: 0.05,
@@ -749,15 +748,18 @@ mod tests {
         };
         let layout = HGridLayout::new(&s, &[], &[]);
 
-        let mut min_r = f32::INFINITY;
-        let mut max_r = f32::NEG_INFINITY;
-        for hex in hexx::shapes::hexagon(Hex::ZERO, s.radius) {
-            let r = layout.cell(&hex).unwrap().radius;
-            if r < min_r { min_r = r; }
-            if r > max_r { max_r = r; }
-        }
+        let lo = s.nominal_hex_radius * s.min_radius_ratio;
+        let hi = s.nominal_hex_radius * s.max_radius_ratio;
+        let eps = 1e-4;
 
-        assert!(min_r >= 0.2 - 1e-4, "min radius {} below floor 0.2", min_r);
-        assert!(max_r <= 2.6 + 1e-4, "max radius {} above ceiling 2.6", max_r);
+        let (min_r, max_r) = hexx::shapes::hexagon(Hex::ZERO, s.radius)
+            .map(|h| layout.cell(&h).unwrap().radius)
+            .fold(
+                (f32::INFINITY, f32::NEG_INFINITY),
+                |(min, max), r| (min.min(r), max.max(r)),
+            );
+
+        assert!(min_r >= lo - eps, "min radius {min_r} below floor {lo}");
+        assert!(max_r <= hi + eps, "max radius {max_r} above ceiling {hi}");
     }
 }
