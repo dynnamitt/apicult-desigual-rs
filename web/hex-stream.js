@@ -171,9 +171,12 @@ export class StreamingCluster {
     // Center first, then petals in CCW order. Each new tile may seam against
     // any already-built tile (center seams to nothing; petal d seams to
     // center + petal d-1; petal 5 closes the ring against petal 0).
+    // buildTile returns null on wasm-alloc failure (logged); skip those — a
+    // failed bootstrap leaves a partial cluster but doesn't kill the loop.
     const result = [];
     for (const cell of cells) {
       const tile = this.buildTile(cell);
+      if (tile === null) continue;
       result.push(tile);
       this.tiles.set(axialKey(cell), tile);
     }
@@ -213,9 +216,13 @@ export class StreamingCluster {
       this.countExistingNeighbors(b) - this.countExistingNeighbors(a),
     );
 
+    // Per spec error-handling: a wasm allocation failure during a spawn is
+    // logged and skipped, leaving the cluster degraded for one step rather
+    // than killing the animation loop. The next tick's diff will retry.
     const spawned = [];
     for (const cell of sortedSpawn) {
       const tile = this.buildTile(cell);
+      if (tile === null) continue;
       this.tiles.set(axialKey(cell), tile);
       spawned.push(tile);
     }
@@ -235,6 +242,9 @@ export class StreamingCluster {
   // this.tiles. Caller is responsible for inserting the tile into the map
   // *after* this returns (so seamSpecForCell doesn't see the tile-being-built
   // as its own neighbor — though the math would tolerate it).
+  //
+  // Returns null on wasm allocation failure (per spec: log + skip, let the
+  // next step retry). Caller must skip null tiles.
   buildTile(cell) {
     const [hSeed, rSeed] = seedForCell(this.worldSeed, cell.q, cell.r);
     const seamArgs = {
@@ -244,9 +254,15 @@ export class StreamingCluster {
       WasmLayout: this.WasmLayout,
     };
     const { overrides, entangle } = this.seamFn(seamArgs);
-    const wasmHandle = new this.WasmLayout(
-      this.radius, hSeed, rSeed, overrides, entangle,
-    );
+    let wasmHandle;
+    try {
+      wasmHandle = new this.WasmLayout(
+        this.radius, hSeed, rSeed, overrides, entangle,
+      );
+    } catch (e) {
+      console.error(`buildTile failed at axial (${cell.q},${cell.r}):`, e);
+      return null;
+    }
     return {
       axial: cell,
       worldPos: petalAxialToWorld(cell, this.petalSpacing),

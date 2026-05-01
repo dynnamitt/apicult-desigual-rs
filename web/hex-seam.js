@@ -18,6 +18,10 @@
 
 import { OverrideSpec, EntangleSpec, NoiseChannel } from "./pkg/apicult_desigual.js";
 
+// Display labels for the 6 hex directions, indexed 0..5 in CCW order from +x.
+// Currently no JS consumer — the HTML hardcodes the same labels in the dir-picker
+// buttons (web/hex-terrain.html). Kept exported so future code can `[d]` into the
+// table; if you change either end, sync the other.
 export const VERTEX_DIR_NAMES = [
   "right", "down-right", "down-left", "left", "up-left", "up-right",
 ];
@@ -114,6 +118,11 @@ export const seamFromNeighbor = ({
  * arrays accumulated from every already-placed neighbor (center always; the
  * previous ring petal when present; the first ring petal too when closing
  * the ring at d=5), plus the world-XZ translation for placement.
+ *
+ * **Reserved API — no current consumer.** The streaming cluster bootstraps
+ * via `seamSpecForCell` (order-agnostic), which subsumes this function for
+ * the live demo. Kept exported so external embedders that build a static
+ * 1+6 cluster CCW-style still have a one-shot helper available.
  *
  * @param {object} args
  * @param {WasmLayout} args.centerLayout

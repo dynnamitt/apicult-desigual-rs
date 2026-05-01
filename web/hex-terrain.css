@@ -233,8 +233,6 @@ main {
   font-size: 0.85rem;
 }
 
-/* ── responsive collapse ───────────────────────────────────────────── */
-
 /* ── direction picker ──────────────────────────────────────────────── */
 
 .dir-picker {
@@ -247,21 +245,21 @@ main {
 .dir-picker .dir {
   font: inherit;
   padding: 0.3rem 0.4rem;
-  border: 1px solid #2a2f3e;
-  background: #161a26;
-  color: #cfd6e7;
+  border: 1px solid var(--line);
+  background: var(--panel-2);
+  color: var(--text-bright);
   cursor: pointer;
-  border-radius: 3px;
+  border-radius: var(--radius-sm);
 }
 
 .dir-picker .dir.on {
-  background: #2a3552;
-  border-color: #4a5b8a;
-  color: #fff;
+  background: var(--panel-3);
+  border-color: var(--line-2);
+  color: var(--text-bright);
 }
 
 .dir-picker .dir:hover {
-  background: #1f2538;
+  background: var(--accent-bg);
 }
 
 /* ── responsive collapse ───────────────────────────────────────────── */
