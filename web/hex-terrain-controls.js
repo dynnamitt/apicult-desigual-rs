@@ -8,6 +8,7 @@ const REBUILD_KEYS = new Set([
 
 const LIVE_KEYS = new Set([
   "bloomStrength", "bloomRadius", "bloomThreshold", "dashSpeed", "lineWidth",
+  "speed",
 ]);
 
 const TOGGLE_KEYS = ["fill", "wire", "shader", "flat"];
@@ -28,6 +29,7 @@ const INPUT_SPECS = [
   { id: "ctl-bloom-threshold", field: "bloomThreshold",      parse: parseFloat },
   { id: "ctl-dash-speed",      field: "dashSpeed",           parse: parseFloat },
   { id: "ctl-line-width",      field: "lineWidth",           parse: parseFloat },
+  { id: "ctl-speed",           field: "speed",               parse: parseFloat },
 ];
 
 function parseSeed(raw) {
@@ -49,6 +51,9 @@ export function readSettingsFromDOM(rootEl) {
     const btn = rootEl.querySelector(`#btn-${k}`);
     out[k] = !!btn?.classList.contains("on");
   }
+  // Active direction button. Default 0 if none is highlighted.
+  const activeDirBtn = rootEl.querySelector(".dir-picker .dir.on");
+  out.dirIndex = activeDirBtn ? parseInt(activeDirBtn.dataset.dir, 10) : 0;
   return out;
 }
 
@@ -70,7 +75,13 @@ const debounce = (fn, ms) => {
  * @param {(settings: object) => void} cb.onLive   - live (visual) knobs.
  * @param {(key: string, on: boolean) => void} cb.onToggle - display flags.
  */
-export function bindControls(rootEl, { initialSettings, onApply, onLive, onToggle }) {
+export function bindControls(rootEl, {
+  initialSettings,
+  onApply,
+  onLive,
+  onToggle,
+  onDirection,
+}) {
   const liveDispatch = debounce(() => onLive(readSettingsFromDOM(rootEl)), 80);
 
   for (const spec of INPUT_SPECS) {
@@ -120,6 +131,16 @@ export function bindControls(rootEl, { initialSettings, onApply, onLive, onToggl
           onToggle(peer, false);
         }
       }
+    });
+  }
+
+  const dirButtons = rootEl.querySelectorAll(".dir-picker .dir");
+  for (const btn of dirButtons) {
+    btn.addEventListener("click", () => {
+      for (const b of dirButtons) b.classList.remove("on");
+      btn.classList.add("on");
+      const d = parseInt(btn.dataset.dir, 10);
+      onDirection?.(d);
     });
   }
 
