@@ -53,7 +53,7 @@ impl Default for HGridSettings {
             radius_noise_scale: 30.0,
             max_height: 20.0,
             min_radius_ratio: 0.05,
-            max_radius_ratio: 0.65,
+            max_radius_ratio: 0.90,
         }
     }
 }
