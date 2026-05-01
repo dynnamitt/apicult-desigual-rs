@@ -3,7 +3,7 @@
 // that require rebuilding the wasm meshes.
 
 const REBUILD_KEYS = new Set([
-  "radius", "seed", "pointSpacing", "petalDistanceFactor",
+  "radius", "seed", "nominalHexRadius", "petalDistanceFactor",
 ]);
 
 const LIVE_KEYS = new Set([
@@ -21,7 +21,7 @@ const WIRE_EXCLUSIVE_PAIR = { wire: "shader", shader: "wire" };
 const INPUT_SPECS = [
   { id: "ctl-radius",          field: "radius",              parse: parseInt   },
   { id: "ctl-seed",            field: "seed",                parse: parseSeed  },
-  { id: "ctl-point-spacing",   field: "pointSpacing",        parse: parseFloat },
+  { id: "ctl-nominal-hex-radius", field: "nominalHexRadius",  parse: parseFloat },
   { id: "ctl-petal-distance",  field: "petalDistanceFactor", parse: parseFloat },
   { id: "ctl-bloom-strength",  field: "bloomStrength",       parse: parseFloat },
   { id: "ctl-bloom-radius",    field: "bloomRadius",         parse: parseFloat },

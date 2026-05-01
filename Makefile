@@ -1,4 +1,4 @@
-OUT ?= target/svg-preview
+OUT ?= target/www-preview
 RADIUS ?= 2
 PAD ?= 0.6
 SHORT_SHA ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo local)
@@ -33,17 +33,6 @@ svg-rich: prep
 json-v1: prep
 	$(call EXPORT,json-v1,$(OUT)/apicult-desigual.json)
 
-# json-v2-* targets retained for `cargo run --example geo_export -- --format json-v2`
-# parity; not consumed by `preview` (the demo computes meshes in-browser via wasm).
-json-v2-01: prep
-	$(call EXPORT,json-v2,$(OUT)/apicult-01.json)
-
-json-v2-02: prep
-	$(call EXPORT,json-v2,$(OUT)/apicult-02.json)
-
-json-v2-03: prep
-	$(call EXPORT,json-v2,$(OUT)/apicult-03.json)
-
 wasm: prep
 	wasm-pack build --target web --out-dir web/pkg --features wasm
 	@mkdir -p $(OUT)/pkg
@@ -61,4 +50,4 @@ terrain-html: prep
 preview: svg-plain svg-rich json-v1 wasm preview-html terrain-html
 	@echo "preview built in $(OUT)/ (seed=$(HSEED), radius=$(RADIUS))"
 
-.PHONY: build test prep svg-plain svg-rich json-v1 json-v2-01 json-v2-02 json-v2-03 wasm preview-html terrain-html preview
+.PHONY: build test prep svg-plain svg-rich json-v1 wasm preview-html terrain-html preview

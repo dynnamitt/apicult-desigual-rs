@@ -2,7 +2,7 @@
 //
 // Layout slots: center + 6 petals, one per VertexDirection (d = 0..5).
 // Each petal placed at slot d sits at world angle d * 60° around the center,
-// at distance 3 * R * point_spacing — exactly the offset that makes its
+// at distance 3 * R * nominal_hex_radius — exactly the offset that makes its
 // OPPOSITE[d] side coincide with center's d side, sharing R+1 cells.
 //
 // As petals are placed CCW around the ring, each one entangles every side
@@ -39,7 +39,7 @@ export const RING_FACING_NEXT = [2, 3, 4, 5, 0, 1]; // (d + 2) % 6
 // magnitude that makes side d (center) coincide with side OPPOSITE[d] (petal)
 // is just twice the world distance from center to that midpoint cell.
 // For an R-radius hex grid, the midpoint cell of any side sits at world
-// distance 1.5 * R * point_spacing. So petal distance = 3 * R * point_spacing.
+// distance 1.5 * R * nominal_hex_radius. So petal distance = 3 * R * nominal_hex_radius.
 export const PETAL_DISTANCE_FACTOR = 3.0;
 
 /**
@@ -49,9 +49,9 @@ export const PETAL_DISTANCE_FACTOR = 3.0;
  * spaces petals farther apart (visible gaps), lowering it overlaps them.
  */
 export const petalTranslation = (
-  dir, radius, pointSpacing, petalDistanceFactor = PETAL_DISTANCE_FACTOR,
+  dir, radius, nominalHexRadius, petalDistanceFactor = PETAL_DISTANCE_FACTOR,
 ) => {
-  const mag = petalDistanceFactor * radius * pointSpacing;
+  const mag = petalDistanceFactor * radius * nominalHexRadius;
   const a = (dir * Math.PI) / 3;
   return { tx: mag * Math.cos(a), tz: mag * Math.sin(a) };
 };
@@ -121,11 +121,11 @@ export const seamFromNeighbor = ({
  *   already-placed petal at slot i (undefined until slot i is placed).
  * @param {number} args.dir - this petal's slot, 0..5.
  * @param {number} args.radius
- * @param {number} args.pointSpacing
+ * @param {number} args.nominalHexRadius
  * @param {Function} args.WasmLayout
  */
 export const seamSpec = ({
-  centerLayout, ringSoFar, dir, radius, pointSpacing, WasmLayout,
+  centerLayout, ringSoFar, dir, radius, nominalHexRadius, WasmLayout,
   petalDistanceFactor = PETAL_DISTANCE_FACTOR,
 }) => {
   const overrides = [];
@@ -162,7 +162,7 @@ export const seamSpec = ({
   }
 
   const { tx, tz } = petalTranslation(
-    dir, radius, pointSpacing, petalDistanceFactor,
+    dir, radius, nominalHexRadius, petalDistanceFactor,
   );
   return { overrides, entangle, tx, tz };
 };
