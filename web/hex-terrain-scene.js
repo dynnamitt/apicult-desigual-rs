@@ -44,10 +44,6 @@ const SHADER_INTENSITY = 2.8;
 const CAMERA_FOV = 45;
 
 const TOGGLE_KEYS = ["fill", "wire", "shader", "flat"];
-// Settings that change the cluster's world-space extent. When none of these
-// changes, regenerate() preserves the current OrbitControls camera state
-// (position, target, zoom) so re-roll just swaps the geometry under the user.
-const BOUNDS_KEYS = ["radius", "nominalHexRadius", "petalDistanceFactor"];
 
 const randomU32 = () => Math.floor(Math.random() * 0x1_0000_0000) >>> 0;
 
@@ -362,11 +358,12 @@ export function mount(canvas, statsEl, { initialSettings, WasmLayout }) {
 
     return {
       regenerate(settings) {
-        const boundsChanged = BOUNDS_KEYS.some((k) => settings[k] !== state[k]);
+        // No re-frame: the user's orbit/zoom is preserved across every
+        // re-roll and apply, regardless of which inputs changed. Initial
+        // mount frames once (above); after that the camera is theirs.
         Object.assign(state, settings);
         disposeClusterObjects(scene, objs);
         buildCluster();
-        if (boundsChanged) frameCamera();
       },
 
       updateLive(settings) {
