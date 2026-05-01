@@ -73,6 +73,21 @@
       </fieldset>
 
       <fieldset>
+        <legend>stream</legend>
+        <label class="row"><span>speed</span>
+          <input id="ctl-speed" type="range" min="0" max="60" step="1" value="0">
+        </label>
+        <div class="dir-picker" role="radiogroup" aria-label="movement direction">
+          <button id="dir-0" type="button" class="dir on" data-dir="0">right</button>
+          <button id="dir-1" type="button" class="dir"    data-dir="1">down-right</button>
+          <button id="dir-2" type="button" class="dir"    data-dir="2">down-left</button>
+          <button id="dir-3" type="button" class="dir"    data-dir="3">left</button>
+          <button id="dir-4" type="button" class="dir"    data-dir="4">up-left</button>
+          <button id="dir-5" type="button" class="dir"    data-dir="5">up-right</button>
+        </div>
+      </fieldset>
+
+      <fieldset>
         <legend>display</legend>
         <div class="toggle-grid">
           <button id="btn-fill"   type="button" class="on">filled</button>
