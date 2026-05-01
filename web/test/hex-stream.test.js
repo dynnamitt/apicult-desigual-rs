@@ -90,3 +90,57 @@ test("seedForCell returns u32 values", () => {
   assert.ok(Number.isInteger(h) && h >= 0 && h <= 0xFFFFFFFF);
   assert.ok(Number.isInteger(r) && r >= 0 && r <= 0xFFFFFFFF);
 });
+
+import { clusterFootprint, axialDiff } from "../hex-stream.js";
+
+test("clusterFootprint at (0,0) yields 7 cells: anchor + 6 neighbors", () => {
+  const fp = clusterFootprint({ q: 0, r: 0 });
+  assert.equal(fp.size, 7);
+  assert.ok(fp.has("0,0"));
+  for (const n of AXIAL_NEIGHBORS) assert.ok(fp.has(axialKey(n)));
+});
+
+test("clusterFootprint at non-zero anchor offsets every cell", () => {
+  const fp = clusterFootprint({ q: 5, r: -3 });
+  assert.equal(fp.size, 7);
+  assert.ok(fp.has("5,-3"));
+  assert.ok(fp.has("6,-3"));
+  assert.ok(fp.has("4,-3"));
+});
+
+test("axialDiff returns 3 spawn / 3 despawn / 4 survive for every direction", () => {
+  for (let d = 0; d < 6; d++) {
+    const oldAnchor = { q: 0, r: 0 };
+    const step = AXIAL_NEIGHBORS[d];
+    const newAnchor = { q: step.q, r: step.r };
+
+    const result = axialDiff(oldAnchor, newAnchor);
+    assert.equal(result.spawn.length, 3, `d=${d} spawn count`);
+    assert.equal(result.despawn.length, 3, `d=${d} despawn count`);
+    assert.equal(result.survive.length, 4, `d=${d} survive count`);
+
+    // Disjoint sanity: spawn ∩ despawn = ∅, spawn ∩ survive = ∅
+    const spawnSet = new Set(result.spawn.map(axialKey));
+    const survSet = new Set(result.survive.map(axialKey));
+    for (const dk of result.despawn) assert.ok(!spawnSet.has(dk));
+    for (const sk of result.spawn) assert.ok(!survSet.has(axialKey(sk)));
+  }
+});
+
+test("axialDiff returns spawns as axial coords (objects), despawns as keys (strings)", () => {
+  const result = axialDiff({ q: 0, r: 0 }, { q: 1, r: 0 });
+  for (const s of result.spawn) {
+    assert.equal(typeof s.q, "number");
+    assert.equal(typeof s.r, "number");
+  }
+  for (const d of result.despawn) {
+    assert.equal(typeof d, "string");
+  }
+});
+
+test("axialDiff at d=0 (east) survives include old anchor and old +0 neighbor", () => {
+  const result = axialDiff({ q: 0, r: 0 }, { q: 1, r: 0 });
+  const survSet = new Set(result.survive.map(axialKey));
+  assert.ok(survSet.has("0,0"));
+  assert.ok(survSet.has("1,0"));
+});

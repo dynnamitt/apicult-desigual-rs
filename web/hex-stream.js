@@ -63,3 +63,36 @@ export const seedForCell = (worldSeed, q, r) => {
     splitmix32(splitmix32((w + 1) ^ packed)),
   ];
 };
+
+// 7-cell footprint of a cluster anchored at `anchor`: anchor itself plus the
+// 6 unit neighbors. Returned as a Set<axialKey> for O(1) intersection.
+export const clusterFootprint = (anchor) => {
+  const fp = new Set();
+  fp.add(axialKey(anchor));
+  for (const n of AXIAL_NEIGHBORS) {
+    fp.add(axialKey({ q: anchor.q + n.q, r: anchor.r + n.r }));
+  }
+  return fp;
+};
+
+// Set diff of old footprint vs new footprint. Returns:
+//   spawn:   axial coords {q, r} that are in new but not old (3 of them)
+//   despawn: axial keys (strings) that are in old but not new (3 of them)
+//   survive: axial coords {q, r} that are in both (4 of them)
+// Caller passes both anchors; this function recomputes both footprints.
+export const axialDiff = (oldAnchor, newAnchor) => {
+  const oldFp = clusterFootprint(oldAnchor);
+  const newFpCells = [
+    newAnchor,
+    ...AXIAL_NEIGHBORS.map((n) => ({
+      q: newAnchor.q + n.q,
+      r: newAnchor.r + n.r,
+    })),
+  ];
+  const newFpKeys = new Set(newFpCells.map(axialKey));
+
+  const spawn = newFpCells.filter((c) => !oldFp.has(axialKey(c)));
+  const survive = newFpCells.filter((c) => oldFp.has(axialKey(c)));
+  const despawn = [...oldFp].filter((k) => !newFpKeys.has(k));
+  return { spawn, despawn, survive };
+};
