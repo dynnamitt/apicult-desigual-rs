@@ -64,7 +64,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node --test test/"
+    "test": "node --test"
   }
 }
 ```
@@ -85,7 +85,7 @@ Expected: `v18.x.x` or higher (any version supporting `node --test` and top-leve
 
 - [ ] **Step 4: Verify the runner picks up an empty test dir**
 
-Run: `cd web && node --test test/`
+Run: `cd web && node --test`
 Expected: `# tests 0` printed, exit code 0. (No tests yet — just confirms the runner finds the directory.)
 
 - [ ] **Step 5: Commit**
@@ -141,7 +141,7 @@ test("axialDirToSide returns null for non-unit offsets", () => {
 
 - [ ] **Step 2: Run, verify failure**
 
-Run: `cd web && node --test test/`
+Run: `cd web && node --test`
 Expected: tests fail with `Cannot find module '../hex-stream.js'` (or similar).
 
 - [ ] **Step 3: Create minimal `web/hex-stream.js`**
@@ -177,7 +177,7 @@ export const axialDirToSide = (delta) => {
 
 - [ ] **Step 4: Run, verify pass**
 
-Run: `cd web && node --test test/`
+Run: `cd web && node --test`
 Expected: 4 tests pass.
 
 - [ ] **Step 5: Commit**
@@ -238,7 +238,7 @@ test("petalAxialToWorld(neighbor d, 60) matches angle d*60°", () => {
 
 - [ ] **Step 2: Run, verify failure**
 
-Run: `cd web && node --test test/`
+Run: `cd web && node --test`
 Expected: 4 new failures (unknown export `petalAxialToWorld`).
 
 - [ ] **Step 3: Add the function**
@@ -258,7 +258,7 @@ export const petalAxialToWorld = ({ q, r }, petalSpacing) => ({
 
 - [ ] **Step 4: Run, verify pass**
 
-Run: `cd web && node --test test/`
+Run: `cd web && node --test`
 Expected: all tests pass (8 total now).
 
 - [ ] **Step 5: Commit**
@@ -326,7 +326,7 @@ test("seedForCell returns u32 values", () => {
 
 - [ ] **Step 2: Run, verify failure**
 
-Run: `cd web && node --test test/`
+Run: `cd web && node --test`
 Expected: 5 new failures.
 
 - [ ] **Step 3: Add the implementation**
@@ -367,7 +367,7 @@ export const seedForCell = (worldSeed, q, r) => {
 
 - [ ] **Step 4: Run, verify pass**
 
-Run: `cd web && node --test test/`
+Run: `cd web && node --test`
 Expected: all tests pass.
 
 - [ ] **Step 5: Commit**
@@ -453,7 +453,7 @@ test("axialDiff at d=0 (east) survives include old anchor and old +0 neighbor", 
 
 - [ ] **Step 2: Run, verify failure**
 
-Run: `cd web && node --test test/`
+Run: `cd web && node --test`
 Expected: 5 new failures.
 
 - [ ] **Step 3: Add the functions**
@@ -497,7 +497,7 @@ export const axialDiff = (oldAnchor, newAnchor) => {
 
 - [ ] **Step 4: Run, verify pass**
 
-Run: `cd web && node --test test/`
+Run: `cd web && node --test`
 Expected: all tests pass.
 
 - [ ] **Step 5: Commit**
@@ -690,7 +690,7 @@ test("StreamingCluster.tick accumulates speed*dt below threshold", () => {
 
 - [ ] **Step 3: Run, verify failure**
 
-Run: `cd web && node --test test/`
+Run: `cd web && node --test`
 Expected: 4 new failures.
 
 - [ ] **Step 4: Add the constructor + non-stepping tick logic**
@@ -760,7 +760,7 @@ export class StreamingCluster {
 
 - [ ] **Step 5: Run, verify pass**
 
-Run: `cd web && node --test test/`
+Run: `cd web && node --test`
 Expected: all tests pass.
 
 - [ ] **Step 6: Commit**
@@ -859,7 +859,7 @@ Test count for this task: 6 new tests (`bootstrap returns 7`, `bootstrap worldPo
 
 - [ ] **Step 2: Run, verify failure**
 
-Run: `cd web && node --test test/`
+Run: `cd web && node --test`
 Expected: ~6 new failures (including unknown method `bootstrap`).
 
 - [ ] **Step 3: Replace the stub `performStep` with the full implementation, plus `bootstrap`**
@@ -975,7 +975,7 @@ In `web/hex-stream.js`, replace the stub `performStep()` body **and add a `boots
 
 - [ ] **Step 4: Run, verify pass**
 
-Run: `cd web && node --test test/`
+Run: `cd web && node --test`
 Expected: all tests pass.
 
 - [ ] **Step 5: Commit**
@@ -1617,7 +1617,7 @@ Expected: pausing and resuming preserves the in-progress accumulator (so the nex
 
 Run:
 ```bash
-cd web && node --test test/
+cd web && node --test
 cd .. && cargo test
 ```
 Expected: all JS tests pass. Cargo test runs unchanged (no Rust diff in this work).
@@ -1650,5 +1650,5 @@ and the camera-parked drift model."
 - [ ] Spec coverage: every section of `docs/superpowers/specs/2026-05-01-infinite-terrain-sim-design.md` has a corresponding task above. Scope-out items remain out of scope.
 - [ ] Placeholder scan: no "TBD", "TODO", "implement later", or hand-wavy "handle edge cases".
 - [ ] Type / signature consistency: `StreamingCluster` constructor matches the spec; `seamSpecForCell` takes `{myAxial, existingTiles, radius, WasmLayout}` everywhere; `tick(dt, speed)` returns `{spawned, despawned}` or `null` consistently across tasks 7, 8, 12.
-- [ ] Test commands: `cd web && node --test test/` works in every test step.
+- [ ] Test commands: `cd web && node --test` works in every test step.
 - [ ] No file mentions a function it never defines (`seamFn` injection point introduced in Task 8 is used by Task 12).
