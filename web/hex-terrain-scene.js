@@ -9,7 +9,7 @@ import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js"
 import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
 import { weldedMesh, vertexCount, triangleCount } from "./hex-terrain.js";
 import { wireEdgesGeometry, createWireShader } from "./hex-terrain-shader.js";
-import { seamSpecForCell, VERTEX_DIR_NAMES } from "./hex-seam.js";
+import { seamSpecForCell } from "./hex-seam.js";
 import { StreamingCluster } from "./hex-stream.js";
 
 const BG_COLOR = 0x0a0e1a;
