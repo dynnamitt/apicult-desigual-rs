@@ -218,8 +218,13 @@ export const seamSpecForCell = ({
     const key = `${neighborAxial.q},${neighborAxial.r}`;
     const tile = existingTiles.get(key);
     if (!tile) continue;
-    const mySide = (d + 3) % 6;        // OPPOSITE[d]
-    const neighborSide = d;             // neighbor's side facing me is its dir d
+    // d is the direction from me to this neighbor. My side facing the
+    // neighbor is therefore side d; the neighbor's side facing me is the
+    // opposite, (d+3)%6. (The previous version had these swapped, breaking
+    // every seam on both the bootstrap and step paths — visible as height
+    // discontinuities at every shared edge.)
+    const mySide = d;
+    const neighborSide = (d + 3) % 6;  // OPPOSITE[d]
     seamFromNeighbor({
       neighborLayout: tile.wasmHandle,
       neighborSide,
