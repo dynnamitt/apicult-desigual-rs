@@ -19,9 +19,10 @@ The [live demo](https://dynnamitt.github.io/apicult-desigual-rs/) constructs the
 
 ## What it does
 
-- **`HGridLayout`** -- builds a hex grid from `HGridSettings`, sampling Fbm noise for per-hex heights and radii. Provides vertex computation, coordinate conversion, IDW height interpolation, and triangulated geometry: `gap_quads`, `gap_tris`, `hex_face_tris`, and the unified `all_tris` stream (gap quads split along the canonical `[v0, v2]` diagonal).
+- **`HGridLayout`** -- builds a hex grid from `HGridSettings`, sampling Fbm noise for per-hex heights and radii. Provides vertex computation, coordinate conversion, IDW height interpolation, and triangulated geometry: `gap_quads`, `gap_tris`, `hex_face_tris(entangled)`, `gap_quad_tris(entangled)`, and the unified `all_tris(entangled)` stream (gap quads split along the canonical `[v0, v2]` diagonal). The per-cell `entangled: bool` flag is set via `HGridLayout::new`'s `entangle: &[Hex]` arg and partitions the hex-face / gap-quad output streams so two materials can render entangled vs non-entangled cells separately.
 - **Gap analysis** -- `gap_filler` counts quad/tri gaps using even-edge ownership rules. `quad_corner_indices` maps edge indices to the four corners forming each quad.
-- **Serialization** -- `SerializeGeo` trait with four implementors: `SvgPlain`, `SvgRich`, `JsonV1` (gen1: `hexes` / `edges` / `quads` / `tris`), `JsonV2` (gen2: `{ version: 2, tris }` -- unified stream from `all_tris`).
+- **Serialization** -- `SerializeGeo` trait with three implementors: `SvgPlain`, `SvgRich`, `JsonV1` (`{hexes, edges, quads, tris}`). The web 3D demo bypasses JSON entirely and pulls geometry through the wasm module instead.
+- **Wasm bindings** -- `WasmLayout` exposes flat `Float32Array` buffers for the welded fill mesh (`tris`), gap-quad perimeter segments (`wire_edges`), and per-hex face fans grouped 54 floats at a time (`face_tris`) — all filtered by `entangled: bool`. Inputs are `OverrideSpec` (per-hex pinned values) and `EntangleSpec` (entangle marker).
 - **Pure math helpers** -- `edge_cuboid_transform`, `gap_vertex_data`, `map_noise_to_range`, `idw_interpolate_height`.
 
 ## Usage
@@ -37,7 +38,8 @@ let vertex = layout.vertex(hexx::Hex::ZERO, 0);
 let ground = layout.interpolate_height(glam::Vec2::new(5.0, 3.0));
 
 // Unified triangle stream — diagonal choice owned here, not on the client.
-let tris = layout.all_tris();
+// Pass `false` to get only non-entangled cells (the default for a freshly built layout).
+let tris = layout.all_tris(false);
 ```
 
 ## Preview example
@@ -47,9 +49,7 @@ The `geo_export` example streams the grid to stdout in any of the supported form
 ```sh
 cargo run --example geo_export                                   # plain SVG (gray, no labels)
 cargo run --example geo_export -- 5 2.0 --format svg-rich        # green fill, outlined strokes, height labels
-cargo run --example geo_export -- 5 2.0 --format json-v1         # gen1: {hexes, edges, quads, tris}
-cargo run --example geo_export -- 5 2.0 --format json-v2         # gen2: {version: 2, tris}  — welded-mesh consumers
-cargo run --example geo_export -- 5 2.0 --format json-v3         # gen3: {version: 3, tris, quads}
+cargo run --example geo_export -- 5 2.0 --format json-v1         # {hexes, edges, quads, tris}
 cargo run --example geo_export -- --seed 7                       # override the height-noise seed
 ```
 
