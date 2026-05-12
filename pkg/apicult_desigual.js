@@ -285,6 +285,27 @@ export class WasmLayout {
         return v1;
     }
     /**
+     * Per-hex face-edge bridge quads matching `entangled`, flat
+     * `n_hexes * 78` floats: 6 slots × 13 floats per slot
+     * (`[flag, v0x, v0y, v0z, ..., v3x, v3y, v3z]`). `flag` is `1.0`
+     * when a bridge exists on that face edge, `0.0` on border edges
+     * (the 12 vertex floats are zeros in that case). Stride and hex
+     * ordering match [`face_tris`] — the i-th 78-float slice owns the
+     * 6 bridges of the i-th matching hex. Quad-corner order matches
+     * the `gap_quads` layout: `v0` / `v3` lie on the source hex
+     * perimeter, `n0` / `n1` on the neighbor — JS picks one of the 6
+     * slots per selected hex and emits two band-shaded tris bridging
+     * the gap.
+     * @param {boolean} entangled
+     * @returns {Float32Array}
+     */
+    face_bridge_quads(entangled) {
+        const ret = wasm.wasmlayout_face_bridge_quads(this.__wbg_ptr, entangled);
+        var v1 = getArrayF32FromWasm0(ret[0], ret[1]).slice();
+        wasm.__wbindgen_free(ret[0], ret[1] * 4, 4);
+        return v1;
+    }
+    /**
      * Per-hex face fans matching `entangled`, flat `n_hexes * 54` floats
      * (6 center-fan tris × 3 verts × 3 floats). The grouping is stable:
      * the i-th 54-float slice owns the 6 tris of the i-th matching hex

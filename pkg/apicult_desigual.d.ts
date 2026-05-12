@@ -73,6 +73,20 @@ export class WasmLayout {
      */
     borderline_cells(direction: VertexDir): HexCellView[];
     /**
+     * Per-hex face-edge bridge quads matching `entangled`, flat
+     * `n_hexes * 78` floats: 6 slots × 13 floats per slot
+     * (`[flag, v0x, v0y, v0z, ..., v3x, v3y, v3z]`). `flag` is `1.0`
+     * when a bridge exists on that face edge, `0.0` on border edges
+     * (the 12 vertex floats are zeros in that case). Stride and hex
+     * ordering match [`face_tris`] — the i-th 78-float slice owns the
+     * 6 bridges of the i-th matching hex. Quad-corner order matches
+     * the `gap_quads` layout: `v0` / `v3` lie on the source hex
+     * perimeter, `n0` / `n1` on the neighbor — JS picks one of the 6
+     * slots per selected hex and emits two band-shaded tris bridging
+     * the gap.
+     */
+    face_bridge_quads(entangled: boolean): Float32Array;
+    /**
      * Per-hex face fans matching `entangled`, flat `n_hexes * 54` floats
      * (6 center-fan tris × 3 verts × 3 floats). The grouping is stable:
      * the i-th 54-float slice owns the 6 tris of the i-th matching hex
@@ -128,6 +142,7 @@ export interface InitOutput {
     readonly __wbg_wasmlayout_free: (a: number, b: number) => void;
     readonly overridespec_new: (a: number, b: number, c: number, d: number) => number;
     readonly wasmlayout_borderline_cells: (a: number, b: number) => [number, number];
+    readonly wasmlayout_face_bridge_quads: (a: number, b: number) => [number, number];
     readonly wasmlayout_face_tris: (a: number, b: number) => [number, number];
     readonly wasmlayout_new: (a: number, b: number, c: number, d: number, e: number, f: number, g: number) => number;
     readonly wasmlayout_tris: (a: number, b: number) => [number, number];
