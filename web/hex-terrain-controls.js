@@ -10,7 +10,7 @@ const LIVE_KEYS = new Set([
   "bloomStrength", "bloomRadius", "bloomThreshold", "dashSpeed", "lineWidth",
 ]);
 
-const TOGGLE_KEYS = ["fill", "wire", "shader", "flat"];
+const TOGGLE_KEYS = ["fill", "wire", "shader", "bands", "flat"];
 
 // Wire and shader-wire are mutually exclusive — turning one on flips the
 // other off. The map encodes both directions for symmetric lookup.

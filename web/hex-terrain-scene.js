@@ -8,7 +8,14 @@ import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
 import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
 import { weldedMesh, vertexCount, triangleCount } from "./hex-terrain.js";
-import { wireEdgesGeometry, createWireShader } from "./hex-terrain-shader.js";
+import {
+  wireEdgesGeometry,
+  createWireShader,
+  bandGeometry,
+  createBandShader,
+  FLOATS_PER_HEX,
+  FLOATS_PER_TRI,
+} from "./hex-terrain-shader.js";
 import { seamSpec, VERTEX_DIR_NAMES } from "./hex-seam.js";
 
 const BG_COLOR = 0x0a0e1a;
@@ -43,7 +50,19 @@ const SHADER_DASH_SIZE_FACTOR = 0.22, SHADER_DASH_GAP_FACTOR = 0.28;
 const SHADER_INTENSITY = 2.8;
 const CAMERA_FOV = 45;
 
-const TOGGLE_KEYS = ["fill", "wire", "shader", "flat"];
+const TOGGLE_KEYS = ["fill", "wire", "shader", "bands", "flat"];
+const BAND_FRACTION = 0.1, BAND_STEPS = 5;
+
+// Partial Fisher-Yates: K uniform-random picks without replacement from [0, n).
+const sampleK = (n, k) => {
+  const arr = Array.from({ length: n }, (_, i) => i);
+  const stop = Math.min(k, n);
+  for (let i = 0; i < stop; i++) {
+    const j = i + ((Math.random() * (n - i)) | 0);
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr.slice(0, stop);
+};
 
 const randomU32 = () => Math.floor(Math.random() * 0x1_0000_0000) >>> 0;
 
@@ -68,9 +87,9 @@ const seedSequence = (root, n) => {
 };
 
 const medianTriEdgeLength = (trisBuf) => {
-  const n = (trisBuf.length / 9) | 0;
+  const n = (trisBuf.length / FLOATS_PER_TRI) | 0;
   const lens = new Array(n * 3);
-  for (let i = 0, k = 0; i < trisBuf.length; i += 9, k += 3) {
+  for (let i = 0, k = 0; i < trisBuf.length; i += FLOATS_PER_TRI, k += 3) {
     const ax = trisBuf[i],     ay = trisBuf[i + 1], az = trisBuf[i + 2];
     const bx = trisBuf[i + 3], by = trisBuf[i + 4], bz = trisBuf[i + 5];
     const cx = trisBuf[i + 6], cy = trisBuf[i + 7], cz = trisBuf[i + 8];
@@ -116,6 +135,7 @@ const generateClusterPayloads = ({
     index: 0, label: "center",
     tris: center.tris(false),
     wireEdges: center.wire_edges(false),
+    faceTris: center.face_tris(false),
     tx: 0, tz: 0,
   }];
   // Keep all WasmLayouts alive while building so later petals can query
@@ -134,6 +154,7 @@ const generateClusterPayloads = ({
       index: dir + 1, label: VERTEX_DIR_NAMES[dir],
       tris: petal.tris(false),
       wireEdges: petal.wire_edges(false),
+      faceTris: petal.face_tris(false),
       tx, tz,
     });
     ringSoFar[dir] = petal;
@@ -144,24 +165,47 @@ const generateClusterPayloads = ({
 };
 
 /**
- * Build the visible objects for a single cluster payload (mesh, wire overlay,
- * shader-wire overlay) and add them to the scene. Returns the trio so the
- * caller can dispose them later.
+ * Build the band overlay for one cluster payload. Picks a random ~10% of
+ * hexes (min 1) and renders their face fans through `createBandShader`,
+ * which steps a per-vertex weight (0 at perimeter, 1 at center) into
+ * `BAND_STEPS` concentric color rings inside each hex.
  */
-const buildClusterObjects = ({ scene, payload, lineWidth, canvas, fillVisible, wireVisible, shaderVisible, flatShading }) => {
+const buildBandOverlay = ({ scene, payload, visible }) => {
+  const hexCount = (payload.faceTris.length / FLOATS_PER_HEX) | 0;
+  const pickCount = Math.max(1, Math.floor(hexCount * BAND_FRACTION));
+  const hexIdx = sampleK(hexCount, pickCount);
+  const mat = createBandShader({
+    baseColor: FILL_COLORS[payload.index],
+    bgColor: BG_COLOR,
+    bands: BAND_STEPS,
+  });
+  const overlay = new THREE.Mesh(bandGeometry(payload.faceTris, hexIdx), mat);
+  overlay.position.set(payload.tx, 0, payload.tz);
+  overlay.renderOrder = 1;
+  overlay.visible = visible;
+  scene.add(overlay);
+  return overlay;
+};
+
+/**
+ * Build the visible objects for a single cluster payload (mesh, wire overlay,
+ * shader-wire overlay, band overlay) and add them to the scene. Returns the
+ * quartet so the caller can dispose them later.
+ */
+const buildClusterObjects = ({ scene, payload, canvas, state }) => {
   const geom = weldedMesh(payload.tris);
   const medianEdge = medianTriEdgeLength(payload.tris);
 
   const mat = new THREE.MeshStandardMaterial({
     color: FILL_COLORS[payload.index],
-    flatShading,
+    flatShading: state.flat,
     side: THREE.DoubleSide,
     roughness: 0.85,
     metalness: 0.05,
   });
   const mesh = new THREE.Mesh(geom, mat);
   mesh.position.set(payload.tx, 0, payload.tz);
-  mesh.visible = fillVisible;
+  mesh.visible = state.fill;
   scene.add(mesh);
 
   const wireGeom = new THREE.WireframeGeometry(geom);
@@ -169,7 +213,7 @@ const buildClusterObjects = ({ scene, payload, lineWidth, canvas, fillVisible, w
   wireGeom.dispose();
   const lineMat = new LineMaterial({
     color: LINE_COLORS[payload.index],
-    linewidth: lineWidth,
+    linewidth: state.lineWidth,
     dashed: true,
     dashSize: medianEdge * DASH_SIZE_FACTOR,
     gapSize: medianEdge * DASH_GAP_FACTOR,
@@ -180,7 +224,7 @@ const buildClusterObjects = ({ scene, payload, lineWidth, canvas, fillVisible, w
   const wireOverlay = new LineSegments2(segGeom, lineMat);
   wireOverlay.computeLineDistances();
   wireOverlay.position.set(payload.tx, 0, payload.tz);
-  wireOverlay.visible = wireVisible;
+  wireOverlay.visible = state.wire;
   scene.add(wireOverlay);
 
   const shaderGeom = wireEdgesGeometry(payload.wireEdges);
@@ -192,23 +236,29 @@ const buildClusterObjects = ({ scene, payload, lineWidth, canvas, fillVisible, w
   });
   const shaderOverlay = new THREE.LineSegments(shaderGeom, shaderMat);
   shaderOverlay.position.set(payload.tx, 0, payload.tz);
-  shaderOverlay.visible = shaderVisible;
+  shaderOverlay.visible = state.shader;
   scene.add(shaderOverlay);
 
-  return { mesh, wireOverlay, shaderOverlay, geom };
+  const bandOverlay = buildBandOverlay({ scene, payload, visible: state.bands });
+  payload.faceTris = null;
+
+  return { mesh, wireOverlay, shaderOverlay, bandOverlay, geom };
 };
 
 const disposeClusterObjects = (scene, objs) => {
-  for (const { mesh, wireOverlay, shaderOverlay, geom } of objs) {
+  for (const { mesh, wireOverlay, shaderOverlay, bandOverlay, geom } of objs) {
     scene.remove(mesh);
     scene.remove(wireOverlay);
     scene.remove(shaderOverlay);
+    scene.remove(bandOverlay);
     mesh.material.dispose();
     geom.dispose();
     wireOverlay.geometry.dispose();
     wireOverlay.material.dispose();
     shaderOverlay.geometry.dispose();
     shaderOverlay.material.dispose();
+    bandOverlay.geometry.dispose();
+    bandOverlay.material.dispose();
   }
 };
 
@@ -217,7 +267,7 @@ const writeStats = (statsEl, payloads, objs) => {
     (s, o, i) => ({
       verts: s.verts + vertexCount(o.geom),
       tris:  s.tris  + triangleCount(o.geom),
-      source: s.source + ((payloads[i].tris.length / 9) | 0),
+      source: s.source + ((payloads[i].tris.length / FLOATS_PER_TRI) | 0),
     }),
     { verts: 0, tris: 0, source: 0 },
   );
@@ -273,15 +323,7 @@ export function mount(canvas, statsEl, { initialSettings, WasmLayout }) {
         seed: state.seed,
         WasmLayout,
       });
-      objs = payloads.map((p) => buildClusterObjects({
-        scene, payload: p,
-        lineWidth: state.lineWidth,
-        canvas,
-        fillVisible: state.fill,
-        wireVisible: state.wire,
-        shaderVisible: state.shader,
-        flatShading: state.flat,
-      }));
+      objs = payloads.map((p) => buildClusterObjects({ scene, payload: p, canvas, state }));
       // Initial uniform / dash state (the live updater handles subsequent changes).
       for (const o of objs) {
         o.shaderOverlay.material.uniforms.uSpeed.value = state.dashSpeed;
@@ -349,6 +391,7 @@ export function mount(canvas, statsEl, { initialSettings, WasmLayout }) {
         o.mesh.visible = state.fill;
         o.wireOverlay.visible = state.wire;
         o.shaderOverlay.visible = state.shader;
+        o.bandOverlay.visible = state.bands;
         if (o.mesh.material.flatShading !== state.flat) {
           o.mesh.material.flatShading = state.flat;
           o.mesh.material.needsUpdate = true;

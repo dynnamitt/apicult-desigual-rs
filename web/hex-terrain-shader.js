@@ -98,3 +98,95 @@ export const createWireShader = ({ color, dashSize, gapSize, speed }) =>
     transparent: true,
     extensions: { derivatives: true },
   });
+
+const FACE_TRIS_PER_HEX = 6;
+export const FLOATS_PER_TRI = 9;
+export const FLOATS_PER_HEX = FACE_TRIS_PER_HEX * FLOATS_PER_TRI;
+
+/**
+ * Builds a non-indexed `THREE.BufferGeometry` for the band shader from a flat
+ * hex-face-fan buffer (as emitted by `WasmLayout.face_tris(entangled)`),
+ * keeping only the hexes selected by `selectedHexIdx`. Each hex contributes
+ * 54 floats (6 tris × 3 verts × 3 floats); selection is whole-hex.
+ *
+ * Each vertex carries an `aWeight` float — `1.0` at the fan's center vertex
+ * (the first vert of every triangle in the rust-side `hex_face_tris` emission
+ * order) and `0.0` at the two perimeter corners. The band shader treats this
+ * as the triangle's "UV-Y": min at the perimeter edge, max at the centroid.
+ * Because all six fan tris share the same center vertex with weight `1.0`,
+ * the bands resolve as concentric rings inside the hex.
+ *
+ * @param {Float32Array} faceTrisBuf - flat `n_hexes * 54` floats.
+ * @param {number[]} selectedHexIdx - hex indices to emit.
+ * @returns {THREE.BufferGeometry} non-indexed geometry with `position` (vec3)
+ *   and `aWeight` (float) attributes plus a computed bounding box.
+ */
+export const bandGeometry = (faceTrisBuf, selectedHexIdx) => {
+  const nVerts = selectedHexIdx.length * FACE_TRIS_PER_HEX * 3;
+  const positions = new Float32Array(nVerts * 3);
+  const weights = new Float32Array(nVerts);
+  let p = 0, w = 0;
+  for (const idx of selectedHexIdx) {
+    const hexOff = idx * FLOATS_PER_HEX;
+    for (let t = 0; t < FACE_TRIS_PER_HEX; t++) {
+      const triOff = hexOff + t * FLOATS_PER_TRI;
+      for (let v = 0; v < 3; v++) {
+        positions[p]     = faceTrisBuf[triOff + v * 3];
+        positions[p + 1] = faceTrisBuf[triOff + v * 3 + 1];
+        positions[p + 2] = faceTrisBuf[triOff + v * 3 + 2];
+        weights[w++] = v === 0 ? 1.0 : 0.0;
+        p += 3;
+      }
+    }
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  g.setAttribute('aWeight', new THREE.BufferAttribute(weights, 1));
+  g.computeBoundingBox();
+  return g;
+};
+
+/**
+ * Returns a `ShaderMaterial` that paints each fan triangle with `bands`
+ * discrete steps along the per-vertex `aWeight` attribute (set up by
+ * {@link bandGeometry}) — `0.0` at the perimeter edge, `1.0` at the fan's
+ * center vertex. Smooth varying interpolation across the triangle is then
+ * quantized into N flat bands, giving concentric ring-bands inside each
+ * hex with `baseColor` at the rim fading toward `bgColor` at the centroid.
+ * No animation. `polygonOffset` keeps the overlay z-clean over the fill.
+ *
+ * @param {object} opts
+ * @param {THREE.ColorRepresentation} opts.baseColor - rim color (weight 0).
+ * @param {THREE.ColorRepresentation} opts.bgColor   - center color (weight 1).
+ * @param {number} [opts.bands=5] - number of discrete color steps.
+ * @returns {THREE.ShaderMaterial}
+ */
+export const createBandShader = ({ baseColor, bgColor, bands = 5 }) =>
+  new THREE.ShaderMaterial({
+    uniforms: {
+      uBase:  { value: new THREE.Color(baseColor) },
+      uBg:    { value: new THREE.Color(bgColor) },
+      uBands: { value: bands },
+    },
+    vertexShader: `
+      attribute float aWeight;
+      varying float vWeight;
+      void main() {
+        vWeight = aWeight;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      }
+    `,
+    fragmentShader: `
+      uniform float uBands;
+      uniform vec3  uBase, uBg;
+      varying float vWeight;
+      void main() {
+        float n = clamp(floor(vWeight * uBands), 0.0, uBands - 1.0);
+        gl_FragColor = vec4(mix(uBase, uBg, n / (uBands - 1.0)), 1.0);
+      }
+    `,
+    side: THREE.DoubleSide,
+    polygonOffset: true,
+    polygonOffsetFactor: -1,
+    polygonOffsetUnits: -1,
+  });

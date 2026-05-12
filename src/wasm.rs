@@ -176,6 +176,17 @@ impl WasmLayout {
         flatten_wire_edges(self.inner.gap_quads(), entangled)
     }
 
+    /// Per-hex face fans matching `entangled`, flat `n_hexes * 54` floats
+    /// (6 center-fan tris × 3 verts × 3 floats). The grouping is stable:
+    /// the i-th 54-float slice owns the 6 tris of the i-th matching hex
+    /// (in `shapes::hexagon` traversal order, skipping non-matching cells).
+    /// Lets the JS side address whole hex cells (e.g. random-subset overlays
+    /// like the y-axis band shader) without reconstructing the grouping
+    /// from the flat `tris` stream.
+    pub fn face_tris(&self, entangled: bool) -> Vec<f32> {
+        flatten_tris(self.inner.hex_face_tris(entangled))
+    }
+
     /// Cells along one outer side of the hexagon-shaped grid (see
     /// `HGridLayout::borderline_cells`). Returns `grid_radius + 1` views.
     pub fn borderline_cells(&self, direction: VertexDir) -> Vec<HexCellView> {

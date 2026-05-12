@@ -14,6 +14,10 @@ EXPORT = cargo run -q --example geo_export --release -- $(RADIUS) $(PAD) --seed 
 RENDER = sed "s|__SHA__|$(SHORT_SHA)|g" $(1) > $(2)
 # $(call RENDER_TERRAIN,<src>,<dst>) — also templates RADIUS for the terrain bootstrapper
 RENDER_TERRAIN = sed -e "s|__SHA__|$(SHORT_SHA)|g" -e "s|__RADIUS__|$(RADIUS)|g" $(1) > $(2)
+# $(call ENSURE,<cmd>,<install-recipe>) — short-circuit if <cmd> is on PATH;
+# otherwise print a notice and run <install-recipe> to install it. Use as the
+# first `@`-prefixed line of a recipe (each recipe line runs in its own shell).
+ENSURE = command -v $(1) >/dev/null 2>&1 || { echo ">> $(1) not found — installing via: $(2)"; $(2); }
 
 build:
 	cargo build
@@ -34,6 +38,7 @@ json-v1: prep
 	$(call EXPORT,json-v1,$(OUT)/apicult-desigual.json)
 
 wasm: prep
+	@$(call ENSURE,wasm-pack,cargo install wasm-pack)
 	wasm-pack build --target web --out-dir web/pkg --features wasm
 	@mkdir -p $(OUT)/pkg
 	cp web/pkg/apicult_desigual.js web/pkg/apicult_desigual_bg.wasm $(OUT)/pkg/
@@ -47,7 +52,10 @@ terrain-html: prep
 	cp web/hex-terrain.js web/hex-terrain-scene.js web/hex-terrain-shader.js web/hex-seam.js web/hex-terrain-controls.js $(OUT)/
 	cp web/hex-terrain.css $(OUT)/
 
+serve: preview
+	cd $(OUT); python3 -m http.server
+
 preview: svg-plain svg-rich json-v1 wasm preview-html terrain-html
 	@echo "preview built in $(OUT)/ (seed=$(HSEED), radius=$(RADIUS))"
 
-.PHONY: build test prep svg-plain svg-rich json-v1 wasm preview-html terrain-html preview
+.PHONY: build test prep svg-plain svg-rich json-v1 wasm preview-html terrain-html preview serve
