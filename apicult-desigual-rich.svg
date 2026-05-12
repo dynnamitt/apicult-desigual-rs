@@ -1,23 +1,23 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="-15.2 -16.7 30.8 32.8" width="800" height="800">
-  <polygon points="-9.42,-6.93 -10.71,-4.70 -13.29,-4.70 -14.58,-6.93 -13.29,-9.16 -10.71,-9.16" fill="rgb(120,240,70)" stroke="none" opacity="0.9"/>
-  <polygon points="-10.25,0.00 -11.13,1.51 -12.87,1.51 -13.75,-0.00 -12.87,-1.51 -11.13,-1.51" fill="rgb(108,214,64)" stroke="none" opacity="0.9"/>
-  <polygon points="-10.89,6.93 -11.44,7.89 -12.56,7.89 -13.11,6.93 -12.56,5.97 -11.44,5.97" fill="rgb(96,186,58)" stroke="none" opacity="0.9"/>
-  <polygon points="-3.41,-10.39 -4.71,-8.15 -7.29,-8.15 -8.59,-10.39 -7.29,-12.64 -4.71,-12.64" fill="rgb(111,220,65)" stroke="none" opacity="0.9"/>
-  <polygon points="-3.64,-3.46 -4.82,-1.42 -7.18,-1.42 -8.36,-3.46 -7.18,-5.51 -4.82,-5.51" fill="rgb(106,210,63)" stroke="none" opacity="0.9"/>
-  <polygon points="-4.72,3.46 -5.36,4.57 -6.64,4.57 -7.28,3.46 -6.64,2.36 -5.36,2.36" fill="rgb(97,188,58)" stroke="none" opacity="0.9"/>
-  <polygon points="-4.50,10.39 -5.25,11.70 -6.75,11.70 -7.50,10.39 -6.75,9.09 -5.25,9.09" fill="rgb(91,175,55)" stroke="none" opacity="0.9"/>
-  <polygon points="2.59,-13.86 1.30,-11.61 -1.30,-11.61 -2.59,-13.86 -1.30,-16.10 1.30,-16.10" fill="rgb(107,212,63)" stroke="none" opacity="0.9"/>
-  <polygon points="2.63,-6.93 1.31,-4.65 -1.31,-4.65 -2.63,-6.93 -1.31,-9.20 1.31,-9.20" fill="rgb(99,194,59)" stroke="none" opacity="0.9"/>
-  <polygon points="1.90,0.00 0.95,1.65 -0.95,1.65 -1.90,-0.00 -0.95,-1.65 0.95,-1.65" fill="rgb(93,179,56)" stroke="none" opacity="0.9"/>
-  <polygon points="1.68,6.93 0.84,8.39 -0.84,8.39 -1.68,6.93 -0.84,5.47 0.84,5.47" fill="rgb(80,150,50)" stroke="none" opacity="0.9"/>
-  <polygon points="1.89,13.86 0.94,15.49 -0.94,15.49 -1.89,13.86 -0.94,12.22 0.94,12.22" fill="rgb(87,167,53)" stroke="none" opacity="0.9"/>
-  <polygon points="8.39,-10.39 7.19,-8.32 4.81,-8.32 3.61,-10.39 4.81,-12.46 7.19,-12.46" fill="rgb(97,188,58)" stroke="none" opacity="0.9"/>
-  <polygon points="8.61,-3.46 7.30,-1.20 4.70,-1.20 3.39,-3.46 4.70,-5.72 7.30,-5.72" fill="rgb(90,173,55)" stroke="none" opacity="0.9"/>
-  <polygon points="7.72,3.46 6.86,4.95 5.14,4.95 4.28,3.46 5.14,1.98 6.86,1.98" fill="rgb(74,138,47)" stroke="none" opacity="0.9"/>
-  <polygon points="8.35,10.39 7.18,12.43 4.82,12.43 3.65,10.39 4.82,8.35 7.18,8.35" fill="rgb(78,147,49)" stroke="none" opacity="0.9"/>
-  <polygon points="14.98,-6.93 13.49,-4.35 10.51,-4.35 9.02,-6.93 10.51,-9.51 13.49,-9.51" fill="rgb(93,179,56)" stroke="none" opacity="0.9"/>
-  <polygon points="14.58,0.00 13.29,2.23 10.71,2.23 9.42,-0.00 10.71,-2.23 13.29,-2.23" fill="rgb(75,140,47)" stroke="none" opacity="0.9"/>
-  <polygon points="14.09,6.93 13.04,8.74 10.96,8.74 9.91,6.93 10.96,5.12 13.04,5.12" fill="rgb(66,119,43)" stroke="none" opacity="0.9"/>
+  <polygon points="-9.42,-6.93 -10.71,-4.70 -13.29,-4.70 -14.58,-6.93 -13.29,-9.16 -10.71,-9.16" fill="rgb(99,194,59)" stroke="none" opacity="0.9"/>
+  <polygon points="-10.25,0.00 -11.13,1.51 -12.87,1.51 -13.75,-0.00 -12.87,-1.51 -11.13,-1.51" fill="rgb(98,192,59)" stroke="none" opacity="0.9"/>
+  <polygon points="-10.89,6.93 -11.44,7.89 -12.56,7.89 -13.11,6.93 -12.56,5.97 -11.44,5.97" fill="rgb(97,188,58)" stroke="none" opacity="0.9"/>
+  <polygon points="-3.41,-10.39 -4.71,-8.15 -7.29,-8.15 -8.59,-10.39 -7.29,-12.64 -4.71,-12.64" fill="rgb(117,234,68)" stroke="none" opacity="0.9"/>
+  <polygon points="-3.64,-3.46 -4.82,-1.42 -7.18,-1.42 -8.36,-3.46 -7.18,-5.51 -4.82,-5.51" fill="rgb(108,214,64)" stroke="none" opacity="0.9"/>
+  <polygon points="-4.72,3.46 -5.36,4.57 -6.64,4.57 -7.28,3.46 -6.64,2.36 -5.36,2.36" fill="rgb(115,229,67)" stroke="none" opacity="0.9"/>
+  <polygon points="-4.50,10.39 -5.25,11.70 -6.75,11.70 -7.50,10.39 -6.75,9.09 -5.25,9.09" fill="rgb(106,208,63)" stroke="none" opacity="0.9"/>
+  <polygon points="2.59,-13.86 1.30,-11.61 -1.30,-11.61 -2.59,-13.86 -1.30,-16.10 1.30,-16.10" fill="rgb(119,238,69)" stroke="none" opacity="0.9"/>
+  <polygon points="2.63,-6.93 1.31,-4.65 -1.31,-4.65 -2.63,-6.93 -1.31,-9.20 1.31,-9.20" fill="rgb(117,234,68)" stroke="none" opacity="0.9"/>
+  <polygon points="1.90,0.00 0.95,1.65 -0.95,1.65 -1.90,-0.00 -0.95,-1.65 0.95,-1.65" fill="rgb(114,228,67)" stroke="none" opacity="0.9"/>
+  <polygon points="1.68,6.93 0.84,8.39 -0.84,8.39 -1.68,6.93 -0.84,5.47 0.84,5.47" fill="rgb(109,217,64)" stroke="none" opacity="0.9"/>
+  <polygon points="1.89,13.86 0.94,15.49 -0.94,15.49 -1.89,13.86 -0.94,12.22 0.94,12.22" fill="rgb(95,185,57)" stroke="none" opacity="0.9"/>
+  <polygon points="8.39,-10.39 7.19,-8.32 4.81,-8.32 3.61,-10.39 4.81,-12.46 7.19,-12.46" fill="rgb(120,240,70)" stroke="none" opacity="0.9"/>
+  <polygon points="8.61,-3.46 7.30,-1.20 4.70,-1.20 3.39,-3.46 4.70,-5.72 7.30,-5.72" fill="rgb(109,215,64)" stroke="none" opacity="0.9"/>
+  <polygon points="7.72,3.46 6.86,4.95 5.14,4.95 4.28,3.46 5.14,1.98 6.86,1.98" fill="rgb(117,233,68)" stroke="none" opacity="0.9"/>
+  <polygon points="8.35,10.39 7.18,12.43 4.82,12.43 3.65,10.39 4.82,8.35 7.18,8.35" fill="rgb(99,193,59)" stroke="none" opacity="0.9"/>
+  <polygon points="14.98,-6.93 13.49,-4.35 10.51,-4.35 9.02,-6.93 10.51,-9.51 13.49,-9.51" fill="rgb(106,208,63)" stroke="none" opacity="0.9"/>
+  <polygon points="14.58,0.00 13.29,2.23 10.71,2.23 9.42,-0.00 10.71,-2.23 13.29,-2.23" fill="rgb(110,219,65)" stroke="none" opacity="0.9"/>
+  <polygon points="14.09,6.93 13.04,8.74 10.96,8.74 9.91,6.93 10.96,5.12 13.04,5.12" fill="rgb(99,194,59)" stroke="none" opacity="0.9"/>
   <polygon points="-9.42,-6.93 -10.71,-4.70 -13.29,-4.70 -14.58,-6.93 -13.29,-9.16 -10.71,-9.16" fill="none" stroke="white" stroke-width="0.36" stroke-linejoin="round"/>
   <polygon points="-10.25,0.00 -11.13,1.51 -12.87,1.51 -13.75,-0.00 -12.87,-1.51 -11.13,-1.51" fill="none" stroke="white" stroke-width="0.36" stroke-linejoin="round"/>
   <polygon points="-10.89,6.93 -11.44,7.89 -12.56,7.89 -13.11,6.93 -12.56,5.97 -11.44,5.97" fill="none" stroke="white" stroke-width="0.36" stroke-linejoin="round"/>
@@ -224,23 +224,23 @@
   <line x1="9.91" y1="6.93" x2="7.18" y2="8.35" stroke="black" stroke-width="0.12" stroke-linecap="round"/>
   <line x1="10.96" y1="5.12" x2="10.71" y2="2.23" stroke="black" stroke-width="0.12" stroke-linecap="round"/>
   <line x1="13.04" y1="5.12" x2="13.29" y2="2.23" stroke="black" stroke-width="0.12" stroke-linecap="round"/>
-  <text x="-12.00" y="-6.93" font-size="0.88" font-family="monospace" fill="black" text-anchor="middle" dominant-baseline="central">15.0</text>
-  <text x="-12.00" y="0.00" font-size="0.88" font-family="monospace" fill="black" text-anchor="middle" dominant-baseline="central">12.9</text>
-  <text x="-12.00" y="6.93" font-size="0.88" font-family="monospace" fill="black" text-anchor="middle" dominant-baseline="central">10.6</text>
-  <text x="-6.00" y="-10.39" font-size="0.88" font-family="monospace" fill="black" text-anchor="middle" dominant-baseline="central">13.4</text>
-  <text x="-6.00" y="-3.46" font-size="0.88" font-family="monospace" fill="black" text-anchor="middle" dominant-baseline="central">12.5</text>
-  <text x="-6.00" y="3.46" font-size="0.88" font-family="monospace" fill="black" text-anchor="middle" dominant-baseline="central">10.7</text>
-  <text x="-6.00" y="10.39" font-size="0.88" font-family="monospace" fill="black" text-anchor="middle" dominant-baseline="central">9.6</text>
-  <text x="0.00" y="-13.86" font-size="0.88" font-family="monospace" fill="black" text-anchor="middle" dominant-baseline="central">12.7</text>
-  <text x="0.00" y="-6.93" font-size="0.88" font-family="monospace" fill="black" text-anchor="middle" dominant-baseline="central">11.2</text>
+  <text x="-12.00" y="-6.93" font-size="0.88" font-family="monospace" fill="black" text-anchor="middle" dominant-baseline="central">8.0</text>
+  <text x="-12.00" y="0.00" font-size="0.88" font-family="monospace" fill="black" text-anchor="middle" dominant-baseline="central">7.8</text>
+  <text x="-12.00" y="6.93" font-size="0.88" font-family="monospace" fill="black" text-anchor="middle" dominant-baseline="central">7.6</text>
+  <text x="-6.00" y="-10.39" font-size="0.88" font-family="monospace" fill="black" text-anchor="middle" dominant-baseline="central">10.3</text>
+  <text x="-6.00" y="-3.46" font-size="0.88" font-family="monospace" fill="black" text-anchor="middle" dominant-baseline="central">9.2</text>
+  <text x="-6.00" y="3.46" font-size="0.88" font-family="monospace" fill="black" text-anchor="middle" dominant-baseline="central">10.1</text>
+  <text x="-6.00" y="10.39" font-size="0.88" font-family="monospace" fill="black" text-anchor="middle" dominant-baseline="central">8.8</text>
+  <text x="0.00" y="-13.86" font-size="0.88" font-family="monospace" fill="black" text-anchor="middle" dominant-baseline="central">10.6</text>
+  <text x="0.00" y="-6.93" font-size="0.88" font-family="monospace" fill="black" text-anchor="middle" dominant-baseline="central">10.4</text>
   <text x="0.00" y="0.00" font-size="0.88" font-family="monospace" fill="black" text-anchor="middle" dominant-baseline="central">10.0</text>
-  <text x="0.00" y="6.93" font-size="0.88" font-family="monospace" fill="black" text-anchor="middle" dominant-baseline="central">7.6</text>
-  <text x="0.00" y="13.86" font-size="0.88" font-family="monospace" fill="black" text-anchor="middle" dominant-baseline="central">9.0</text>
+  <text x="0.00" y="6.93" font-size="0.88" font-family="monospace" fill="black" text-anchor="middle" dominant-baseline="central">9.3</text>
+  <text x="0.00" y="13.86" font-size="0.88" font-family="monospace" fill="black" text-anchor="middle" dominant-baseline="central">7.4</text>
   <text x="6.00" y="-10.39" font-size="0.88" font-family="monospace" fill="black" text-anchor="middle" dominant-baseline="central">10.7</text>
-  <text x="6.00" y="-3.46" font-size="0.88" font-family="monospace" fill="black" text-anchor="middle" dominant-baseline="central">9.5</text>
-  <text x="6.00" y="3.46" font-size="0.88" font-family="monospace" fill="black" text-anchor="middle" dominant-baseline="central">6.6</text>
-  <text x="6.00" y="10.39" font-size="0.88" font-family="monospace" fill="black" text-anchor="middle" dominant-baseline="central">7.3</text>
-  <text x="12.00" y="-6.93" font-size="0.88" font-family="monospace" fill="black" text-anchor="middle" dominant-baseline="central">10.0</text>
-  <text x="12.00" y="0.00" font-size="0.88" font-family="monospace" fill="black" text-anchor="middle" dominant-baseline="central">6.7</text>
-  <text x="12.00" y="6.93" font-size="0.88" font-family="monospace" fill="black" text-anchor="middle" dominant-baseline="central">5.0</text>
+  <text x="6.00" y="-3.46" font-size="0.88" font-family="monospace" fill="black" text-anchor="middle" dominant-baseline="central">9.2</text>
+  <text x="6.00" y="3.46" font-size="0.88" font-family="monospace" fill="black" text-anchor="middle" dominant-baseline="central">10.3</text>
+  <text x="6.00" y="10.39" font-size="0.88" font-family="monospace" fill="black" text-anchor="middle" dominant-baseline="central">7.9</text>
+  <text x="12.00" y="-6.93" font-size="0.88" font-family="monospace" fill="black" text-anchor="middle" dominant-baseline="central">8.8</text>
+  <text x="12.00" y="0.00" font-size="0.88" font-family="monospace" fill="black" text-anchor="middle" dominant-baseline="central">9.5</text>
+  <text x="12.00" y="6.93" font-size="0.88" font-family="monospace" fill="black" text-anchor="middle" dominant-baseline="central">8.0</text>
 </svg>

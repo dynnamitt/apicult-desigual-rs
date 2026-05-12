@@ -285,6 +285,23 @@ export class WasmLayout {
         return v1;
     }
     /**
+     * Per-hex face fans matching `entangled`, flat `n_hexes * 54` floats
+     * (6 center-fan tris × 3 verts × 3 floats). The grouping is stable:
+     * the i-th 54-float slice owns the 6 tris of the i-th matching hex
+     * (in `shapes::hexagon` traversal order, skipping non-matching cells).
+     * Lets the JS side address whole hex cells (e.g. random-subset overlays
+     * like the y-axis band shader) without reconstructing the grouping
+     * from the flat `tris` stream.
+     * @param {boolean} entangled
+     * @returns {Float32Array}
+     */
+    face_tris(entangled) {
+        const ret = wasm.wasmlayout_face_tris(this.__wbg_ptr, entangled);
+        var v1 = getArrayF32FromWasm0(ret[0], ret[1]).slice();
+        wasm.__wbindgen_free(ret[0], ret[1] * 4, 4);
+        return v1;
+    }
+    /**
      * Build a layout with project defaults (`HGridSettings::default()`)
      * overridden by the explicit `radius` and noise seeds. `overrides`
      * pin per-hex height/radius values after noise sampling; `entangle`
@@ -339,7 +356,7 @@ if (Symbol.dispose) WasmLayout.prototype[Symbol.dispose] = WasmLayout.prototype.
 function __wbg_get_imports() {
     const import0 = {
         __proto__: null,
-        __wbg___wbindgen_throw_9c75d47bf9e7731e: function(arg0, arg1) {
+        __wbg___wbindgen_throw_9c31b086c2b26051: function(arg0, arg1) {
             throw new Error(getStringFromWasm0(arg0, arg1));
         },
         __wbg_entanglespec_unwrap: function(arg0) {

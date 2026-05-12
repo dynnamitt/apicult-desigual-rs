@@ -73,6 +73,16 @@ export class WasmLayout {
      */
     borderline_cells(direction: VertexDir): HexCellView[];
     /**
+     * Per-hex face fans matching `entangled`, flat `n_hexes * 54` floats
+     * (6 center-fan tris × 3 verts × 3 floats). The grouping is stable:
+     * the i-th 54-float slice owns the 6 tris of the i-th matching hex
+     * (in `shapes::hexagon` traversal order, skipping non-matching cells).
+     * Lets the JS side address whole hex cells (e.g. random-subset overlays
+     * like the y-axis band shader) without reconstructing the grouping
+     * from the flat `tris` stream.
+     */
+    face_tris(entangled: boolean): Float32Array;
+    /**
      * Build a layout with project defaults (`HGridSettings::default()`)
      * overridden by the explicit `radius` and noise seeds. `overrides`
      * pin per-hex height/radius values after noise sampling; `entangle`
@@ -118,6 +128,7 @@ export interface InitOutput {
     readonly __wbg_wasmlayout_free: (a: number, b: number) => void;
     readonly overridespec_new: (a: number, b: number, c: number, d: number) => number;
     readonly wasmlayout_borderline_cells: (a: number, b: number) => [number, number];
+    readonly wasmlayout_face_tris: (a: number, b: number) => [number, number];
     readonly wasmlayout_new: (a: number, b: number, c: number, d: number, e: number, f: number, g: number) => number;
     readonly wasmlayout_tris: (a: number, b: number) => [number, number];
     readonly wasmlayout_wire_edges: (a: number, b: number) => [number, number];
