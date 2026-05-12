@@ -153,20 +153,26 @@ export const bandGeometry = (faceTrisBuf, selectedHexIdx) => {
  * center vertex. Smooth varying interpolation across the triangle is then
  * quantized into N flat bands, giving concentric ring-bands inside each
  * hex with `baseColor` at the rim fading toward `bgColor` at the centroid.
- * No animation. `polygonOffset` keeps the overlay z-clean over the fill.
+ * The final color is scaled by `brightness` so the overlay matches the lit
+ * `MeshStandardMaterial` fill under the scene's ambient + directional
+ * lights (a single multiplier suffices because hex face fans are flat-top
+ * with a constant normal). No animation. `polygonOffset` keeps the overlay
+ * z-clean over the fill.
  *
  * @param {object} opts
  * @param {THREE.ColorRepresentation} opts.baseColor - rim color (weight 0).
  * @param {THREE.ColorRepresentation} opts.bgColor   - center color (weight 1).
  * @param {number} [opts.bands=5] - number of discrete color steps.
+ * @param {number} [opts.brightness=1.0] - lighting multiplier.
  * @returns {THREE.ShaderMaterial}
  */
-export const createBandShader = ({ baseColor, bgColor, bands = 5 }) =>
+export const createBandShader = ({ baseColor, bgColor, bands = 5, brightness = 1.0 }) =>
   new THREE.ShaderMaterial({
     uniforms: {
-      uBase:  { value: new THREE.Color(baseColor) },
-      uBg:    { value: new THREE.Color(bgColor) },
-      uBands: { value: bands },
+      uBase:       { value: new THREE.Color(baseColor) },
+      uBg:         { value: new THREE.Color(bgColor) },
+      uBands:      { value: bands },
+      uBrightness: { value: brightness },
     },
     vertexShader: `
       attribute float aWeight;
@@ -177,12 +183,13 @@ export const createBandShader = ({ baseColor, bgColor, bands = 5 }) =>
       }
     `,
     fragmentShader: `
-      uniform float uBands;
+      uniform float uBands, uBrightness;
       uniform vec3  uBase, uBg;
       varying float vWeight;
       void main() {
         float n = clamp(floor(vWeight * uBands), 0.0, uBands - 1.0);
-        gl_FragColor = vec4(mix(uBase, uBg, n / (uBands - 1.0)), 1.0);
+        vec3 col = mix(uBase, uBg, n / (uBands - 1.0));
+        gl_FragColor = vec4(col * uBrightness, 1.0);
       }
     `,
     side: THREE.DoubleSide,

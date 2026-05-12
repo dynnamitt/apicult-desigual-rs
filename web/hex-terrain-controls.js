@@ -12,10 +12,6 @@ const LIVE_KEYS = new Set([
 
 const TOGGLE_KEYS = ["fill", "wire", "shader", "bands", "flat"];
 
-// Wire and shader-wire are mutually exclusive — turning one on flips the
-// other off. The map encodes both directions for symmetric lookup.
-const WIRE_EXCLUSIVE_PAIR = { wire: "shader", shader: "wire" };
-
 // id → (DOM value → settings field) mapping. Strings come out of <input>;
 // the parser does the type coercion (number, integer, or null for empty seed).
 const INPUT_SPECS = [
@@ -112,14 +108,6 @@ export function bindControls(rootEl, { initialSettings, onApply, onLive, onToggl
       const next = !btn.classList.contains("on");
       btn.classList.toggle("on", next);
       onToggle(k, next);
-      const peer = WIRE_EXCLUSIVE_PAIR[k];
-      if (peer && next) {
-        const peerBtn = rootEl.querySelector(`#btn-${peer}`);
-        if (peerBtn?.classList.contains("on")) {
-          peerBtn.classList.remove("on");
-          onToggle(peer, false);
-        }
-      }
     });
   }
 

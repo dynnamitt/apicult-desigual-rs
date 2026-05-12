@@ -54,7 +54,36 @@
       </fieldset>
 
       <fieldset>
-        <legend>visuals</legend>
+        <legend>mesh</legend>
+        <div class="toggle-grid">
+          <button id="btn-fill" type="button" class="on">filled</button>
+          <button id="btn-flat" type="button" class="on">flat shading</button>
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>wires</legend>
+        <div class="toggle-grid">
+          <button id="btn-wire"   type="button" class="on">wireframe</button>
+          <button id="btn-shader" type="button">shader wire</button>
+        </div>
+        <label class="row"><span>line width</span>
+          <input id="ctl-line-width" type="number" min="1" max="6" step="0.5" value="2">
+        </label>
+        <label class="row"><span>dash speed</span>
+          <input id="ctl-dash-speed" type="number" min="0" max="3" step="0.05" value="0.6">
+        </label>
+      </fieldset>
+
+      <fieldset>
+        <legend>shaders</legend>
+        <div class="toggle-grid">
+          <button id="btn-bands" type="button">bands</button>
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>post-fx</legend>
         <label class="row"><span>bloom strength</span>
           <input id="ctl-bloom-strength" type="number" min="0" max="3" step="0.05" value="0.8">
         </label>
@@ -64,23 +93,6 @@
         <label class="row"><span>bloom threshold</span>
           <input id="ctl-bloom-threshold" type="number" min="0" max="1.5" step="0.05" value="0.75">
         </label>
-        <label class="row"><span>dash speed</span>
-          <input id="ctl-dash-speed" type="number" min="0" max="3" step="0.05" value="0.6">
-        </label>
-        <label class="row"><span>line width</span>
-          <input id="ctl-line-width" type="number" min="1" max="6" step="0.5" value="2">
-        </label>
-      </fieldset>
-
-      <fieldset>
-        <legend>display</legend>
-        <div class="toggle-grid">
-          <button id="btn-fill"   type="button" class="on">filled</button>
-          <button id="btn-wire"   type="button" class="on">wireframe</button>
-          <button id="btn-shader" type="button">shader wire</button>
-          <button id="btn-bands"  type="button">bands</button>
-          <button id="btn-flat"   type="button" class="on">flat shading</button>
-        </div>
       </fieldset>
     </aside>
   </main>
