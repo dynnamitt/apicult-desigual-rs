@@ -318,6 +318,56 @@ impl HGridLayout {
         tris
     }
 
+    /// For each hex matching `entangled` (same iteration / ordering as
+    /// [`HGridLayout::hex_face_tris`]), returns the 6 face-edge bridge
+    /// quads as a fixed-size array indexed by edge `0..6`:
+    /// `Some([v0, n0, n1, v1])` if the neighbor on that edge exists in
+    /// the grid, `None` for border edges.
+    ///
+    /// Quad-corner order matches [`HGridLayout::gap_quads`]:
+    /// `corners[0]` / `corners[3]` lie on the source hex perimeter (the
+    /// near edge of the bridge), `corners[1]` / `corners[2]` on the
+    /// neighbor (the far edge). The two source-side corners are
+    /// bit-exact the perimeter corners of the face-fan tri sharing that
+    /// edge (both go through [`HGridLayout::vertex`]), so a band-shader
+    /// overlay that paints both surfaces with `aWeight = 0` at the
+    /// shared edge has no seam.
+    ///
+    /// Unlike [`gap_quads`], the even-edge ownership rule is **not**
+    /// applied here — every face-edge of every matching hex is
+    /// reported, so callers picking a random one of a hex's 6 tris can
+    /// always recover its bridge geometry.
+    pub fn hex_face_bridge_quads(&self, entangled: bool) -> Vec<[Option<[Vec3; 4]>; 6]> {
+        let mut out = Vec::new();
+        for hex in shapes::hexagon(Hex::ZERO, self.grid_radius) {
+            let Some(cell) = self.cells.get(hex) else {
+                continue;
+            };
+            if cell.entangled != entangled {
+                continue;
+            }
+            let mut bridges: [Option<[Vec3; 4]>; 6] = [None; 6];
+            for edge_index in 0..6u8 {
+                let dir = EdgeDirection::ALL_DIRECTIONS[edge_index as usize];
+                let neighbor = hex.neighbor(dir);
+                if self.cells.get(neighbor).is_none() {
+                    continue;
+                }
+                let (v0_idx, v1_idx, n0_idx, n1_idx) = math::quad_corner_indices(edge_index);
+                if let (Some(a), Some(b), Some(c), Some(d)) = (
+                    self.vertex(hex, v0_idx),
+                    self.vertex(neighbor, n0_idx),
+                    self.vertex(neighbor, n1_idx),
+                    self.vertex(hex, v1_idx),
+                ) {
+                    bridges[edge_index as usize] = Some([a, b, c, d]);
+                }
+            }
+            out.push(bridges);
+        }
+        out
+    }
+
     /// Returns the two triangles of every gap quad whose entanglement matches
     /// `entangled`, split along the rust-canonical `[v0, v2]` diagonal:
     /// `[a, b, c]` then `[a, c, d]`.
@@ -600,6 +650,80 @@ mod tests {
                 (y0 - y1).abs() < 1e-4 && (y0 - y2).abs() < 1e-4,
                 "tri {i}: heights differ ({y0}, {y1}, {y2}) — face should be flat"
             );
+        }
+    }
+
+    #[test]
+    fn hex_face_bridge_quads_per_hex_shape() {
+        // Radius-1 grid: 1 center + 6 borders. Center sees 6 in-grid
+        // neighbors → 6 bridges; each border sees 3.
+        let g = HGridSettings {
+            radius: 1,
+            ..default_settings()
+        };
+        let layout = HGridLayout::new(&g, &[], &[]);
+        let bridges = layout.hex_face_bridge_quads(false);
+        assert_eq!(bridges.len(), 7);
+        let counts: Vec<usize> = bridges
+            .iter()
+            .map(|b| b.iter().filter(|q| q.is_some()).count())
+            .collect();
+        let six = counts.iter().filter(|&&c| c == 6).count();
+        let three = counts.iter().filter(|&&c| c == 3).count();
+        assert_eq!(six, 1, "exactly one hex (center) should have 6 bridges; got {counts:?}");
+        assert_eq!(three, 6, "six border hexes should have 3 bridges; got {counts:?}");
+        assert!(
+            layout.hex_face_bridge_quads(true).is_empty(),
+            "no entangled cells → entangled query empty"
+        );
+    }
+
+    #[test]
+    fn hex_face_bridge_quads_emit_each_gap_twice() {
+        // Every gap quad is shared by two hexes, and each hex reports both
+        // its `[0, 2, 4]` and `[1, 3, 5]` edges, so the total Some-count
+        // is exactly 2× the canonical `gap_quads().len()`.
+        for r in [1u32, 2, 4] {
+            let g = HGridSettings {
+                radius: r,
+                ..default_settings()
+            };
+            let layout = HGridLayout::new(&g, &[], &[]);
+            let bridges = layout.hex_face_bridge_quads(false);
+            let some_count: usize = bridges
+                .iter()
+                .map(|b| b.iter().filter(|q| q.is_some()).count())
+                .sum();
+            assert_eq!(some_count, layout.gap_quads().len() * 2);
+        }
+    }
+
+    #[test]
+    fn hex_face_bridge_quads_share_corners_with_face_tris() {
+        // The two source-side corners of each Some bridge must match the
+        // perimeter corners of the face-fan tri that owns the same edge.
+        // `shapes::hexagon` shares its order between hex_face_tris and
+        // hex_face_bridge_quads, so the i-th hex's 6 tris live at
+        // face_tris[i*6 .. (i+1)*6] alongside bridges[i].
+        let g = HGridSettings {
+            radius: 1,
+            ..default_settings()
+        };
+        let layout = HGridLayout::new(&g, &[], &[]);
+        let face_tris = layout.hex_face_tris(false);
+        let bridges = layout.hex_face_bridge_quads(false);
+        let center_idx = bridges
+            .iter()
+            .position(|b| b.iter().all(|q| q.is_some()))
+            .expect("one hex must have all 6 in-grid neighbors at radius=1");
+        let base = center_idx * 6;
+        for edge_index in 0..6usize {
+            let tri = face_tris[base + edge_index];
+            let q = bridges[center_idx][edge_index].expect("center has all 6 bridges");
+            // Face-fan tri vertices: [center, perimeter_i, perimeter_(i+1)].
+            // Bridge quad: [v0 = perimeter_i, n0, n1, v1 = perimeter_(i+1)].
+            assert_eq!(tri[1], q[0], "edge {edge_index}: tri.v1 vs bridge.v0");
+            assert_eq!(tri[2], q[3], "edge {edge_index}: tri.v2 vs bridge.v1");
         }
     }
 

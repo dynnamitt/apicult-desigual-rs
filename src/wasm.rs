@@ -187,6 +187,21 @@ impl WasmLayout {
         flatten_tris(self.inner.hex_face_tris(entangled))
     }
 
+    /// Per-hex face-edge bridge quads matching `entangled`, flat
+    /// `n_hexes * 78` floats: 6 slots × 13 floats per slot
+    /// (`[flag, v0x, v0y, v0z, ..., v3x, v3y, v3z]`). `flag` is `1.0`
+    /// when a bridge exists on that face edge, `0.0` on border edges
+    /// (the 12 vertex floats are zeros in that case). Stride and hex
+    /// ordering match [`face_tris`] — the i-th 78-float slice owns the
+    /// 6 bridges of the i-th matching hex. Quad-corner order matches
+    /// the `gap_quads` layout: `v0` / `v3` lie on the source hex
+    /// perimeter, `n0` / `n1` on the neighbor — JS picks one of the 6
+    /// slots per selected hex and emits two band-shaded tris bridging
+    /// the gap.
+    pub fn face_bridge_quads(&self, entangled: bool) -> Vec<f32> {
+        flatten_bridges(self.inner.hex_face_bridge_quads(entangled))
+    }
+
     /// Cells along one outer side of the hexagon-shaped grid (see
     /// `HGridLayout::borderline_cells`). Returns `grid_radius + 1` views.
     pub fn borderline_cells(&self, direction: VertexDir) -> Vec<HexCellView> {
@@ -207,6 +222,23 @@ fn flatten_tris(tris: Vec<[Vec3; 3]>) -> Vec<f32> {
     let mut out = Vec::with_capacity(tris.len() * 9);
     for [a, b, c] in tris {
         out.extend_from_slice(&[a.x, a.y, a.z, b.x, b.y, b.z, c.x, c.y, c.z]);
+    }
+    out
+}
+
+fn flatten_bridges(data: Vec<[Option<[Vec3; 4]>; 6]>) -> Vec<f32> {
+    let mut out = Vec::with_capacity(data.len() * 78);
+    for hex_bridges in data {
+        for slot in hex_bridges {
+            if let Some(corners) = slot {
+                out.push(1.0);
+                for v in corners {
+                    out.extend_from_slice(&[v.x, v.y, v.z]);
+                }
+            } else {
+                out.extend_from_slice(&[0.0_f32; 13]);
+            }
+        }
     }
     out
 }

@@ -10,7 +10,7 @@ const LIVE_KEYS = new Set([
   "bloomStrength", "bloomRadius", "bloomThreshold", "dashSpeed", "lineWidth",
 ]);
 
-const TOGGLE_KEYS = ["fill", "wire", "shader", "bands", "flat"];
+const TOGGLE_KEYS = ["fill", "wire", "shader", "bands", "bridge", "flat"];
 
 // id → (DOM value → settings field) mapping. Strings come out of <input>;
 // the parser does the type coercion (number, integer, or null for empty seed).

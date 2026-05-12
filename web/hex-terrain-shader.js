@@ -197,3 +197,114 @@ export const createBandShader = ({ baseColor, bgColor, bands = 5, brightness = 1
     polygonOffsetFactor: -1,
     polygonOffsetUnits: -1,
   });
+
+const BRIDGE_FLOATS_PER_SLOT = 13;
+const BRIDGE_SLOTS_PER_HEX = 6;
+export const FLOATS_PER_HEX_BRIDGES = BRIDGE_FLOATS_PER_SLOT * BRIDGE_SLOTS_PER_HEX;
+
+/**
+ * Builds a non-indexed `THREE.BufferGeometry` for the bridge band shader
+ * from a flat bridges-per-hex buffer (as emitted by
+ * `WasmLayout.face_bridge_quads`). Each pick `(hexIdx, edgeIdx)` reads
+ * one 13-float slot — the first float is a 1/0 present flag (callers
+ * filter out 0-flag slots) and the remaining 12 floats are the 4 quad
+ * corners. Each quad is emitted as two tris splitting on the canonical
+ * `[q0, q2]` diagonal (matching `gap_quad_tris`).
+ *
+ * Per-vertex `aWeight`: `q0`/`q3` (source-hex side, near edge of the
+ * bridge) → 0.0 (continuation of the source face tri's perimeter weight,
+ * which is also 0); `q1`/`q2` (neighbor side, far edge) → 1.0. The band
+ * shader maps weight 0 → base color, weight 1 → bg color, giving a
+ * base→bg fade outward across the bridge that mirrors the source hex's
+ * rim→centroid fade.
+ *
+ * @param {Float32Array} bridgesBuf - flat `n_hexes * 78` floats.
+ * @param {Array<{hexIdx: number, edgeIdx: number}>} picks - one bridge per pick.
+ * @returns {THREE.BufferGeometry}
+ */
+export const bridgeGeometry = (bridgesBuf, picks) => {
+  const positions = new Float32Array(picks.length * 18);
+  const weights = new Float32Array(picks.length * 6);
+  let p = 0, w = 0;
+  for (const { hexIdx, edgeIdx } of picks) {
+    const off = hexIdx * FLOATS_PER_HEX_BRIDGES + edgeIdx * BRIDGE_FLOATS_PER_SLOT + 1;
+    const qx = (i) => bridgesBuf[off + i * 3];
+    const qy = (i) => bridgesBuf[off + i * 3 + 1];
+    const qz = (i) => bridgesBuf[off + i * 3 + 2];
+    // Tri 1 [q0, q1, q2] — weights 0, 1, 1
+    positions[p++] = qx(0); positions[p++] = qy(0); positions[p++] = qz(0);
+    positions[p++] = qx(1); positions[p++] = qy(1); positions[p++] = qz(1);
+    positions[p++] = qx(2); positions[p++] = qy(2); positions[p++] = qz(2);
+    weights[w++] = 0; weights[w++] = 1; weights[w++] = 1;
+    // Tri 2 [q0, q2, q3] — weights 0, 1, 0
+    positions[p++] = qx(0); positions[p++] = qy(0); positions[p++] = qz(0);
+    positions[p++] = qx(2); positions[p++] = qy(2); positions[p++] = qz(2);
+    positions[p++] = qx(3); positions[p++] = qy(3); positions[p++] = qz(3);
+    weights[w++] = 0; weights[w++] = 1; weights[w++] = 0;
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  g.setAttribute('aWeight', new THREE.BufferAttribute(weights, 1));
+  g.computeBoundingBox();
+  return g;
+};
+
+/**
+ * Returns a `ShaderMaterial` for bridge band quads — same band stepping
+ * as {@link createBandShader} but with per-fragment Lambert lighting
+ * recovered from world-space `dFdx`/`dFdy` derivatives of the
+ * interpolated position. Flat-top hex face fans share a constant
+ * `(0,1,0)` normal so a precomputed brightness suffices; bridge quads
+ * tilt with the height delta between adjacent hexes, so the brightness
+ * has to be derived per-fragment from the actual surface normal.
+ *
+ * @param {object} opts
+ * @param {THREE.ColorRepresentation} opts.baseColor
+ * @param {THREE.ColorRepresentation} opts.bgColor
+ * @param {number} [opts.bands=5]
+ * @param {[number, number, number]} opts.sunDir   - world-space sun direction.
+ * @param {number} opts.ambient
+ * @param {number} opts.sunIntensity
+ * @returns {THREE.ShaderMaterial}
+ */
+export const createBridgeBandShader = ({
+  baseColor, bgColor, bands = 5, sunDir, ambient, sunIntensity,
+}) => new THREE.ShaderMaterial({
+  uniforms: {
+    uBase:         { value: new THREE.Color(baseColor) },
+    uBg:           { value: new THREE.Color(bgColor) },
+    uBands:        { value: bands },
+    uSunDir:       { value: new THREE.Vector3(...sunDir).normalize() },
+    uAmbient:      { value: ambient },
+    uSunIntensity: { value: sunIntensity },
+  },
+  vertexShader: `
+    attribute float aWeight;
+    varying float vWeight;
+    varying vec3 vWorldPos;
+    void main() {
+      vWeight = aWeight;
+      vWorldPos = (modelMatrix * vec4(position, 1.0)).xyz;
+      gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+    }
+  `,
+  fragmentShader: `
+    uniform float uBands, uAmbient, uSunIntensity;
+    uniform vec3  uBase, uBg, uSunDir;
+    varying float vWeight;
+    varying vec3 vWorldPos;
+    void main() {
+      vec3 n = normalize(cross(dFdx(vWorldPos), dFdy(vWorldPos)));
+      float diff = max(dot(n, uSunDir), 0.0);
+      float bright = uAmbient + uSunIntensity * diff;
+      float k = clamp(floor(vWeight * uBands), 0.0, uBands - 1.0);
+      vec3 col = mix(uBase, uBg, k / (uBands - 1.0));
+      gl_FragColor = vec4(col * bright, 1.0);
+    }
+  `,
+  side: THREE.DoubleSide,
+  polygonOffset: true,
+  polygonOffsetFactor: -1,
+  polygonOffsetUnits: -1,
+  extensions: { derivatives: true },
+});

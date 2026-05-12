@@ -13,7 +13,10 @@ import {
   createWireShader,
   bandGeometry,
   createBandShader,
+  bridgeGeometry,
+  createBridgeBandShader,
   FLOATS_PER_HEX,
+  FLOATS_PER_HEX_BRIDGES,
   FLOATS_PER_TRI,
 } from "./hex-terrain-shader.js";
 import { seamSpec, VERTEX_DIR_NAMES } from "./hex-seam.js";
@@ -37,8 +40,9 @@ const SHADER_DASH_SIZE_FACTOR = 0.22, SHADER_DASH_GAP_FACTOR = 0.28;
 const SHADER_INTENSITY = 2.8;
 const CAMERA_FOV = 45;
 
-const TOGGLE_KEYS = ["fill", "wire", "shader", "bands", "flat"];
+const TOGGLE_KEYS = ["fill", "wire", "shader", "bands", "bridge", "flat"];
 const BAND_FRACTION = 0.1, BAND_STEPS = 5;
+const BRIDGE_FLAG_STRIDE = FLOATS_PER_HEX_BRIDGES / 6; // 13 floats per edge slot
 
 const AMBIENT_INTENSITY = 0.6;
 const SUN_INTENSITY = 1.0;
@@ -133,6 +137,7 @@ const generateClusterPayloads = ({
     tris: center.tris(false),
     wireEdges: center.wire_edges(false),
     faceTris: center.face_tris(false),
+    bridges: center.face_bridge_quads(false),
     tx: 0, tz: 0,
   }];
   // Keep all WasmLayouts alive while building so later petals can query
@@ -152,6 +157,7 @@ const generateClusterPayloads = ({
       tris: petal.tris(false),
       wireEdges: petal.wire_edges(false),
       faceTris: petal.face_tris(false),
+      bridges: petal.face_bridge_quads(false),
       tx, tz,
     });
     ringSoFar[dir] = petal;
@@ -162,27 +168,67 @@ const generateClusterPayloads = ({
 };
 
 /**
- * Build the band overlay for one cluster payload. Picks a random ~10% of
- * hexes (min 1) and renders their face fans through `createBandShader`,
- * which steps a per-vertex weight (0 at perimeter, 1 at center) into
- * `BAND_STEPS` concentric color rings inside each hex.
+ * Build the rings/bridge overlays for one cluster payload. Picks a random
+ * ~10% of hexes (min 1) and shares the set between both overlays:
+ *
+ * - **Bands overlay** — renders the picked hexes' face fans through
+ *   `createBandShader`, which steps a per-vertex weight (0 at perimeter,
+ *   1 at center) into `BAND_STEPS` concentric color rings inside each
+ *   hex.
+ * - **Bridge overlay** — for each picked hex with at least one in-grid
+ *   neighbor, also picks one of its bridge-having face edges uniformly
+ *   at random and renders the gap quad with `createBridgeBandShader`.
+ *   `aWeight` is 0 at the source hex side and 1 at the neighbor side, so
+ *   the gradient continues outward as a mirror of the rim→centroid fade.
+ *   Rim hexes with no bridge-having edges contribute no bridge tris.
+ *
+ * Returns `null` for `bridgeOverlay` when no picked hex has a bridge.
  */
-const buildBandOverlay = ({ scene, payload, visible }) => {
+const buildRingsOverlays = ({ scene, payload, state }) => {
   const hexCount = (payload.faceTris.length / FLOATS_PER_HEX) | 0;
   const pickCount = Math.max(1, Math.floor(hexCount * BAND_FRACTION));
   const hexIdx = sampleK(hexCount, pickCount);
-  const mat = createBandShader({
+
+  const bandMat = createBandShader({
     baseColor: FILL_COLORS[payload.index],
     bgColor: BG_COLOR,
     bands: BAND_STEPS,
     brightness: FACE_BRIGHTNESS,
   });
-  const overlay = new THREE.Mesh(bandGeometry(payload.faceTris, hexIdx), mat);
-  overlay.position.set(payload.tx, 0, payload.tz);
-  overlay.renderOrder = 1;
-  overlay.visible = visible;
-  scene.add(overlay);
-  return overlay;
+  const bandOverlay = new THREE.Mesh(bandGeometry(payload.faceTris, hexIdx), bandMat);
+  bandOverlay.position.set(payload.tx, 0, payload.tz);
+  bandOverlay.renderOrder = 1;
+  bandOverlay.visible = state.bands;
+  scene.add(bandOverlay);
+
+  const picks = [];
+  for (const idx of hexIdx) {
+    const base = idx * FLOATS_PER_HEX_BRIDGES;
+    const candidates = [];
+    for (let e = 0; e < 6; e++) {
+      if (payload.bridges[base + e * BRIDGE_FLAG_STRIDE] === 1.0) candidates.push(e);
+    }
+    if (candidates.length === 0) continue;
+    picks.push({ hexIdx: idx, edgeIdx: candidates[(Math.random() * candidates.length) | 0] });
+  }
+  let bridgeOverlay = null;
+  if (picks.length > 0) {
+    const bridgeMat = createBridgeBandShader({
+      baseColor: FILL_COLORS[payload.index],
+      bgColor: BG_COLOR,
+      bands: BAND_STEPS,
+      sunDir: SUN_POS,
+      ambient: AMBIENT_INTENSITY,
+      sunIntensity: SUN_INTENSITY,
+    });
+    bridgeOverlay = new THREE.Mesh(bridgeGeometry(payload.bridges, picks), bridgeMat);
+    bridgeOverlay.position.set(payload.tx, 0, payload.tz);
+    bridgeOverlay.renderOrder = 1;
+    bridgeOverlay.visible = state.bridge;
+    scene.add(bridgeOverlay);
+  }
+
+  return { bandOverlay, bridgeOverlay };
 };
 
 /**
@@ -237,14 +283,15 @@ const buildClusterObjects = ({ scene, payload, canvas, state }) => {
   shaderOverlay.visible = state.shader;
   scene.add(shaderOverlay);
 
-  const bandOverlay = buildBandOverlay({ scene, payload, visible: state.bands });
+  const { bandOverlay, bridgeOverlay } = buildRingsOverlays({ scene, payload, state });
   payload.faceTris = null;
+  payload.bridges = null;
 
-  return { mesh, wireOverlay, shaderOverlay, bandOverlay, geom };
+  return { mesh, wireOverlay, shaderOverlay, bandOverlay, bridgeOverlay, geom };
 };
 
 const disposeClusterObjects = (scene, objs) => {
-  for (const { mesh, wireOverlay, shaderOverlay, bandOverlay, geom } of objs) {
+  for (const { mesh, wireOverlay, shaderOverlay, bandOverlay, bridgeOverlay, geom } of objs) {
     scene.remove(mesh);
     scene.remove(wireOverlay);
     scene.remove(shaderOverlay);
@@ -257,6 +304,11 @@ const disposeClusterObjects = (scene, objs) => {
     shaderOverlay.material.dispose();
     bandOverlay.geometry.dispose();
     bandOverlay.material.dispose();
+    if (bridgeOverlay) {
+      scene.remove(bridgeOverlay);
+      bridgeOverlay.geometry.dispose();
+      bridgeOverlay.material.dispose();
+    }
   }
 };
 
@@ -390,6 +442,7 @@ export function mount(canvas, statsEl, { initialSettings, WasmLayout }) {
         o.wireOverlay.visible = state.wire;
         o.shaderOverlay.visible = state.shader;
         o.bandOverlay.visible = state.bands;
+        if (o.bridgeOverlay) o.bridgeOverlay.visible = state.bridge;
         if (o.mesh.material.flatShading !== state.flat) {
           o.mesh.material.flatShading = state.flat;
           o.mesh.material.needsUpdate = true;
