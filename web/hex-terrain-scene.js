@@ -20,6 +20,7 @@ import {
   FLOATS_PER_TRI,
 } from "./hex-terrain-shader.js";
 import { seamSpec, VERTEX_DIR_NAMES } from "./hex-seam.js";
+import { randomU32, seedSequence } from "./seed.js";
 
 const BG_COLOR = 0x0a0e1a;
 // One color per cluster slot (center=0, petals=1..6). Subtle hue rotation
@@ -63,28 +64,6 @@ const sampleK = (n, k) => {
     [arr[i], arr[j]] = [arr[j], arr[i]];
   }
   return arr.slice(0, stop);
-};
-
-const randomU32 = () => Math.floor(Math.random() * 0x1_0000_0000) >>> 0;
-
-// SplitMix32 — cheap reversible mixer used to derive 14 stable per-mesh seeds
-// (center + 6 petals × {h_seed, r_seed}) from one user-typed seed, so the same
-// input always reproduces the same cluster.
-const splitmix32 = (s) => {
-  s = (s + 0x9E3779B9) >>> 0;
-  s = Math.imul(s ^ (s >>> 16), 0x85EBCA6B) >>> 0;
-  s = Math.imul(s ^ (s >>> 13), 0xC2B2AE35) >>> 0;
-  return (s ^ (s >>> 16)) >>> 0;
-};
-
-const seedSequence = (root, n) => {
-  const out = new Array(n);
-  let s = root >>> 0;
-  for (let i = 0; i < n; i++) {
-    s = splitmix32(s);
-    out[i] = s;
-  }
-  return out;
 };
 
 const medianTriEdgeLength = (trisBuf) => {

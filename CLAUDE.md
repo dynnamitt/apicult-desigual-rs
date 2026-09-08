@@ -11,6 +11,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ```sh
 cargo build
 cargo test                                           # runs unit tests in src/ + doctests
+make test                                            # cargo test + `node --test web/*.test.mjs`
 cargo test <name>                                    # single test by name substring
 cargo test --doc                                     # doctests only (math.rs has executable examples)
 cargo run --example geo_export                       # plain SVG to stdout
@@ -55,7 +56,7 @@ Three modules, exported flat from `lib.rs`, plus an optional `wasm` module gated
 
 ## Preview pipeline
 
-`make preview` runs `geo_export` three times (plain SVG, rich SVG, JSON v1 — all using `HSEED`), runs `wasm-pack build` once to produce `web/pkg/`, then templates `web/svg-preview.html` (with the short git SHA) and `web/hex-terrain.html` (with the short SHA + `RADIUS`) into `target/www-preview/`. Pin `HSEED` for a reproducible build (the chosen seed is echoed at the end); the SVG previews and `apicult-desigual.json` (v1) all share it.
+`make preview` runs `geo_export` three times (plain SVG, rich SVG, JSON v1 — all using `HSEED`), runs `wasm-pack build` once to produce `web/pkg/`, then templates `web/svg-preview.html` (with the short git SHA), `web/hex-terrain.html` (with the short SHA + `RADIUS`) and `web/hex-units.html` (with the short SHA + `UNITS_RADIUS`) into `target/www-preview/`. Pin `HSEED` for a reproducible build (the chosen seed is echoed at the end); the SVG previews and `apicult-desigual.json` (v1) all share it.
 
 The terrain page imports `pkg/apicult_desigual.js` and builds a **7-mesh flower cluster** on load: one center `WasmLayout` + six petal layouts arranged around it, each with its own fresh random u32 seeds (or seeded via the `seed` input for reproducibility — `splitmix32` derives 14 stable per-mesh seeds from one root). Each petal shares its inward-facing ring of hex cells with the center via WFC-style overrides + entangle markers, constructed by `web/hex-seam.js::seamSpec` — so the center owns those seams visually and the petal's mirror cells are skipped when its `tris(false)` / `face_tris(false)` / `wire_edges(false)` streams are pulled. The wasm handles are `.free()`'d after the buffers are extracted.
 
@@ -69,4 +70,21 @@ The terrain controls sidebar groups its inputs into five fieldsets:
   - `bridge` (`createBridgeBandShader`): for each picked hex with at least one in-grid neighbor, also paints **one** of its 6 face-edge gap quads (chosen uniformly from the bridge-having edges) using the same `uBands` stepping. `aWeight` is `0.0` at the source-hex side (welded to the source ring's perimeter weight) and `1.0` at the neighbor side, so the gradient continues outward as a mirror of the rim→centroid fade. Bridge quads tilt with the height delta between adjacent hexes so per-fragment Lambert lighting is computed from `dFdx`/`dFdy` derivatives of the interpolated world position (vs the constant `uBrightness` used for flat-top hex faces).
 - **post-fx** — bloom strength / radius / threshold.
 
-The `.github/workflows/svg-preview.yml` CI installs the `wasm32-unknown-unknown` target and `wasm-pack`, runs `cargo test` then the same `make` target on push to `main` and on PRs, and publishes the result to the `gh-pages` branch only on push to `main` — so the live demo at https://dynnamitt.github.io/apicult-desigual-rs/ tracks `main` automatically.
+## The units demo (`hex-units.html`)
+
+A second page, `hex-units.html`, drives the same wasm geometry through **Babylon.js** instead of three.js — a game engine rather than a renderer. Deep dive in `web/hex-units.md`; the load-bearing facts:
+
+- **Babylon loads as a UMD `<script>`, not an importmap entry** — `@babylonjs/core` is hundreds of ES modules expecting a bundler, and this pipeline has none. The page reads the `BABYLON` global; a `<script onerror>` flag makes CDN failure show an `.error-msg` rather than a blank canvas.
+- **`scene.useRightHandedSystem = true`** — the wasm stream is right-handed with CCW front faces, so Babylon is told up front instead of mirroring the terrain and its normals.
+- **No new wasm exports were needed.** `web/hex-units-grid.js` derives everything from `face_tris(false)`: floats `[0..3)` of each 54-float group are the hex's world centre (every fan triangle starts there), and adjacency falls out of the lattice — `hex_to_world_pos` ignores per-cell `radius`, so centres are exactly one spacing apart and the next ring is `sqrt(3)` away. It imports neither the engine nor the wasm module, so its A* is unit-tested under plain node.
+- **Movement** costs `1 + 4 * |Δheight| / spacing` per step and refuses steps taller than the `max climb` knob, so terrain fences units in; crossings add a `sin(π t)` arc so the gap between hexes reads as a hop.
+
+Its sidebar has three fieldsets: **grid** (radius, seed, apply/re-roll — rebuild), **units** (count, speed, max climb — all live), **view** (trails, glow, wireframe).
+
+### Shared web modules
+
+Both pages share `web/demo.css`, `web/weld.js` (engine-agnostic `weldTris` → `{positions, indices}`; `hex-terrain.js::weldedMesh` and the Babylon `VertexData` path both wrap it), `web/seed.js` (`randomU32` / `splitmix32` / `seedSequence`) and `web/hex-controls.js`. The last is schema-driven: `TERRAIN_SCHEMA` and `UNITS_SCHEMA` declare each page's inputs, toggles and which fields rebuild vs. update live, so a new page adds a schema rather than a binder. `make` copies them via the `COMMON_WEB` variable — **any new shared module must be added there or it will 404 on gh-pages.**
+
+The pure-JS units are tested with `node --test web/*.test.mjs` (the `test-js` make target, which `make test` and CI both run).
+
+The `.github/workflows/svg-preview.yml` CI installs the `wasm32-unknown-unknown` target and `wasm-pack`, runs `make test` (cargo tests + the node tests) then the same `make preview` target on push to `main` and on PRs, and publishes the result to the `gh-pages` branch only on push to `main` — so the live demo at https://dynnamitt.github.io/apicult-desigual-rs/ tracks `main` automatically.
