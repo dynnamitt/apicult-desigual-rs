@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>hex units — apicult-desigual</title>
+<link rel="stylesheet" href="demo.css">
+<!--
+  Babylon.js ships as a UMD bundle exposing a `BABYLON` global. Unlike three.js
+  it has no single-file ES module build, and `@babylonjs/core` expects a
+  bundler — which this preview pipeline deliberately does not have — so this is
+  a classic <script>, not an importmap entry. Classic scripts run before module
+  scripts, so `window.BABYLON` is set by the time the page module executes.
+  Pinned to the 8.x line rather than an exact patch so the demo tracks fixes.
+-->
+<script src="https://cdn.jsdelivr.net/npm/babylonjs@8/babylon.js"
+        onerror="window.__babylonFailed = true"></script>
+</head>
+<body>
+  <header class="topbar">
+    <h1><span class="accent">apicult-desigual</span> &middot; hex units &middot; babylon.js</h1>
+    <p class="meta">
+      <a href="https://github.com/dynnamitt/apicult-desigual-rs">dynnamitt/apicult-desigual-rs</a>
+      <span class="sep">/</span>
+      <span id="sha">57ee315</span>
+      <span class="sep">/</span>
+      <a href="index.html">welded terrain</a>
+      <span class="sep">/</span>
+      <a href="svg-preview.html">grid preview</a>
+    </p>
+  </header>
+
+  <main>
+    <div class="stage-wrap">
+      <canvas id="stage"></canvas>
+      <p class="stats" id="stats">loading…</p>
+    </div>
+
+    <aside class="controls" aria-label="units controls">
+      <fieldset>
+        <legend>grid</legend>
+        <label class="row"><span>radius</span>
+          <input id="ctl-radius" type="number" min="1" max="8" step="1" value="4">
+        </label>
+        <label class="row"><span>seed</span>
+          <input id="ctl-seed" type="text" inputmode="numeric" placeholder="random">
+        </label>
+        <div class="button-row">
+          <button id="btn-apply" type="button" class="primary">apply</button>
+          <button id="btn-regen" type="button">re-roll</button>
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>units</legend>
+        <label class="row"><span>count</span>
+          <input id="ctl-unit-count" type="number" min="1" max="24" step="1" value="6">
+        </label>
+        <label class="row"><span>speed</span>
+          <input id="ctl-speed" type="number" min="0.1" max="6" step="0.1" value="1.2">
+        </label>
+        <label class="row"><span>max climb</span>
+          <input id="ctl-climb" type="number" min="0.1" max="20" step="0.1" value="1.5">
+        </label>
+      </fieldset>
+
+      <fieldset>
+        <legend>view</legend>
+        <div class="toggle-grid">
+          <button id="btn-trails" type="button" class="on">trails</button>
+          <button id="btn-glow"   type="button" class="on">glow</button>
+          <button id="btn-wire"   type="button">wireframe</button>
+        </div>
+      </fieldset>
+    </aside>
+  </main>
+
+  <p class="hint">
+    click the terrain to rally the squad
+    <span class="sep">·</span>
+    drag to orbit
+    <span class="sep">·</span>
+    scroll to zoom
+    <span class="sep">·</span>
+    <b>max climb</b> is the tallest step a unit will take &mdash; lower it and the
+    terrain starts to fence them in
+  </p>
+
+<script type="module">
+import init, { WasmLayout } from './pkg/apicult_desigual.js';
+import { mount } from './hex-units-scene.js';
+import { bindControls, readSettingsFromDOM, UNITS_SCHEMA } from './hex-controls.js';
+
+const controlsEl = document.querySelector('.controls');
+
+try {
+  if (window.__babylonFailed) {
+    throw new Error('the Babylon.js CDN script did not load');
+  }
+  await init();
+
+  const initialSettings = readSettingsFromDOM(controlsEl, UNITS_SCHEMA);
+  const api = mount(
+    document.getElementById('stage'),
+    document.getElementById('stats'),
+    { initialSettings, WasmLayout },
+  );
+
+  bindControls(controlsEl, {
+    schema: UNITS_SCHEMA,
+    initialSettings,
+    onApply:  (s) => api.regenerate(s),
+    onLive:   (s) => api.updateLive(s),
+    onToggle: (k, on) => api.setToggle(k, on),
+  });
+} catch (err) {
+  console.error(err);
+  const msg = document.createElement('p');
+  msg.className = 'error-msg';
+  msg.textContent = `could not start the demo: ${err.message}`;
+  document.querySelector('.stage-wrap').append(msg);
+  document.getElementById('stats').textContent = '—';
+}
+</script>
+</body>
+</html>

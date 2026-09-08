@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>welded hex terrain — apicult-desigual</title>
-<link rel="stylesheet" href="hex-terrain.css">
+<link rel="stylesheet" href="demo.css">
 <script type="importmap">
 {
   "imports": {
@@ -20,7 +20,9 @@
     <p class="meta">
       <a href="https://github.com/dynnamitt/apicult-desigual-rs">dynnamitt/apicult-desigual-rs</a>
       <span class="sep">/</span>
-      <span id="sha">d259fd2</span>
+      <span id="sha">57ee315</span>
+      <span class="sep">/</span>
+      <a href="hex-units.html">hex units</a>
       <span class="sep">/</span>
       <a href="svg-preview.html">grid preview</a>
     </p>
@@ -109,7 +111,7 @@
 <script type="module">
 import init, { WasmLayout } from './pkg/apicult_desigual.js';
 import { mount } from './hex-terrain-scene.js';
-import { bindControls, readSettingsFromDOM } from './hex-terrain-controls.js';
+import { bindControls, readSettingsFromDOM } from './hex-controls.js';
 
 await init();
 
