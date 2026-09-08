@@ -43,7 +43,7 @@ jobs:
           tool: wasm-pack
 
       - name: Test
-        run: cargo test
+        run: make test   # cargo tests + the pure-JS node tests
 
       - name: Build preview
         run: make preview SHORT_SHA="${GITHUB_SHA::7}" OUT=deploy
