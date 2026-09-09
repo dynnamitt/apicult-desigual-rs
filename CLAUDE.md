@@ -22,7 +22,9 @@ cargo build --features wasm --target wasm32-unknown-unknown # build the wasm bin
 wasm-pack build --target web --features wasm --release      # writes web/pkg/{apicult_desigual.js, _bg.wasm, .d.ts}
 
 make preview                                         # build full preview bundle into target/www-preview/ (random seed)
-make RADIUS=4 PAD=1.0 preview                        # override grid params
+make RADIUS=4 PAD=1.0 preview                        # override grid params (SVG/JSON + terrain page)
+make UNITS_RADIUS=6 preview                          # grid radius for the units page only
+make CRAWLER_RADIUS=2 preview                        # grid radius for the crawler page only
 make HSEED=42 preview                                # pin the seed for a reproducible preview
 make serve                                           # `preview` + `python3 -m http.server` in target/www-preview/
 ```
@@ -56,7 +58,7 @@ Three modules, exported flat from `lib.rs`, plus an optional `wasm` module gated
 
 ## Preview pipeline
 
-`make preview` runs `geo_export` three times (plain SVG, rich SVG, JSON v1 — all using `HSEED`), runs `wasm-pack build` once to produce `web/pkg/`, then templates `web/svg-preview.html` (with the short git SHA), `web/hex-terrain.html` (with the short SHA + `RADIUS`) and `web/hex-units.html` (with the short SHA + `UNITS_RADIUS`) into `target/www-preview/`. Pin `HSEED` for a reproducible build (the chosen seed is echoed at the end); the SVG previews and `apicult-desigual.json` (v1) all share it.
+`make preview` runs `geo_export` three times (plain SVG, rich SVG, JSON v1 — all using `HSEED`), runs `wasm-pack build` once to produce `web/pkg/`, then templates `web/svg-preview.html` (with the short git SHA), `web/hex-terrain.html` (with the short SHA + `RADIUS`), `web/hex-units.html` (with the short SHA + `UNITS_RADIUS`) and `web/hex-crawler.html` (with the short SHA + `CRAWLER_RADIUS`) into `target/www-preview/`. Pin `HSEED` for a reproducible build (the chosen seed is echoed at the end); the SVG previews and `apicult-desigual.json` (v1) all share it.
 
 The terrain page imports `pkg/apicult_desigual.js` and builds a **7-mesh flower cluster** on load: one center `WasmLayout` + six petal layouts arranged around it, each with its own fresh random u32 seeds (or seeded via the `seed` input for reproducibility — `splitmix32` derives 14 stable per-mesh seeds from one root). Each petal shares its inward-facing ring of hex cells with the center via WFC-style overrides + entangle markers, constructed by `web/hex-seam.js::seamSpec` — so the center owns those seams visually and the petal's mirror cells are skipped when its `tris(false)` / `face_tris(false)` / `wire_edges(false)` streams are pulled. The wasm handles are `.free()`'d after the buffers are extracted.
 
@@ -81,9 +83,21 @@ A second page, `hex-units.html`, drives the same wasm geometry through **Babylon
 
 Its sidebar has three fieldsets: **grid** (radius, seed, apply/re-roll — rebuild), **units** (count, speed, max climb — all live), **view** (trails, glow, wireframe).
 
+## The crawler demo (`hex-crawler.html`)
+
+A third page, on **Phaser**, that inverts the other two: there is no sprite, the character *is* the fill. It occupies one hex or one gap quad completely and moves by draining out of one and pouring into the next, cycling `ENTER → REST → AIM → EXIT → GAP`. Deep dive in `web/hex-crawler.md`; the load-bearing facts:
+
+- **Two invariants of the wasm streams are load-bearing here, and both bit once.** (1) Fan-triangle indices and bridge-slot indices come off *different* hexx direction tables (`VertexDirection` vs `EdgeDirection`), so they can differ by a fixed rotation `k`; `hex-crawler-board.js` derives `k` from the bit-exact corner sharing `hex_face_bridge_quads` guarantees, and throws on disagreement, rather than hardcoding a guess that would silently send the character out of the wrong door. (2) `face_bridge_quads` applies **no ownership rule**, so every interior gap arrives twice as coincident quads — with no depth test the duplicate overdrew the lit crossing and the character vanished mid-gap. The board builder emits each gap once (lower-indexed hex owns it), stores both endpoint cells, and the shader matches a crossing on the unordered pair, flipping the weight for the reverse direction.
+- **No new wasm exports.** Faces from `face_tris(false)`, gaps from `face_bridge_quads(false)` unpacked exactly as `hex-terrain-shader.js::bridgeGeometry` does, and the dim base layer from `tris(false)` — which already carries the junction triangles, so no `gap_tris()` export was needed to draw a complete board.
+- **Height is speed, not a wall.** Step duration scales by `exp(climbK · Δh / spacing)`; the yellow gap bands inherit the same rate. Routing reuses `hex-units-grid.js` untouched — `findPath(..., Infinity)` makes every neighbour passable while its `1 + 4·|Δh|/spacing` cost still prefers level ground.
+- **Raw GL, not a `WebGLPipeline`.** That class re-batches dynamic vertices every frame; this page uploads once and animates entirely through uniforms plus a trail buffer touched only on cell entry. Phaser supplies the context, loop, scene lifecycle and `Phaser.Math.Easing`; because it owns the context, `draw` explicitly disables depth/blend/cull/scissor and hands its attribute arrays back afterwards.
+- **2D projection** is `(x, z)` with `y` dropped and used as a tint — the same convention `src/serialize.rs` uses for the SVG previews, which makes this page the animated twin of `svg-preview.html`.
+
+Sidebar: **grid** (radius, seed — rebuild), **crawl** (tempo, climb penalty, band speed — live), **view** (trail, bands, base layer).
+
 ### Shared web modules
 
-Both pages share `web/demo.css`, `web/weld.js` (engine-agnostic `weldTris` → `{positions, indices}`; `hex-terrain.js::weldedMesh` and the Babylon `VertexData` path both wrap it), `web/seed.js` (`randomU32` / `splitmix32` / `seedSequence`) and `web/hex-controls.js`. The last is schema-driven: `TERRAIN_SCHEMA` and `UNITS_SCHEMA` declare each page's inputs, toggles and which fields rebuild vs. update live, so a new page adds a schema rather than a binder. `make` copies them via the `COMMON_WEB` variable — **any new shared module must be added there or it will 404 on gh-pages.**
+All three pages share `web/demo.css`, `web/weld.js` (engine-agnostic `weldTris` → `{positions, indices}`; `hex-terrain.js::weldedMesh` and the Babylon `VertexData` path both wrap it), `web/seed.js` (`randomU32` / `splitmix32` / `seedSequence`) and `web/hex-controls.js`. The last is schema-driven: `TERRAIN_SCHEMA`, `UNITS_SCHEMA` and `CRAWLER_SCHEMA` declare each page's inputs, toggles and which fields rebuild vs. update live, so a new page adds a schema rather than a binder. `make` copies them via the `COMMON_WEB` variable (per-page modules go in `TERRAIN_WEB` / `UNITS_WEB` / `CRAWLER_WEB`) — **any new shared module must be added there or it will 404 on gh-pages.**
 
 The pure-JS units are tested with `node --test web/*.test.mjs` (the `test-js` make target, which `make test` and CI both run).
 

@@ -62,7 +62,7 @@ rustup target add wasm32-unknown-unknown      # one-time setup
 wasm-pack build --target web --features wasm  # writes web/pkg/{apicult_desigual.js, _bg.wasm, .d.ts}
 ```
 
-The bundle contains two 3D pages over the same geometry: `index.html`, a three.js viewer of the welded 7-mesh cluster, and `hex-units.html`, a Babylon.js game-engine demo where units pathfind across the hex grid (see `web/hex-units.md`).
+The bundle contains three interactive pages over the same geometry: `index.html`, a three.js viewer of the welded 7-mesh cluster; `hex-units.html`, a Babylon.js demo where units pathfind across the grid (`web/hex-units.md`); and `hex-crawler.html`, a Phaser board where a character with no sprite *is* the fill, creeping hex to hex and lighting the gap quads as it crosses (`web/hex-crawler.md`).
 
 To build the whole preview page (SVGs + v1 JSON + wasm pkg + HTML) locally, use the root Makefile target:
 
@@ -71,6 +71,7 @@ make preview                        # writes into target/www-preview/ with a ran
 make HSEED=42 preview               # pin the seed for a reproducible bundle
 make RADIUS=4 PAD=1.0 preview       # override grid params
 make UNITS_RADIUS=6 preview         # grid radius for the units demo only
+make CRAWLER_RADIUS=2 preview       # grid radius for the crawler demo only
 ```
 
 ## Dependencies

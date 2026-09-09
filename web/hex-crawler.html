@@ -3,22 +3,21 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>hex units — apicult-desigual</title>
+<title>hex crawler — apicult-desigual</title>
 <link rel="stylesheet" href="demo.css">
 <!--
-  Babylon.js ships as a UMD bundle exposing a `BABYLON` global. Unlike three.js
-  it has no single-file ES module build, and `@babylonjs/core` expects a
-  bundler — which this preview pipeline deliberately does not have — so this is
-  a classic <script>, not an importmap entry. Classic scripts run before module
-  scripts, so `window.BABYLON` is set by the time the page module executes.
-  Pinned to the 8.x line rather than an exact patch so the demo tracks fixes.
+  Phaser ships a UMD bundle exposing a `Phaser` global; classic scripts run
+  before module scripts, so `window.Phaser` is set by the time the page module
+  executes. Same reasoning as Babylon on hex-units.html — this preview pipeline
+  is `sed` + `cp`, with no bundler to resolve an ESM package. Pinned to the 3.x
+  line rather than an exact patch so the demo tracks fixes.
 -->
-<script src="https://cdn.jsdelivr.net/npm/babylonjs@8/babylon.js"
-        onerror="window.__babylonFailed = true"></script>
+<script src="https://cdn.jsdelivr.net/npm/phaser@3/dist/phaser.js"
+        onerror="window.__phaserFailed = true"></script>
 </head>
 <body>
   <header class="topbar">
-    <h1><span class="accent">apicult-desigual</span> &middot; hex units &middot; babylon.js</h1>
+    <h1><span class="accent">apicult-desigual</span> &middot; hex crawler &middot; phaser</h1>
     <p class="meta">
       <a href="https://github.com/dynnamitt/apicult-desigual-rs">dynnamitt/apicult-desigual-rs</a>
       <span class="sep">/</span>
@@ -26,7 +25,7 @@
       <span class="sep">/</span>
       <a href="index.html">welded terrain</a>
       <span class="sep">/</span>
-      <a href="hex-crawler.html">hex crawler</a>
+      <a href="hex-units.html">hex units</a>
       <span class="sep">/</span>
       <a href="svg-preview.html">grid preview</a>
     </p>
@@ -38,11 +37,11 @@
       <p class="stats" id="stats">loading…</p>
     </div>
 
-    <aside class="controls" aria-label="units controls">
+    <aside class="controls" aria-label="crawler controls">
       <fieldset>
         <legend>grid</legend>
         <label class="row"><span>radius</span>
-          <input id="ctl-radius" type="number" min="1" max="8" step="1" value="__UNITS_RADIUS__">
+          <input id="ctl-radius" type="number" min="1" max="6" step="1" value="__CRAWLER_RADIUS__">
         </label>
         <label class="row"><span>seed</span>
           <input id="ctl-seed" type="text" inputmode="numeric" placeholder="random">
@@ -54,54 +53,52 @@
       </fieldset>
 
       <fieldset>
-        <legend>units</legend>
-        <label class="row"><span>count</span>
-          <input id="ctl-unit-count" type="number" min="1" max="24" step="1" value="6">
+        <legend>crawl</legend>
+        <label class="row"><span>tempo</span>
+          <input id="ctl-tempo" type="number" min="0.1" max="6" step="0.1" value="1">
         </label>
-        <label class="row"><span>speed</span>
-          <input id="ctl-speed" type="number" min="0.1" max="6" step="0.1" value="1.2">
+        <label class="row"><span>climb penalty</span>
+          <input id="ctl-climb" type="number" min="0" max="4" step="0.1" value="1">
         </label>
-        <label class="row"><span>max climb</span>
-          <input id="ctl-climb" type="number" min="0.1" max="20" step="0.1" value="1.5">
+        <label class="row"><span>band speed</span>
+          <input id="ctl-band-speed" type="number" min="0" max="6" step="0.1" value="1.2">
         </label>
       </fieldset>
 
       <fieldset>
         <legend>view</legend>
         <div class="toggle-grid">
-          <button id="btn-trails" type="button" class="on">trails</button>
-          <button id="btn-glow"   type="button" class="on">glow</button>
-          <button id="btn-wire"   type="button">wireframe</button>
+          <button id="btn-trail" type="button" class="on">trail</button>
+          <button id="btn-bands" type="button" class="on">bands</button>
+          <button id="btn-base"  type="button" class="on">base layer</button>
         </div>
       </fieldset>
     </aside>
   </main>
 
   <p class="hint">
-    click the terrain to rally the squad
+    the character has no sprite &mdash; it <b>is</b> the fill
     <span class="sep">·</span>
-    drag to orbit
+    entering fans out from the door it came through, leaving drains back toward
+    the one it picked
     <span class="sep">·</span>
-    scroll to zoom
-    <span class="sep">·</span>
-    <b>max climb</b> is the tallest step a unit will take &mdash; lower it and the
-    terrain starts to fence them in
+    <b>climb penalty</b> makes uphill gaps crawl and downhill ones snap
   </p>
 
 <script type="module">
 import init, { WasmLayout } from './pkg/apicult_desigual.js';
-import { mount } from './hex-units-scene.js';
-import { bindControls, readSettingsFromDOM, UNITS_SCHEMA } from './hex-controls.js';
+import { mount } from './hex-crawler-scene.js';
+import { bindControls, readSettingsFromDOM, CRAWLER_SCHEMA } from './hex-controls.js';
 
 const controlsEl = document.querySelector('.controls');
 
 try {
-  if (window.__babylonFailed) {
-    throw new Error('the Babylon.js CDN script did not load');
+  if (window.__phaserFailed) {
+    throw new Error('the Phaser CDN script did not load');
   }
   await init();
 
-  const initialSettings = readSettingsFromDOM(controlsEl, UNITS_SCHEMA);
+  const initialSettings = readSettingsFromDOM(controlsEl, CRAWLER_SCHEMA);
   const api = mount(
     document.getElementById('stage'),
     document.getElementById('stats'),
@@ -109,7 +106,7 @@ try {
   );
 
   bindControls(controlsEl, {
-    schema: UNITS_SCHEMA,
+    schema: CRAWLER_SCHEMA,
     initialSettings,
     onApply:  (s) => api.regenerate(s),
     onLive:   (s) => api.updateLive(s),
