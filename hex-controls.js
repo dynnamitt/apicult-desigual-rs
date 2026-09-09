@@ -36,6 +36,22 @@ export const TERRAIN_SCHEMA = {
   ]),
 };
 
+/** Sidebar of `hex-crawler.html` (the Phaser crawler). */
+export const CRAWLER_SCHEMA = {
+  inputs: [
+    { id: "ctl-radius",     field: "radius",    parse: parseInt   },
+    { id: "ctl-seed",       field: "seed",      parse: parseSeed  },
+    { id: "ctl-tempo",      field: "tempo",     parse: parseFloat },
+    { id: "ctl-climb",      field: "climbK",    parse: parseFloat },
+    { id: "ctl-band-speed", field: "bandSpeed", parse: parseFloat },
+  ],
+  toggles: ["trail", "bands", "base"],
+  // Only the grid is baked into GPU buffers; pace and climb bite from the next
+  // stage boundary, band speed from the next frame.
+  rebuild: new Set(["radius", "seed"]),
+  live: new Set(["tempo", "climbK", "bandSpeed"]),
+};
+
 /** Sidebar of `hex-units.html` (the Babylon.js units demo). */
 export const UNITS_SCHEMA = {
   inputs: [
