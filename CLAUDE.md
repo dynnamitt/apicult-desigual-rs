@@ -18,6 +18,9 @@ cargo run --example geo_export                       # plain SVG to stdout
 cargo run --example geo_export -- 5 2.0 --format svg-rich   # args: <radius> <pad> [--format svg|svg-plain|svg-rich|json-v1]
 cargo run --example geo_export -- --seed 7                  # override the height-noise seed
 
+cargo run --release --bin hex-chunks -- --out target/chunks   # terrain chunks + manifest.json; flags: --radius 60 --chunk-radius 6 --hex-radius 4.0 --seed 43
+make chunks                                          # same via make (CHUNKS_OUT, CHUNKS_RADIUS, CHUNK_RADIUS; HSEED pins the seed)
+
 cargo build --features wasm --target wasm32-unknown-unknown # build the wasm bindings (needs `rustup target add wasm32-unknown-unknown`)
 wasm-pack build --target web --features wasm --release      # writes web/pkg/{apicult_desigual.js, _bg.wasm, .d.ts}
 
@@ -35,9 +38,10 @@ The `wasm` Makefile target auto-installs `wasm-pack` via `cargo install` if it i
 
 ## Architecture
 
-Three modules, exported flat from `lib.rs`, plus an optional `wasm` module gated behind the `wasm` feature:
+Four modules, exported flat from `lib.rs`, plus an optional `wasm` module gated behind the `wasm` feature:
 
 - **`layout`** — `HGridLayout` owns the `HexLayout` (from `hexx`), a `HexagonalMap<HexCell>` of per-hex `{hex, height, radius, entangled}` data populated from Fbm/Perlin noise on construction, and the cached unit corner offsets. The `entangled: bool` per-cell flag is set via the `entangle: &[Hex]` arg to `HGridLayout::new`; the hex-face-fan and gap-quad geometry methods filter by it: `hex_face_tris(entangled)`, `gap_quad_tris(entangled)`, `all_tris(entangled)` emit only the cells (or quads, by the same flag on `GapQuad`) matching the bool — letting two materials drive entangled vs non-entangled cells separately. `gap_tris()` (3-hex junction tris) and `gap_quads()` are unfiltered. `all_tris(entangled)` is still the canonical unified stream — gap quads are split along the `[v0, v2]` diagonal *here*, so consumers that take `all_tris` never decide tessellation. (Consumers that take `gap_quads` separately must NOT also consume `all_tris`, or the gap geometry will double-count.)
+- **`chunk`** — splits a layout into hexagonal chunks (`hex.to_lower_res(chunk_radius)`) for engines that stream precomputed terrain (zig-fatmile). Each chunk holds exactly the tris its cells own via `HGridLayout::owned_tris_into`, which is also what `all_tris` concatenates, so the chunks partition `all_tris(false)` with no overlap. Writes `chunk_<q>_<r>.bin` (40-byte `HXCK` header, 24-byte cell records with per-cell tri runs, tris, gap-quad perimeter lines) and `manifest.json`; the byte layout is in the module docs and must stay in sync with the reader in zig-fatmile. The header's FNV-1a 64 `hash` of the payload is the chunk's *original hash*. `src/bin/hex-chunks.rs` is the thin CLI.
 - **`math`** — pure functions over `glam`/`hexx` types, no `HGridLayout` dependency. Contains the ownership rules used by both layout (`quad_corner_indices`) and analysis (`gap_filler` counts via the same even-edge `[0,2,4]` + canonical-vertex `[0,1]` rules), plus `idw_interpolate_height`, `map_noise_to_range`, `gap_vertex_data`, `edge_cuboid_transform`.
 - **`serialize`** — `SerializeGeo` trait + three implementors (`SvgPlain`, `SvgRich`, `JsonV1`) that stream to any `io::Write`. `examples/geo_export.rs` is a thin CLI wrapper around them. The web 3D demo no longer fetches JSON — it computes meshes in-browser via the wasm module — so `JsonV1` survives mainly for `make preview`'s SVG/JSON parity bundle and any external consumer that wants the raw `{hexes, edges, quads, tris}` payload.
 - **`wasm`** (feature-gated) — `wasm-bindgen` surface for the web demo. Exposes `WasmLayout` (opaque handle wrapping `HGridLayout`) with four renderable flat-buffer methods plus one structured query, all the renderables filtered by `entangled: bool`:

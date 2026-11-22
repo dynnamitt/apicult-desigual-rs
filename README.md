@@ -74,6 +74,16 @@ make UNITS_RADIUS=6 preview         # grid radius for the units demo only
 make CRAWLER_RADIUS=2 preview       # grid radius for the crawler demo only
 ```
 
+## Terrain chunks
+
+`hex-chunks` builds one large grid and writes it as hexagonal chunk files plus `manifest.json`, for engines that stream precomputed terrain ([zig-fatmile](https://github.com/dynnamitt/zig-fatmile)). Each chunk holds only the geometry its cells own, so chunks never overlap. The binary format is documented in `src/chunk.rs`.
+
+```sh
+cargo run --release --bin hex-chunks -- --out target/chunks                       # radius 60, chunk radius 6
+cargo run --release --bin hex-chunks -- --out target/chunks --radius 120 --chunk-radius 8 --seed 7
+make chunks                                                                       # same, into target/chunks
+```
+
 ## Dependencies
 
 | Crate       | Purpose                          |

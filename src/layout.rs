@@ -76,6 +76,22 @@ pub struct GapQuad {
     pub entangled: bool,
 }
 
+/// How many triangles of each kind [`HGridLayout::owned_tris_into`] appended
+/// for one cell: `faces` is 0 or 6, each quad adds 2 tris, each junction 1.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct OwnedCounts {
+    pub faces: u8,
+    pub quads: u8,
+    pub junctions: u8,
+}
+
+impl OwnedCounts {
+    /// Total triangles appended: `faces + 2 * quads + junctions`.
+    pub fn tris(self) -> usize {
+        self.faces as usize + 2 * self.quads as usize + self.junctions as usize
+    }
+}
+
 /// Encapsulates the hex layout, per-cell data, and vertex computation.
 ///
 /// Owns only the data needed for grid generation and height interpolation —
@@ -216,7 +232,11 @@ impl HGridLayout {
         let cell = self.cells.get(hex)?;
         let center = self.layout.hex_to_world_pos(hex);
         let offset = self.unit_corners[index as usize] * cell.radius;
-        Some(Vec3::new(center.x + offset.x, cell.height, center.y + offset.y))
+        Some(Vec3::new(
+            center.x + offset.x,
+            cell.height,
+            center.y + offset.y,
+        ))
     }
 
     /// Unit corner offset for a given corner index (0..5).
@@ -390,85 +410,104 @@ impl HGridLayout {
     /// rule). All tessellation decisions owned here so clients consume one
     /// flat list with no per-source branching.
     ///
-    /// Single-pass: per hex we prefetch `(cell, world_center, six_world_corners)`
-    /// once, then emit face fan + gap quads + junction tris from the cached data.
-    /// Gap quads are split along the canonical `[v0, v2]` diagonal (`[a,b,c]`
-    /// then `[a,c,d]`), winding identical to `gap_quad_tris`.
+    /// The concatenation of [`HGridLayout::owned_tris_into`] over every cell,
+    /// so any partition of the cells (e.g. into chunks) partitions this stream.
     pub fn all_tris(&self, entangled: bool) -> Vec<[Vec3; 3]> {
         let mut out: Vec<[Vec3; 3]> = Vec::new();
         for hex in shapes::hexagon(Hex::ZERO, self.grid_radius) {
-            let Some(&cell) = self.cells.get(hex) else {
+            self.owned_tris_into(hex, entangled, &mut out);
+        }
+        out
+    }
+
+    /// Appends the triangles that cell `hex` **owns** to `out`, in order: the
+    /// 6-tri face fan (if the cell matches `entangled`), then 2 tris per owned
+    /// gap quad (even edges `[0, 2, 4]`, both cells matching `entangled`), then
+    /// owned junction tris (origin is `GridVertex::coordinates()[0]`; only
+    /// when `entangled = false`). Returns the counts, or `None` (appending
+    /// nothing) when `hex` is outside the grid.
+    ///
+    /// Per hex we prefetch `(cell, world_center, six_world_corners)` once.
+    /// Gap quads are split along the canonical `[v0, v2]` diagonal (`[a,b,c]`
+    /// then `[a,c,d]`), winding identical to `gap_quad_tris`.
+    pub fn owned_tris_into(
+        &self,
+        hex: Hex,
+        entangled: bool,
+        out: &mut Vec<[Vec3; 3]>,
+    ) -> Option<OwnedCounts> {
+        let &cell = self.cells.get(hex)?;
+        let mut counts = OwnedCounts::default();
+        let center2 = self.layout.hex_to_world_pos(hex);
+        let height = cell.height;
+        let radius = cell.radius;
+        let corners: [Vec3; 6] = std::array::from_fn(|i| {
+            let off = self.unit_corners[i] * radius;
+            Vec3::new(center2.x + off.x, height, center2.y + off.y)
+        });
+
+        if cell.entangled == entangled {
+            let center = Vec3::new(center2.x, height, center2.y);
+            for i in 0..6usize {
+                let j = (i + 1) % 6;
+                out.push([center, corners[i], corners[j]]);
+            }
+            counts.faces = 6;
+        }
+
+        for edge_index in [0u8, 2, 4] {
+            let dir = EdgeDirection::ALL_DIRECTIONS[edge_index as usize];
+            let neighbor = hex.neighbor(dir);
+            let Some(&nb_cell) = self.cells.get(neighbor) else {
                 continue;
             };
-            let center2 = self.layout.hex_to_world_pos(hex);
-            let height = cell.height;
-            let radius = cell.radius;
-            let corners: [Vec3; 6] = std::array::from_fn(|i| {
-                let off = self.unit_corners[i] * radius;
-                Vec3::new(center2.x + off.x, height, center2.y + off.y)
-            });
-
-            if cell.entangled == entangled {
-                let center = Vec3::new(center2.x, height, center2.y);
-                for i in 0..6usize {
-                    let j = (i + 1) % 6;
-                    out.push([center, corners[i], corners[j]]);
-                }
+            if (cell.entangled && nb_cell.entangled) != entangled {
+                continue;
             }
+            let (v0_idx, v1_idx, n0_idx, n1_idx) = math::quad_corner_indices(edge_index);
+            let nb_center2 = self.layout.hex_to_world_pos(neighbor);
+            let nb_height = nb_cell.height;
+            let nb_radius = nb_cell.radius;
+            let nb_corner = |i: u8| {
+                let off = self.unit_corners[i as usize] * nb_radius;
+                Vec3::new(nb_center2.x + off.x, nb_height, nb_center2.y + off.y)
+            };
+            let a = corners[v0_idx as usize];
+            let b = nb_corner(n0_idx);
+            let c = nb_corner(n1_idx);
+            let d = corners[v1_idx as usize];
+            out.push([a, b, c]);
+            out.push([a, c, d]);
+            counts.quads += 1;
+        }
 
-            for edge_index in [0u8, 2, 4] {
-                let dir = EdgeDirection::ALL_DIRECTIONS[edge_index as usize];
-                let neighbor = hex.neighbor(dir);
-                let Some(&nb_cell) = self.cells.get(neighbor) else {
-                    continue;
+        if !entangled {
+            for v_idx in [0u8, 1] {
+                let dir = VertexDirection::ALL_DIRECTIONS[v_idx as usize];
+                let gv = GridVertex {
+                    origin: hex,
+                    direction: dir,
                 };
-                if (cell.entangled && nb_cell.entangled) != entangled {
+                let coords = gv.coordinates();
+                if coords[0] != hex {
                     continue;
                 }
-                let (v0_idx, v1_idx, n0_idx, n1_idx) = math::quad_corner_indices(edge_index);
-                let nb_center2 = self.layout.hex_to_world_pos(neighbor);
-                let nb_height = nb_cell.height;
-                let nb_radius = nb_cell.radius;
-                let nb_corner = |i: u8| {
-                    let off = self.unit_corners[i as usize] * nb_radius;
-                    Vec3::new(nb_center2.x + off.x, nb_height, nb_center2.y + off.y)
-                };
-                let a = corners[v0_idx as usize];
-                let b = nb_corner(n0_idx);
-                let c = nb_corner(n1_idx);
-                let d = corners[v1_idx as usize];
-                out.push([a, b, c]);
-                out.push([a, c, d]);
-            }
-
-            if !entangled {
-                for v_idx in [0u8, 1] {
-                    let dir = VertexDirection::ALL_DIRECTIONS[v_idx as usize];
-                    let gv = GridVertex {
-                        origin: hex,
-                        direction: dir,
-                    };
-                    let coords = gv.coordinates();
-                    if coords[0] != hex {
-                        continue;
-                    }
-                    if !coords.iter().all(|c| self.cells.get(*c).is_some()) {
-                        continue;
-                    }
-                    if let (Some(i1), Some(i2)) = (
-                        corner_index_for_vertex(coords[1], &gv),
-                        corner_index_for_vertex(coords[2], &gv),
-                    ) && let (Some(v1), Some(v2)) = (
-                        self.vertex(coords[1], i1),
-                        self.vertex(coords[2], i2),
-                    ) {
-                        let v0 = corners[v_idx as usize];
-                        out.push([v0, v1, v2]);
-                    }
+                if !coords.iter().all(|c| self.cells.get(*c).is_some()) {
+                    continue;
+                }
+                if let (Some(i1), Some(i2)) = (
+                    corner_index_for_vertex(coords[1], &gv),
+                    corner_index_for_vertex(coords[2], &gv),
+                ) && let (Some(v1), Some(v2)) =
+                    (self.vertex(coords[1], i1), self.vertex(coords[2], i2))
+                {
+                    let v0 = corners[v_idx as usize];
+                    out.push([v0, v1, v2]);
+                    counts.junctions += 1;
                 }
             }
         }
-        out
+        Some(counts)
     }
 
     /// Returns the three world-space corners of every 3-hex junction gap tri.
@@ -670,8 +709,14 @@ mod tests {
             .collect();
         let six = counts.iter().filter(|&&c| c == 6).count();
         let three = counts.iter().filter(|&&c| c == 3).count();
-        assert_eq!(six, 1, "exactly one hex (center) should have 6 bridges; got {counts:?}");
-        assert_eq!(three, 6, "six border hexes should have 3 bridges; got {counts:?}");
+        assert_eq!(
+            six, 1,
+            "exactly one hex (center) should have 6 bridges; got {counts:?}"
+        );
+        assert_eq!(
+            three, 6,
+            "six border hexes should have 3 bridges; got {counts:?}"
+        );
         assert!(
             layout.hex_face_bridge_quads(true).is_empty(),
             "no entangled cells → entangled query empty"
@@ -766,9 +811,8 @@ mod tests {
             let single = layout.all_tris(false);
 
             let key = |t: &[Vec3; 3]| {
-                let mut bits: [[u32; 3]; 3] = std::array::from_fn(|i| {
-                    [t[i].x.to_bits(), t[i].y.to_bits(), t[i].z.to_bits()]
-                });
+                let mut bits: [[u32; 3]; 3] =
+                    std::array::from_fn(|i| [t[i].x.to_bits(), t[i].y.to_bits(), t[i].z.to_bits()]);
                 bits.sort();
                 bits
             };
@@ -982,10 +1026,9 @@ mod tests {
 
         let (min_r, max_r) = hexx::shapes::hexagon(Hex::ZERO, s.radius)
             .map(|h| layout.cell(&h).unwrap().radius)
-            .fold(
-                (f32::INFINITY, f32::NEG_INFINITY),
-                |(min, max), r| (min.min(r), max.max(r)),
-            );
+            .fold((f32::INFINITY, f32::NEG_INFINITY), |(min, max), r| {
+                (min.min(r), max.max(r))
+            });
 
         assert!(min_r >= lo - eps, "min radius {min_r} below floor {lo}");
         assert!(max_r <= hi + eps, "max radius {max_r} above ceiling {hi}");

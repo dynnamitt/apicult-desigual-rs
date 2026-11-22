@@ -82,10 +82,17 @@ crawler-html: prep
 	$(call RENDER_CRAWLER,web/hex-crawler.html,$(OUT)/hex-crawler.html)
 	cp $(COMMON_WEB) $(CRAWLER_WEB) $(OUT)/
 
+# Terrain chunks for zig-fatmile (see src/chunk.rs for the file format).
+CHUNKS_OUT ?= target/chunks
+CHUNKS_RADIUS ?= 60
+CHUNK_RADIUS ?= 6
+chunks:
+	cargo run -q --release --bin hex-chunks -- --out $(CHUNKS_OUT) --radius $(CHUNKS_RADIUS) --chunk-radius $(CHUNK_RADIUS) $(if $(filter command line environment,$(origin HSEED)),--seed $(HSEED))
+
 serve: preview
 	cd $(OUT); python3 -m http.server
 
 preview: svg-plain svg-rich json-v1 wasm preview-html terrain-html units-html crawler-html
 	@echo "preview built in $(OUT)/ (seed=$(HSEED), radius=$(RADIUS), units_radius=$(UNITS_RADIUS), crawler_radius=$(CRAWLER_RADIUS))"
 
-.PHONY: build test test-js prep svg-plain svg-rich json-v1 wasm preview-html terrain-html units-html crawler-html preview serve
+.PHONY: build test test-js chunks prep svg-plain svg-rich json-v1 wasm preview-html terrain-html units-html crawler-html preview serve
