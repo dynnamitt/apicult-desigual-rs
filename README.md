@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="docs/logo.svg" width="160" alt="apicult-desigual logo: one hex cell with the gap quads and junction triangles it owns">
+</p>
+
 # apicult-desigual
 
 [![Rust 2024](https://img.shields.io/badge/Rust-2024-CE422B?style=for-the-badge&logo=rust&logoColor=white)](https://www.rust-lang.org/)
