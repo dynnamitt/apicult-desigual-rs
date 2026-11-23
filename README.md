@@ -21,6 +21,8 @@ Zero game-engine dependencies — `glam` for vectors, `hexx` for hex coordinates
 
 The [live demo](https://dynnamitt.github.io/apicult-desigual-rs/) constructs the layout entirely inside the wasm module on page load and pulls flat `Float32Array` buffers (welded mesh + wireframe edges) straight into a thin three.js viewer — no JSON round-trip, no JS-side geometry. The same page also shows the plain and rich SVG variants for comparison.
 
+The [geometry guide](https://dynnamitt.github.io/apicult-desigual-rs/guide.html) ([`docs/guide.html`](docs/guide.html)) explains the math functions, the hexx resolution functions, which triangles each cell owns, and entangled cells, with drawings.
+
 ## What it does
 
 - **`HGridLayout`** -- builds a hex grid from `HGridSettings`, sampling Fbm noise for per-hex heights and radii. Provides vertex computation, coordinate conversion, IDW height interpolation, and triangulated geometry: `gap_quads`, `gap_tris`, `hex_face_tris(entangled)`, `gap_quad_tris(entangled)`, and the unified `all_tris(entangled)` stream (gap quads split along the canonical `[v0, v2]` diagonal). The per-cell `entangled: bool` flag is set via `HGridLayout::new`'s `entangle: &[Hex]` arg and partitions the hex-face / gap-quad output streams so two materials can render entangled vs non-entangled cells separately.
