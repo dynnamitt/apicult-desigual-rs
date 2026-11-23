@@ -82,6 +82,10 @@ crawler-html: prep
 	$(call RENDER_CRAWLER,web/hex-crawler.html,$(OUT)/hex-crawler.html)
 	cp $(COMMON_WEB) $(CRAWLER_WEB) $(OUT)/
 
+# Regenerate docs/guide.html from docs/guide/guide.tmpl.html (stdlib Python only).
+guide:
+	python3 docs/guide/gen.py
+
 guide-html: prep
 	cp docs/guide.html $(OUT)/guide.html
 
@@ -91,4 +95,4 @@ serve: preview
 preview: svg-plain svg-rich json-v1 wasm preview-html terrain-html units-html crawler-html guide-html
 	@echo "preview built in $(OUT)/ (seed=$(HSEED), radius=$(RADIUS), units_radius=$(UNITS_RADIUS), crawler_radius=$(CRAWLER_RADIUS))"
 
-.PHONY: build test test-js prep svg-plain svg-rich json-v1 wasm preview-html terrain-html units-html crawler-html guide-html preview serve
+.PHONY: build test test-js prep svg-plain svg-rich json-v1 wasm preview-html terrain-html units-html crawler-html guide guide-html preview serve

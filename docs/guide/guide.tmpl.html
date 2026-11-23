@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>apicult-desigual Geometry Guide</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Major+Mono+Display&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@500;600&family=IBM+Plex+Sans:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet">
+<style>
+/* Layout: one reading column (~68ch); figures may run wider. Blue = gap quads, amber = junctions, slate = hex faces. */
+:root {
+  --paper: #f3f4f1;
+  --ink: #1d2126;
+  --muted: #5d6570;
+  --rule: #d5d8d3;
+  --face: #c9ced4;
+  --quad: #3b63c9;
+  --junc: #d08a1e;
+  --card: #ffffff;
+  --t0: #c4cfe6; --t1: #e3cfa9; --t2: #c7dccd;
+  --display: "IBM Plex Sans Condensed", "Arial Narrow", sans-serif;
+  --body: "IBM Plex Sans", system-ui, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #15181c; --ink: #e4e7ea; --muted: #9aa3ad; --rule: #2c3238; --face: #3a4149;
+    --quad: #7b9cf0; --junc: #e9a948; --card: #1c2025;
+    --t0: #2f3b57; --t1: #4d4028; --t2: #2c4434;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --paper: #15181c; --ink: #e4e7ea; --muted: #9aa3ad; --rule: #2c3238; --face: #3a4149;
+  --quad: #7b9cf0; --junc: #e9a948; --card: #1c2025;
+  --t0: #2f3b57; --t1: #4d4028; --t2: #2c4434;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--paper); color: var(--ink); font: 16px/1.6 var(--body); }
+main { max-width: 68ch; margin: 0 auto; padding: 48px 20px 96px; }
+h1, h2, h3 { font-family: var(--display); text-wrap: balance; line-height: 1.2; }
+h1 { font-size: 2.2rem; margin: 0 0 8px; font-weight: 600; }
+h2 { font-size: 1.5rem; margin: 56px 0 8px; padding-top: 16px; border-top: 1px solid var(--rule); font-weight: 600; }
+h3 { font-size: 1.15rem; margin: 36px 0 4px; font-weight: 500; display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; }
+h2 .tag { font: 500 0.72rem var(--mono); color: var(--junc); border: 1px solid var(--junc); border-radius: 3px; padding: 1px 6px; vertical-align: middle; margin-left: 6px; }
+details.fn { border: 1px solid var(--rule); border-radius: 6px; background: var(--card); margin: 10px 0; }
+details.fn > summary { cursor: pointer; list-style: none; display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 12px; padding: 10px 14px; }
+details.fn > summary::-webkit-details-marker { display: none; }
+details.fn > summary::before { content: "▸"; color: var(--muted); width: 1ch; transition: transform 0.15s; }
+details.fn[open] > summary::before { transform: rotate(90deg); }
+details.fn > summary:focus-visible { outline: 2px solid var(--quad); outline-offset: 2px; border-radius: 6px; }
+details.fn .h3 { font: 500 1.05rem var(--display); display: inline-flex; gap: 10px; align-items: baseline; flex-wrap: wrap; }
+details.fn .gist { color: var(--muted); font-size: 0.9rem; }
+details.fn .fnbody { padding: 0 14px 6px; border-top: 1px solid var(--rule); }
+details.fn .fnbody figure.wide { width: min(calc(100vw - 40px), 880px); }
+.tools { margin: 8px 0; }
+.tools button { font: 500 0.85rem var(--body); color: var(--ink); background: var(--card); border: 1px solid var(--rule); border-radius: 4px; padding: 4px 10px; cursor: pointer; }
+.tools button:focus-visible { outline: 2px solid var(--quad); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { details.fn > summary::before { transition: none; } }
+h3 .lvl, .h3 .lvl { font: 500 0.72rem var(--mono); color: var(--muted); border: 1px solid var(--rule); border-radius: 3px; padding: 1px 6px; }
+.sub { color: var(--muted); margin: 0 0 24px; }
+code, .mono { font-family: var(--mono); font-size: 0.88em; }
+pre { font: 0.84rem/1.5 var(--mono); background: var(--card); border: 1px solid var(--rule); border-radius: 6px; padding: 12px 14px; overflow-x: auto; }
+.answer { background: var(--card); border-left: 4px solid var(--quad); padding: 14px 18px; border-radius: 0 6px 6px 0; }
+.answer p { margin: 6px 0; }
+.status { background: var(--card); border: 1px solid var(--rule); border-left: 4px solid var(--junc); border-radius: 0 6px 6px 0; padding: 10px 16px; font-size: 0.95rem; }
+.status a { color: inherit; }
+.toc { columns: 2; column-gap: 32px; padding-left: 20px; font-size: 0.95rem; }
+@media (max-width: 520px) { .toc { columns: 1; } }
+.toc a { color: inherit; }
+figure { margin: 24px 0; }
+figure.wide { width: min(calc(100vw - 40px), 880px); position: relative; left: 50%; transform: translateX(-50%); }
+.masthead { display: flex; align-items: center; gap: 16px; margin: 0 0 28px; }
+.masthead .logo { width: 84px; height: auto; flex: none; }
+.masthead .name { font: 400 clamp(1.25rem, 4.5vw, 1.9rem)/1.1 "Major Mono Display", var(--mono); letter-spacing: 0.02em; overflow-wrap: anywhere; }
+.masthead .name span { color: var(--quad); }
+.svgwrap { background: var(--card); border: 1px solid var(--rule); border-radius: 8px; padding: 8px; overflow-x: auto; color: var(--ink); }
+svg { display: block; width: 100%; height: auto; }
+figcaption { font-size: 0.9rem; color: var(--muted); margin-top: 8px; }
+.formula { font-family: var(--mono); font-size: 0.95rem; background: var(--card); border: 1px solid var(--rule); border-radius: 6px; padding: 10px 14px; overflow-x: auto; white-space: nowrap; }
+table { border-collapse: collapse; width: 100%; font-size: 0.92rem; font-variant-numeric: tabular-nums; }
+th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--rule); vertical-align: top; }
+th { font-family: var(--display); font-weight: 500; }
+.tablewrap { overflow-x: auto; }
+
+/* SVG vocabulary */
+.lbl { font: 12px var(--body); fill: currentColor; }
+.lbl.mono { font-family: var(--mono); font-size: 11.5px; }
+.lbl.tiny { font-size: 10.5px; }
+.lbl.dim { fill: var(--muted); }
+.lbl.acc { fill: var(--quad); font-weight: 500; }
+.lbl.acc2 { fill: var(--junc); font-weight: 500; }
+.axis { stroke: currentColor; stroke-width: 1.2; fill: none; }
+.axis.dash, .dash { stroke-dasharray: 4 4; }
+.map { stroke: var(--muted); stroke-width: 1; fill: none; }
+.arc { stroke: var(--quad); stroke-width: 1.5; fill: none; color: var(--quad); }
+.edge { stroke: currentColor; stroke-width: 2; fill: none; }
+.edge.acc { stroke: var(--quad); color: var(--quad); }
+.edge.own { stroke: var(--quad); stroke-width: 4.5; }
+.edge.thin { stroke: var(--muted); stroke-width: 1; }
+.dot { fill: currentColor; }
+.dot.acc { fill: var(--quad); }
+.dot.junc { fill: var(--junc); }
+.face { fill: var(--face); stroke: var(--ink); stroke-width: 0.8; stroke-opacity: 0.5; }
+.face.soft { fill-opacity: 0.45; }
+.face.fan { stroke-opacity: 0.7; }
+.face.ghost { fill: none; stroke: var(--muted); stroke-opacity: 0.6; }
+.face.entring { fill: none; stroke: var(--ink); stroke-dasharray: 3 3; stroke-opacity: 0.8; }
+.face.missing { fill: none; stroke: var(--muted); stroke-dasharray: 3 3; stroke-opacity: 0.7; }
+.quad { fill: var(--quad); fill-opacity: 0.55; stroke: var(--quad); stroke-width: 0.8; }
+.quad.soft { fill-opacity: 0.25; }
+.quad.seam { fill-opacity: 0.12; stroke-dasharray: 3 2; stroke-width: 1.2; }
+.junc.seam { fill-opacity: 0.18; stroke-dasharray: 3 2; stroke-width: 1.2; }
+.quad.ghost { fill: none; stroke: var(--quad); stroke-opacity: 0.6; stroke-dasharray: 2 2; }
+.junc { fill: var(--junc); fill-opacity: 0.75; stroke: var(--junc); stroke-width: 0.8; }
+.diag { stroke: var(--ink); stroke-width: 1; stroke-dasharray: 3 2; stroke-opacity: 0.7; }
+.tile { stroke: var(--paper); stroke-width: 0.6; }
+.t0 { fill: var(--t0); } .t1 { fill: var(--t1); } .t2 { fill: var(--t2); }
+.tile.part { fill-opacity: 0.45; }
+.seg { stroke: var(--ink); stroke-width: 0.8; stroke-opacity: 0.6; }
+.seg.h { fill: var(--t1); } .seg.c { fill: var(--t2); } .seg.t { fill: var(--t0); } .seg.l { fill: var(--face); }
+.seg.f { fill: var(--face); } .seg.q { fill: var(--quad); fill-opacity: 0.55; } .seg.j { fill: var(--junc); fill-opacity: 0.75; }
+.brace { stroke: var(--muted); fill: none; }
+.box { fill: var(--paper); stroke: var(--ink); stroke-opacity: 0.6; }
+.box.acc { stroke: var(--quad); stroke-width: 2; stroke-opacity: 1; }
+a:focus-visible { outline: 2px solid var(--quad); outline-offset: 2px; }
+</style>
+</head>
+<body>
+<main>
+<header class="masthead">{{logo}}<div class="name">apicult-<span>desigual</span></div></header>
+<h1>Geometry guide</h1>
+<p class="sub">How <code>src/math.rs</code>, the hexx resolution functions and <code>HGridLayout</code>'s per-cell ownership fit together. Function sections start collapsed; open one to read it.</p>
+<ol class="toc">
+<li><a href="#math">The math functions, simplest first</a></li>
+<li><a href="#resolution">Resolution functions from hexx</a></li>
+<li><a href="#cell">What one cell owns</a></li>
+<li><a href="#entangled">Entangled cells</a></li>
+</ol>
+<h2 id="math">1 · The math functions, simplest first</h2>
+<p><code>src/math.rs</code> holds pure functions over <code>glam</code> and <code>hexx</code> types. None of them know about <code>HGridLayout</code>. They're ordered here from plain arithmetic to the grid combinatorics the rest of the crate is built on.</p>
+<p>One convention to keep in mind: a hex's world position is a <code>Vec2(x, z)</code>. Height is <code>y</code>, so 3D points are <code>Vec3(x, height, z)</code>.</p>
+
+<p class="tools"><button type="button" id="expand-all">Expand all</button></p>
+<details class="fn">
+<summary><span class="h3">1.1 <code>map_noise_to_range</code><span class="lvl">linear rescale</span></span><span class="gist">noise in [−1, 1] → any range</span></summary>
+<div class="fnbody">
+<p>Noise generators return values centred on zero, roughly in <code>[-1, 1]</code>. This is the straight line through <code>(-1, min)</code> and <code>(1, max)</code>:</p>
+<p class="formula">out = min + (n + 1) / 2 · (max − min)</p>
+<p>The layout calls it twice per cell. Once for height, into <code>[0, max_height]</code> (default 20). Once for the cell's corner radius, into <code>[nominal · min_ratio, nominal · max_ratio]</code> (default 0.2 to 3.6 for a nominal radius of 4). The radius is smaller than the spacing between hex centres, and that leftover space is the <em>gap</em> the rest of this page is about.</p>
+{{f1}}
+</div>
+</details>
+<details class="fn">
+<summary><span class="h3">1.2 <code>edge_cuboid_transform</code><span class="lvl">vectors + one rotation</span></span><span class="gist">midpoint, length, rotation for a beam on an edge</span></summary>
+<div class="fnbody">
+<p>This one gives you the placement for a box that should lie along an edge from <code>from</code> to <code>to</code>:</p>
+<ul>
+<li>the midpoint, <code>(from + to) / 2</code></li>
+<li>the length, <code>|to − from|</code></li>
+<li>the rotation that turns the box's own +X axis onto the edge direction</li>
+</ul>
+<p>Scale a unit cube by <code>length</code> on X, rotate, then translate.</p>
+{{f2}}
+</div>
+</details>
+<details class="fn">
+<summary><span class="h3">1.3 <code>gap_vertex_data</code><span class="lvl">translate + cross product</span></span><span class="gist">shift to origin, normal from a cross product</span></summary>
+<div class="fnbody">
+<p>This prepares a gap polygon for mesh upload. It moves the polygon so its first vertex is at the origin, and finds which way it faces.</p>
+<p>The face direction is the cross product of the first two edges out of <code>v0</code>. For these gaps the winding makes that cross product point down, so the function negates it.</p>
+<p>When <code>flat</code> is set it ignores the slope and returns straight up, so tilted gaps get the same lighting as the flat hex tops.</p>
+{{f3}}
+</div>
+</details>
+<details class="fn">
+<summary><span class="h3">1.4 <code>idw_interpolate_height</code><span class="lvl">weighted average</span></span><span class="gist">height at any point as a 1/d² weighted mean</span></summary>
+<div class="fnbody">
+<p>This answers "how high is the ground at an arbitrary point Q?" Every nearby corner votes with its height, and its vote counts <code>1 / d²</code>, where <code>d</code> is its distance to Q in the x–z plane:</p>
+<p class="formula">h(Q) = Σ hᵢ / dᵢ²  ⁄  Σ 1 / dᵢ²</p>
+<p>Near a corner its weight blows up, so the function simply snaps to that corner once <code>d² &lt; 0.001</code>. It returns <code>None</code> for an empty list and leaves the fallback to the caller.</p>
+{{f4}}
+</div>
+</details>
+<details class="fn">
+<summary><span class="h3">1.5 <code>quad_corner_indices</code><span class="lvl">hex direction tables</span></span><span class="gist">which corners form the gap across an edge</span></summary>
+<div class="fnbody">
+<p>Here the hex lattice itself comes in. hexx numbers a hex's six corners (<code>VertexDirection</code>) and six edges (<code>EdgeDirection</code>) separately. Edge <code>i</code> runs from corner <code>i</code> to corner <code>i+1</code>.</p>
+<p>The gap between a hex and its neighbour across edge <code>e</code> is a quad with two corners on each hex. On the neighbour, that same edge is edge <code>e+3</code>, and it is walked in the opposite direction. The function returns the four indices in a fixed order, <code>(v0, v1, n0, n1)</code>, so the quad always comes out as <code>[v0, n0, n1, v1]</code>.</p>
+<div class="tablewrap"><table>
+<tr><th>edge</th><th>faces neighbour</th><th>owner corners v0, v1</th><th>neighbour corners n0, n1</th></tr>
+<tr><td>0</td><td class="mono">(+1, 0)</td><td class="mono">0, 1</td><td class="mono">4, 3</td></tr>
+<tr><td>2</td><td class="mono">(−1, +1)</td><td class="mono">2, 3</td><td class="mono">0, 5</td></tr>
+<tr><td>4</td><td class="mono">(0, −1)</td><td class="mono">4, 5</td><td class="mono">2, 1</td></tr>
+</table></div>
+<p>It is only defined for even edges, because of the ownership rule below.</p>
+{{f5}}
+</div>
+</details>
+<details class="fn">
+<summary><span class="h3">1.6 <code>gap_filler</code><span class="lvl">ownership counting</span></span><span class="gist">counts gaps under the ownership rules</span></summary>
+<div class="fnbody">
+<p>The two ownership rules that keep every gap from being drawn twice:</p>
+<ul>
+<li><strong>Quads.</strong> Every interior edge is shared by two hexes. If one meets it as an even edge (0, 2, 4), the other meets it as odd (3, 5, 1), because <code>e+3</code> flips parity. So "the hex whose index is even owns it" picks exactly one owner.</li>
+<li><strong>Junction triangles.</strong> Every interior corner is shared by three hexes. hexx's <code>GridVertex::coordinates()</code> lists those three hexes in a canonical order, and the first one owns the triangle. In practice that means each hex owns the triangles at its corners 0 and 1.</li>
+</ul>
+<p>A gap is only emitted when every hex it touches exists. <code>gap_filler</code> counts what these rules would produce for any set of cells. Its unit tests assert the count matches what <code>gap_quads</code> and <code>gap_tris</code> actually emit, so if the rules drift apart in one place the tests catch it.</p>
+{{f6}}
+</div>
+</details>
+
+<h2 id="resolution">2 · Resolution functions from hexx</h2>
+<p>Splitting a hex grid into hexagonal chunks rests on four functions from the upstream <code>hexx</code> crate (0.24), in <code>hex/mod.rs</code>. hexx calls them <em>resolutions</em>. A radius-<code>r</code> hexagon of cells is treated as one cell of a coarser hex grid. They're listed in order of complexity. The algorithm is Sander Evers' "hexagon tiling of a hexagonal grid".</p>
+<p>They define what a chunk coordinate <em>means</em>: which cells a chunk holds, where its centre is, and where a cell sits inside it.</p>
+
+<details class="fn">
+<summary><span class="h3">R.1 <code>Hex::range_count</code></span><span class="gist">cells in a radius-r hexagon</span></summary>
+<div class="fnbody">
+<p class="formula">range_count(r) = 3·r·(r + 1) + 1</p>
+<p>Ring <code>k</code> has <code>6k</code> cells, and summing over rings plus the centre gives this. For <code>r = 2</code> it's 19, for <code>r = 6</code> it's 127, and for a radius-60 grid it's 10,981. In <code>to_lower_res</code> this number is called the <code>area</code>: one coarse cell holds exactly this many fine cells.</p>
+</div>
+</details>
+
+<details class="fn">
+<summary><span class="h3">R.2 <code>Hex::to_higher_res</code></span><span class="gist">chunk coordinate → its centre cell, linear</span></summary>
+<div class="fnbody">
+<p>Going down to finer cells is a plain linear map in cubic coordinates <code>(x, y, z = −x − y)</code>:</p>
+<p class="formula">to_higher_res((x, y), r) = ( x·(r+1) − r·z ,  y·(r+1) − r·x )</p>
+<p>Chunk <code>(1,0)</code> goes to <code>(2r+1, −r)</code>, which is <code>(5,−2)</code> for <code>r = 2</code>. Every chunk centre is an integer combination of two such basis vectors. The coarse lattice is the fine one scaled by <code>√range_count(r)</code> and rotated, so chunk rows never line up with cell rows.</p>
+<p>The function is <code>const</code> and exact integer arithmetic.</p>
+{{f12}}
+</div>
+</details>
+
+<details class="fn">
+<summary><span class="h3">R.3 <code>Hex::to_local</code> and <code>wrap_in_range</code></span><span class="gist">offset inside the chunk; a wraparound world</span></summary>
+<div class="fnbody">
+<p class="formula">to_local(h, r) = h − to_higher_res(to_lower_res(h, r), r)</p>
+<p>This gives a cell's position relative to its chunk's centre, and it's always within distance <code>r</code>. It's useful when storing chunks in two ways:</p>
+<ul>
+<li>It's the same small set of values in every chunk, so a full chunk's 19 (or 127) cells can sit in fixed slots, ordered by local coordinate, no matter where the chunk is in the world.</li>
+<li>Together with the chunk coordinate it fully recovers <code>h</code>, so cell records could store a local <code>(i8, i8)</code> instead of a world <code>(i32, i32)</code>.</li>
+</ul>
+<p><code>wrap_in_range(r)</code> is literally <code>to_local(r)</code>. Read as "fold the plane onto one hexagon around the origin", it gives a seamless wraparound map. That's an alternative to "infinite": a finite world without edges, where every chunk past the rim is a copy.</p>
+{{f13}}
+</div>
+</details>
+
+<details class="fn">
+<summary><span class="h3">R.4 <code>Hex::to_lower_res</code></span><span class="gist">cell → chunk coordinate, the hexmod</span></summary>
+<div class="fnbody">
+<p>Going up to coarse cells has to answer "which hexagon contains me?" for a hexagonal tiling. A plain division can't do that. hexx does it in two floor steps over cubic coordinates, with <code>area = range_count(r)</code> and <code>shift = 3r + 2</code>:</p>
+<p class="formula">X = ⌊(y + shift·x) / area⌋<br>Y = ⌊(z + shift·y) / area⌋<br>Z = ⌊(x + shift·z) / area⌋</p>
+<p class="formula">chunk = ( ⌊(1 + X − Y) / 3⌋ ,  ⌊(1 + Y − Z) / 3⌋ )</p>
+<p>Step 1 projects the cell onto three axes, each skewed by <code>shift</code> so it runs along the rotated coarse lattice, and counts how many <code>area</code>-wide bands it has crossed. That places the cell in one triangle of a triangular grid. Step 2 is ordinary hex rounding of that triangle onto the hexagon that owns it. Worked through for <code>h = (4,0)</code>, <code>r = 2</code> (area 19, shift 8):</p>
+<div class="tablewrap"><table>
+<tr><th>step</th><th>value</th></tr>
+<tr><td>cubic <code>(x, y, z)</code></td><td class="mono">(4, 0, −4)</td></tr>
+<tr><td><code>X = ⌊(0 + 8·4) / 19⌋</code></td><td class="mono">⌊32/19⌋ = 1</td></tr>
+<tr><td><code>Y = ⌊(−4 + 8·0) / 19⌋</code></td><td class="mono">⌊−4/19⌋ = −1</td></tr>
+<tr><td><code>Z = ⌊(4 + 8·(−4)) / 19⌋</code></td><td class="mono">⌊−28/19⌋ = −2</td></tr>
+<tr><td><code>q = ⌊(1 + X − Y) / 3⌋</code></td><td class="mono">⌊3/3⌋ = 1</td></tr>
+<tr><td><code>r = ⌊(1 + Y − Z) / 3⌋</code></td><td class="mono">⌊2/3⌋ = 0</td></tr>
+<tr><td>chunk</td><td class="mono">(1, 0) ✓ matches figure R.3</td></tr>
+</table></div>
+<p><strong>A limit for large coordinates:</strong> hexx computes <code>y + shift·x</code> in <code>i32</code>, then divides as <code>f32</code>. Integers are exact in <code>f32</code> only up to 2²⁴ = 16,777,216. Past about <code>16.7M / (3r + 2)</code> cells from the origin (roughly 840,000 cells for <code>r = 6</code>), the floor can land on the wrong side of a band edge, and a cell can be put in the wrong chunk. A grid that reaches that far needs an integer <code>div_euclid</code> version of this function.</p>
+{{f8}}
+<p>The figures on this page use a Python port of this function, checked against hexx for all 169 cells of the figure above.</p>
+</div>
+</details>
+<h2 id="cell">3 · What one cell owns</h2>
+<p><code>HGridLayout::new</code> builds a <code>HexagonalMap</code> of radius <code>settings.radius</code> around <code>Hex::ZERO</code>. Each cell gets its height and radius from <code>Fbm&lt;Perlin&gt;</code> sampled at its world centre divided by a scale (50 for height, 30 for radius).</p>
+<ul>
+<li>A cell's values depend only on its world position and the seeds. Its neighbours don't affect them, and neither does the size of the grid.</li>
+<li>Corners are <code>centre + unit_corner · cell.radius</code>, while centres sit on the fixed lattice spacing <code>nominal_hex_radius</code>. So a smaller cell widens the gaps around it, but never moves.</li>
+</ul>
+<p><code>all_tris(entangled)</code> walks the grid once. For each cell it appends, in a fixed order, exactly what that cell owns under the rules in 1.6:</p>
+{{f7}}
+<p>Because ownership is per cell, any way of splitting the cells into groups splits the triangle stream with no overlap and no holes.</p>
+<h2 id="entangled">4 · Entangled cells</h2>
+<p>#8 added a per-cell <code>entangled</code> flag, set through the <code>entangle: &amp;[Hex]</code> argument of <code>HGridLayout::new</code>, and two rules for the gaps:</p>
+<ul>
+<li>A gap quad is entangled only if <em>both</em> its cells are. #8 calls this the bridging propagation rule.</li>
+<li>Junction triangles are never entangled. <code>all_tris(true)</code> skips them, and <code>all_tris(false)</code> always includes them.</li>
+</ul>
+<p><code>all_tris(entangled)</code>, <code>hex_face_tris(entangled)</code> and <code>gap_quad_tris(entangled)</code> return only the matching part, so a consumer can drive entangled and plain cells with two materials. <code>entangle_borderline(dir)</code> marks one outer side of the grid.</p>
+<p>Entangling a grid's whole outer ring has a useful effect. <code>all_tris(false)</code> skips the ring's faces and the gaps between two ring cells, but keeps every gap that reaches an inner cell, whoever owns it. The inner cells come out with a closed outline:</p>
+{{f10g}}
+<p>#9 builds the terrain page's flower from this. Each petal entangles its ring of cells facing a neighbour and copies the neighbour's border values into it with overrides. "The earlier-placed layout owns every shared seam", so the seams are drawn once, with no z-fighting and no doubled triangles.</p>
+</main>
+<script>
+(function () {
+  var btn = document.getElementById("expand-all");
+  var all = function () { return document.querySelectorAll("details.fn"); };
+  var sync = function () { var open = [].every.call(all(), function (d) { return d.open; }); btn.textContent = open ? "Collapse all" : "Expand all"; };
+  btn.addEventListener("click", function () { var open = btn.textContent === "Expand all"; all().forEach(function (d) { d.open = open; }); sync(); });
+  all().forEach(function (d) { d.addEventListener("toggle", sync); });
+  var openFromHash = function () { var el = location.hash && document.getElementById(location.hash.slice(1)); if (el && el.tagName === "DETAILS") el.open = true; };
+  openFromHash(); window.addEventListener("hashchange", openFromHash);
+})();
+</script>
+</body>
+</html>
