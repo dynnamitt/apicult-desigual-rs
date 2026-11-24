@@ -62,6 +62,23 @@ test("advancePos caps a long frame so a backgrounded tab doesn't replay hours of
   assert.ok(Math.abs(x1 - 1) < 1e-9 && Math.abs(z1 - 1.5) < 1e-9);
 });
 
+test("advancePos settles onto the rail, so a direction change doesn't zig-zag the anchor", () => {
+  // Off the row of centres by 0.4 chunk spacings (inside the zig-zag band) heading +q.
+  const dir = chunkCenter(CHUNK_DIRS[0], U, V);
+  const side = chunkCenter(CHUNK_DIRS[1], U, V);
+  let pos = side.map((s) => s * 0.4), anchor = [0, 0];
+  const taken = [];
+  for (let i = 0; i < 2000; i += 1) {
+    pos = advancePos(pos, dir, 20, 1 / 60, chunkCenter(anchor, U, V));
+    for (let d = nearestStep(pos, anchor, U, V); d !== -1; d = nearestStep(pos, anchor, U, V)) {
+      anchor = [anchor[0] + CHUNK_DIRS[d][0], anchor[1] + CHUNK_DIRS[d][1]];
+      taken.push(d);
+    }
+  }
+  assert.ok(taken.length > 10);
+  assert.ok(taken.slice(-10).every((d) => d === 0), `tail of steps: ${taken.slice(-10)}`);
+});
+
 test("clampChunkRadius keeps typed values inside 0..MAX_CHUNK_RADIUS", () => {
   assert.equal(clampChunkRadius(-1), 0);
   assert.equal(clampChunkRadius(NaN), 0);
