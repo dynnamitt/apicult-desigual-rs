@@ -35,13 +35,12 @@ ENSURE = command -v $(1) >/dev/null 2>&1 || { echo ">> $(1) not found — instal
 
 # Front-end assets, split by which page needs them. Both pages share the
 # stylesheet, the sidebar binder and the pure helpers (welding, seeds).
-COMMON_WEB   = web/demo.css web/hex-controls.js web/weld.js web/seed.js web/page-nav.js
+COMMON_WEB   = web/demo.css web/hex-controls.js web/weld.js web/seed.js web/page-nav.js web/three-weld.js web/canvas.js
 TERRAIN_WEB  = web/hex-terrain.js web/hex-terrain-scene.js web/hex-terrain-shader.js web/hex-seam.js
 UNITS_WEB    = web/hex-units-scene.js web/hex-units-grid.js
 # The crawler routes with the units page's graph, so it ships that module too.
 CRAWLER_WEB  = web/hex-crawler-scene.js web/hex-crawler-board.js web/hex-crawler-walk.js web/hex-units-grid.js
-# The treadmill welds meshes with the terrain page's `weldedMesh`, so it ships that module too.
-STREAM_WEB   = web/hex-stream-scene.js web/hex-stream.js web/hex-terrain.js
+STREAM_WEB   = web/hex-stream-scene.js web/hex-stream.js
 
 build:
 	cargo build

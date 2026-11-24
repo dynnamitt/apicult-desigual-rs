@@ -141,9 +141,8 @@ export function bindControls(
     if (!el) continue;
 
     if (schema.live.has(spec.field)) {
-      // Number inputs respond to both arrow-stepping (input event) and typing.
+      // `input` covers typing, arrow-stepping and <select> picks; `change` would fire a second time.
       el.addEventListener("input", liveDispatch);
-      el.addEventListener("change", liveDispatch);
     }
     if (schema.rebuild.has(spec.field)) {
       // Pressing Enter inside a rebuild input triggers Apply, mirroring the

@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import {
   CHUNK_DIRS, chunkKey, footprint, stepFootprint, chunkCenter, nearestStep,
   visibleSeamGroups, advancePos, clampChunkRadius, MAX_FRAME_DT, MAX_CHUNK_RADIUS,
-  advanceFade, FADE_IN_S, FADE_OUT_S, chunkHash,
+  advanceFade, FADE_IN_S, FADE_OUT_S, chunkHash, clampSpeed, MAX_SPEED,
 } from "./hex-stream.js";
 
 const ANCHOR = [2, -1];
@@ -102,6 +102,13 @@ test("chunkHash is stable, u32, and differs across a chunk's neighbours", () => 
   assert.ok(hashes.every((h) => Number.isInteger(h) && h >= 0 && h < 2 ** 32));
   assert.notEqual(chunkHash(1, -1), chunkHash(-1, 1));
   assert.notEqual(chunkHash(2, 3), chunkHash(3, 2));
+});
+
+test("clampSpeed keeps typed values inside 0..MAX_SPEED", () => {
+  assert.equal(clampSpeed(100000), MAX_SPEED);
+  assert.equal(clampSpeed(-5), 0);
+  assert.equal(clampSpeed(NaN), 0);
+  assert.equal(clampSpeed(12.5), 12.5);
 });
 
 test("clampChunkRadius keeps typed values inside 0..MAX_CHUNK_RADIUS", () => {
