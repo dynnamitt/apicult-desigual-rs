@@ -12,6 +12,7 @@ export const PAGES = [
   { href: "hex-crawler.html", label: "hex crawler"     },
   { href: "hex-stream.html",  label: "chunk treadmill" },
   { href: "svg-preview.html", label: "grid preview"    },
+  { href: "guide.html",       label: "geometry guide"  },
 ];
 
 /**

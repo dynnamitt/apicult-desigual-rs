@@ -5,9 +5,10 @@ import { readdirSync, readFileSync } from "node:fs";
 import { PAGES, pageOptions } from "./page-nav.js";
 
 const WEB_DIR = new URL(".", import.meta.url);
-// `make` publishes hex-terrain.html as index.html; every other page keeps its name.
-const SOURCE_OF = { "index.html": "hex-terrain.html" };
-const PUBLISHED_PAGES = readdirSync(WEB_DIR).filter((f) => f.endsWith(".html"));
+// `make` publishes hex-terrain.html as index.html and the guide from its template; every other page keeps its name.
+const GUIDE_TMPL = "../docs/guide/guide.tmpl.html";
+const SOURCE_OF = { "index.html": "hex-terrain.html", "guide.html": GUIDE_TMPL };
+const PUBLISHED_PAGES = [...readdirSync(WEB_DIR).filter((f) => f.endsWith(".html")), GUIDE_TMPL];
 
 test("PAGES lists every published html page exactly once", () => {
   const sources = PAGES.map((p) => SOURCE_OF[p.href] ?? p.href).sort();

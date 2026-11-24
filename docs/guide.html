@@ -1,0 +1,1337 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>apicult-desigual Geometry Guide</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Major+Mono+Display&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@500;600&family=IBM+Plex+Sans:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet">
+<style>
+/* Layout: one reading column (~68ch); figures may run wider. Blue = gap quads, amber = junctions, slate = hex faces. */
+:root {
+  --paper: #f3f4f1;
+  --ink: #1d2126;
+  --muted: #5d6570;
+  --rule: #d5d8d3;
+  --face: #c9ced4;
+  --quad: #3b63c9;
+  --junc: #d08a1e;
+  --card: #ffffff;
+  --t0: #c4cfe6; --t1: #e3cfa9; --t2: #c7dccd;
+  --display: "IBM Plex Sans Condensed", "Arial Narrow", sans-serif;
+  --body: "IBM Plex Sans", system-ui, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #15181c; --ink: #e4e7ea; --muted: #9aa3ad; --rule: #2c3238; --face: #3a4149;
+    --quad: #7b9cf0; --junc: #e9a948; --card: #1c2025;
+    --t0: #2f3b57; --t1: #4d4028; --t2: #2c4434;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --paper: #15181c; --ink: #e4e7ea; --muted: #9aa3ad; --rule: #2c3238; --face: #3a4149;
+  --quad: #7b9cf0; --junc: #e9a948; --card: #1c2025;
+  --t0: #2f3b57; --t1: #4d4028; --t2: #2c4434;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--paper); color: var(--ink); font: 16px/1.6 var(--body); }
+main { max-width: 68ch; margin: 0 auto; padding: 48px 20px 96px; }
+h1, h2 { font-family: var(--display); text-wrap: balance; line-height: 1.2; }
+h1 { font-size: 2.2rem; margin: 0 0 8px; font-weight: 600; }
+h2 { font-size: 1.5rem; margin: 56px 0 8px; padding-top: 16px; border-top: 1px solid var(--rule); font-weight: 600; }
+details.fn { border: 1px solid var(--rule); border-radius: 6px; background: var(--card); margin: 10px 0; }
+details.fn > summary { cursor: pointer; list-style: none; display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 12px; padding: 10px 14px; }
+details.fn > summary::-webkit-details-marker { display: none; }
+details.fn > summary::before { content: "▸"; color: var(--muted); width: 1ch; transition: transform 0.15s; }
+details.fn[open] > summary::before { transform: rotate(90deg); }
+details.fn > summary:focus-visible { outline: 2px solid var(--quad); outline-offset: 2px; border-radius: 6px; }
+details.fn .h3 { font: 500 1.05rem var(--display); display: inline-flex; gap: 10px; align-items: baseline; flex-wrap: wrap; }
+details.fn .gist { color: var(--muted); font-size: 0.9rem; }
+details.fn .fnbody { padding: 0 14px 6px; border-top: 1px solid var(--rule); }
+.tools { margin: 8px 0; }
+.tools button { font: 500 0.85rem var(--body); color: var(--ink); background: var(--card); border: 1px solid var(--rule); border-radius: 4px; padding: 4px 10px; cursor: pointer; }
+.tools button:focus-visible { outline: 2px solid var(--quad); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { details.fn > summary::before { transition: none; } }
+.h3 .lvl { font: 500 0.72rem var(--mono); color: var(--muted); border: 1px solid var(--rule); border-radius: 3px; padding: 1px 6px; }
+.sub { color: var(--muted); margin: 0 0 24px; }
+code, .mono { font-family: var(--mono); font-size: 0.88em; }
+pre { font: 0.84rem/1.5 var(--mono); background: var(--card); border: 1px solid var(--rule); border-radius: 6px; padding: 12px 14px; overflow-x: auto; }
+.toc { columns: 2; column-gap: 32px; padding-left: 20px; font-size: 0.95rem; }
+@media (max-width: 520px) { .toc { columns: 1; } }
+.toc a { color: inherit; }
+figure { margin: 24px 0; }
+figure.wide { width: min(calc(100vw - 40px), 880px); position: relative; left: 50%; transform: translateX(-50%); }
+.masthead { display: flex; align-items: center; gap: 16px; margin: 0 0 28px; }
+.masthead .logo { width: 84px; height: auto; flex: none; }
+.masthead .name { font: 400 clamp(1.25rem, 4.5vw, 1.9rem)/1.1 "Major Mono Display", var(--mono); letter-spacing: 0.02em; overflow-wrap: anywhere; }
+.masthead .name span { color: var(--quad); }
+.topnav { margin: 0 0 12px; text-align: right; }
+.topnav select { font: 0.85rem var(--body); color: var(--ink); background: var(--card); border: 1px solid var(--rule); border-radius: 4px; padding: 3px 6px; }
+.svgwrap { background: var(--card); border: 1px solid var(--rule); border-radius: 8px; padding: 8px; overflow-x: auto; color: var(--ink); }
+svg { display: block; width: 100%; height: auto; }
+figcaption { font-size: 0.9rem; color: var(--muted); margin-top: 8px; }
+.formula { font-family: var(--mono); font-size: 0.95rem; background: var(--card); border: 1px solid var(--rule); border-radius: 6px; padding: 10px 14px; overflow-x: auto; white-space: nowrap; }
+table { border-collapse: collapse; width: 100%; font-size: 0.92rem; font-variant-numeric: tabular-nums; }
+th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--rule); vertical-align: top; }
+th { font-family: var(--display); font-weight: 500; }
+.tablewrap { overflow-x: auto; }
+
+/* SVG vocabulary */
+.lbl { font: 12px var(--body); fill: currentColor; }
+.lbl.mono { font-family: var(--mono); font-size: 11.5px; }
+.lbl.tiny { font-size: 10.5px; }
+.lbl.dim { fill: var(--muted); }
+.lbl.acc { fill: var(--quad); font-weight: 500; }
+.lbl.acc2 { fill: var(--junc); font-weight: 500; }
+.axis { stroke: currentColor; stroke-width: 1.2; fill: none; }
+.dash { stroke-dasharray: 4 4; }
+.map { stroke: var(--muted); stroke-width: 1; fill: none; }
+.arc { stroke: var(--quad); stroke-width: 1.5; fill: none; color: var(--quad); }
+.edge { stroke: currentColor; stroke-width: 2; fill: none; }
+.edge.acc { stroke: var(--quad); color: var(--quad); }
+.edge.own { stroke: var(--quad); stroke-width: 4.5; }
+.edge.thin { stroke: var(--muted); stroke-width: 1; }
+.dot { fill: currentColor; }
+.dot.acc { fill: var(--quad); }
+.dot.junc { fill: var(--junc); }
+.face { fill: var(--face); stroke: var(--ink); stroke-width: 0.8; stroke-opacity: 0.5; }
+.face.soft { fill-opacity: 0.45; }
+.face.fan { stroke-opacity: 0.7; }
+.face.ghost { fill: none; stroke: var(--muted); stroke-opacity: 0.6; }
+.face.entring { fill: none; stroke: var(--ink); stroke-dasharray: 3 3; stroke-opacity: 0.8; }
+.face.missing { fill: none; stroke: var(--muted); stroke-dasharray: 3 3; stroke-opacity: 0.7; }
+.quad { fill: var(--quad); fill-opacity: 0.55; stroke: var(--quad); stroke-width: 0.8; }
+.quad.soft { fill-opacity: 0.25; }
+.seam { stroke: var(--ink); stroke-width: 0.8; stroke-opacity: 0.7; stroke-dasharray: 3 2; }
+.face.entring.t1 { fill: var(--t1); fill-opacity: 0.35; } .face.entring.t2 { fill: var(--t2); fill-opacity: 0.35; }
+.quad.ghost { fill: none; stroke: var(--quad); stroke-opacity: 0.6; stroke-dasharray: 2 2; }
+.junc { fill: var(--junc); fill-opacity: 0.75; stroke: var(--junc); stroke-width: 0.8; }
+.diag { stroke: var(--ink); stroke-width: 1; stroke-dasharray: 3 2; stroke-opacity: 0.7; }
+.tile { stroke: var(--paper); stroke-width: 0.6; }
+.t0 { fill: var(--t0); } .t1 { fill: var(--t1); } .t2 { fill: var(--t2); }
+.tile.part { fill-opacity: 0.45; }
+a:focus-visible { outline: 2px solid var(--quad); outline-offset: 2px; }
+</style>
+<script type="module" src="page-nav.js"></script>
+</head>
+<body>
+<main>
+<nav class="topnav" data-page-nav></nav>
+<header class="masthead"><svg class="logo" viewBox="0 0 274 291" role="img" aria-label="apicult-desigual logo"><polygon class="face ghost" points="270.4,93.4 248.8,56.0 205.6,56.0 184.0,93.4 205.6,130.8 248.8,130.8"/><polygon class="face ghost" points="180.4,41.4 158.8,4.0 115.6,4.0 94.0,41.4 115.6,78.8 158.8,78.8"/><polygon class="face ghost" points="90.4,93.4 68.8,56.0 25.6,56.0 4.0,93.4 25.6,130.8 68.8,130.8"/><polygon class="face ghost" points="90.4,197.3 68.8,159.9 25.6,159.9 4.0,197.3 25.6,234.7 68.8,234.7"/><polygon class="face ghost" points="180.4,249.3 158.8,211.8 115.6,211.8 94.0,249.3 115.6,286.7 158.8,286.7"/><polygon class="face ghost" points="270.4,197.3 248.8,159.9 205.6,159.9 184.0,197.3 205.6,234.7 248.8,234.7"/><polygon class="quad ghost" points="115.6,78.8 115.6,107.9 158.8,107.9 158.8,78.8"/><polygon class="quad ghost" points="90.4,197.3 115.6,182.7 94.0,145.3 68.8,159.9"/><polygon class="quad ghost" points="205.6,159.9 180.4,145.3 158.8,182.7 184.0,197.3"/><polygon class="face fan" points="137.2,145.3 180.4,145.3 158.8,107.9"/><polygon class="face fan" points="137.2,145.3 158.8,107.9 115.6,107.9"/><polygon class="face fan" points="137.2,145.3 115.6,107.9 94.0,145.3"/><polygon class="face fan" points="137.2,145.3 94.0,145.3 115.6,182.7"/><polygon class="face fan" points="137.2,145.3 115.6,182.7 158.8,182.7"/><polygon class="face fan" points="137.2,145.3 158.8,182.7 180.4,145.3"/><polygon class="quad" points="180.4,145.3 205.6,130.8 184.0,93.4 158.8,107.9"/><line x1="180.4" y1="145.3" x2="184.0" y2="93.4" class="diag"/><polygon class="quad" points="115.6,107.9 90.4,93.4 68.8,130.8 94.0,145.3"/><line x1="115.6" y1="107.9" x2="68.8" y2="130.8" class="diag"/><polygon class="quad" points="115.6,182.7 115.6,211.8 158.8,211.8 158.8,182.7"/><line x1="115.6" y1="182.7" x2="158.8" y2="211.8" class="diag"/><polygon class="junc" points="180.4,145.3 205.6,159.9 205.6,130.8"/><polygon class="junc" points="158.8,107.9 184.0,93.4 158.8,78.8"/></svg><div class="name">apicult-<span>desigual</span></div></header>
+<h1>Geometry guide</h1>
+<p class="sub">How <code>src/math.rs</code>, the hexx resolution functions, <code>HGridLayout</code>'s per-cell ownership and the <code>chunk</code> module fit together. Function sections start collapsed; open one to read it.</p>
+<ol class="toc">
+<li><a href="#math">The math functions, simplest first</a></li>
+<li><a href="#resolution">Resolution functions from hexx</a></li>
+<li><a href="#cell">What one cell owns</a></li>
+<li><a href="#entangled">Entangled cells</a></li>
+<li><a href="#chunks">Streaming chunks</a></li>
+</ol>
+<h2 id="math">1 · The math functions, simplest first</h2>
+<p><code>src/math.rs</code> holds pure functions over <code>glam</code> and <code>hexx</code> types. None of them know about <code>HGridLayout</code>. They're ordered here from plain arithmetic to the grid combinatorics the rest of the crate is built on.</p>
+<p>One convention to keep in mind: a hex's world position is a <code>Vec2(x, z)</code>. Height is <code>y</code>, so 3D points are <code>Vec3(x, height, z)</code>.</p>
+<p id="ownership">Two <strong>ownership rules</strong> keep every gap from being drawn twice. 1.5, 1.6 and sections 3 to 5 all rest on them:</p>
+<ul>
+<li><strong>Quads.</strong> Every interior edge is shared by two hexes. If one meets it as an even edge (0, 2, 4), the other meets it as odd (3, 5, 1), because <code>e+3</code> flips parity. So "the hex whose index is even owns it" picks exactly one owner.</li>
+<li><strong>Junction triangles.</strong> Every interior corner is shared by three hexes, and it is corner 0 or 1 of exactly one of them. That hex owns the triangle, so each hex owns the junctions at its corners 0 and 1.</li>
+</ul>
+<p>A gap is only emitted when every hex it touches exists.</p>
+
+<p class="tools"><button type="button" id="expand-all">Expand all</button></p>
+<details class="fn">
+<summary><span class="h3">1.1 <code>map_noise_to_range</code><span class="lvl">linear rescale</span></span><span class="gist">noise in [−1, 1] → any range</span></summary>
+<div class="fnbody">
+<p>Noise generators return values centred on zero, roughly in <code>[-1, 1]</code>. This is the straight line through <code>(-1, min)</code> and <code>(1, max)</code>:</p>
+<p class="formula">out = min + (n + 1) / 2 · (max − min)</p>
+<p>The layout calls it twice per cell. Once for height, into <code>[0, max_height]</code> (default 20). Once for the cell's corner radius, into <code>[nominal · min_ratio, nominal · max_ratio]</code> (default 0.2 to 3.6 for a nominal radius of 4). Centres sit <code>√3 · nominal_hex_radius</code> apart (6.93 at the default), where hexes of corner radius <code>nominal_hex_radius</code> would just touch. A gap opens wherever <code>cell.radius &lt; nominal_hex_radius</code>, and with the default ratios that is every cell. That leftover space is the <em>gap</em> the rest of this page is about.</p>
+<figure><div class="svgwrap"><svg viewBox="0 0 620 210" role="img" aria-label="Noise values from -1 to 1 map linearly onto heights 0 to 20">
+<defs><marker id="arr1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="currentColor"/></marker></defs>
+<line class="axis" x1="60.0" y1="50.0" x2="560.0" y2="50.0"/>
+<line class="axis" x1="60.0" y1="150.0" x2="560.0" y2="150.0"/>
+<text class="lbl dim" x="48.0" y="54.0" text-anchor="end">noise</text>
+<text class="lbl dim" x="48.0" y="154.0" text-anchor="end">height</text>
+<line class="map" x1="60.0" y1="50.0" x2="60.0" y2="150.0"/>
+<circle class="dot" cx="60.0" cy="50" r="4"/><circle class="dot acc" cx="60.0" cy="150" r="4"/>
+<text class="lbl" x="60.0" y="36.0" text-anchor="middle">-1</text>
+<text class="lbl" x="60.0" y="174.0" text-anchor="middle">0</text>
+<line class="map" x1="185.0" y1="50.0" x2="185.0" y2="150.0"/>
+<circle class="dot" cx="185.0" cy="50" r="4"/><circle class="dot acc" cx="185.0" cy="150" r="4"/>
+<text class="lbl" x="185.0" y="36.0" text-anchor="middle">-0.5</text>
+<text class="lbl" x="185.0" y="174.0" text-anchor="middle">5</text>
+<line class="map" x1="310.0" y1="50.0" x2="310.0" y2="150.0"/>
+<circle class="dot" cx="310.0" cy="50" r="4"/><circle class="dot acc" cx="310.0" cy="150" r="4"/>
+<text class="lbl" x="310.0" y="36.0" text-anchor="middle">0</text>
+<text class="lbl" x="310.0" y="174.0" text-anchor="middle">10</text>
+<line class="map" x1="435.0" y1="50.0" x2="435.0" y2="150.0"/>
+<circle class="dot" cx="435.0" cy="50" r="4"/><circle class="dot acc" cx="435.0" cy="150" r="4"/>
+<text class="lbl" x="435.0" y="36.0" text-anchor="middle">0.5</text>
+<text class="lbl" x="435.0" y="174.0" text-anchor="middle">15</text>
+<line class="map" x1="560.0" y1="50.0" x2="560.0" y2="150.0"/>
+<circle class="dot" cx="560.0" cy="50" r="4"/><circle class="dot acc" cx="560.0" cy="150" r="4"/>
+<text class="lbl" x="560.0" y="36.0" text-anchor="middle">1</text>
+<text class="lbl" x="560.0" y="174.0" text-anchor="middle">20</text>
+<text class="lbl mono" x="310.0" y="196.0" text-anchor="middle">min + (n + 1) / 2 · (max − min)   with min = 0, max = max_height = 20</text></svg></div><figcaption><code>map_noise_to_range(n, 0.0, 20.0)</code>: a straight line from the noise axis to the output axis. Nothing clamps, so a noise value past ±1 lands past the ends.</figcaption></figure>
+</div>
+</details>
+<details class="fn">
+<summary><span class="h3">1.2 <code>edge_cuboid_transform</code><span class="lvl">vectors + one rotation</span></span><span class="gist">midpoint, length, rotation for a beam on an edge</span></summary>
+<div class="fnbody">
+<p>This one gives you the placement for a box that should lie along an edge from <code>from</code> to <code>to</code>:</p>
+<ul>
+<li>the midpoint, <code>(from + to) / 2</code></li>
+<li>the length, <code>|to − from|</code></li>
+<li>the rotation that turns the box's own +X axis onto the edge direction</li>
+</ul>
+<p>Scale a unit cube by <code>length</code> on X, rotate, then translate.</p>
+<figure><div class="svgwrap"><svg viewBox="0 0 520 260" role="img" aria-label="A unit cuboid along X is rotated, stretched and moved onto an edge">
+<defs><marker id="arr2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="currentColor"/></marker></defs>
+<line class="axis" x1="70.0" y1="230.0" x2="160.0" y2="230.0" marker-end="url(#arr2)"/>
+<text class="lbl dim" x="170.0" y="234.0" text-anchor="start">+X</text>
+<polygon class="quad soft" points="207.4,214.2 437.4,94.2 422.6,65.8 192.6,185.8"/>
+<line class="edge" x1="200.0" y1="200.0" x2="430.0" y2="80.0"/>
+<circle class="dot" cx="200" cy="200" r="5"/><circle class="dot" cx="430" cy="80" r="5"/><circle class="dot acc" cx="315.0" cy="140.0" r="6"/>
+<text class="lbl" x="194.0" y="224.0" text-anchor="middle">from</text>
+<text class="lbl" x="440.0" y="66.0" text-anchor="start">to</text>
+<text class="lbl acc" x="333.0" y="170.0" text-anchor="start">midpoint</text>
+<text class="lbl mono" x="285.0" y="112.0" text-anchor="end">length = |to − from|</text>
+<path class="arc" d="M130,230 A60,60 0 0 0 123.2,202.2" marker-end="url(#arr2)"/>
+<line class="axis dash" x1="70" y1="230" x2="176.4" y2="174.5"/>
+<text class="lbl acc" x="128.0" y="218.0" text-anchor="start">rotation</text></svg></div><figcaption><code>edge_cuboid_transform(from, to)</code> returns where to put a beam: its centre, its length, and the shortest rotation that turns +X onto the edge direction (<code>Quat::from_rotation_arc</code>). A zero-length edge gets no rotation.</figcaption></figure>
+</div>
+</details>
+<details class="fn">
+<summary><span class="h3">1.3 <code>gap_vertex_data</code><span class="lvl">translate + cross product</span></span><span class="gist">shift to origin, normal from a cross product</span></summary>
+<div class="fnbody">
+<p>This prepares a gap polygon for mesh upload. It moves the polygon so its first vertex is at the origin, and finds which way it faces.</p>
+<p>The face direction is the cross product of the vectors <code>v0→v1</code> and <code>v0→v2</code>. For these gaps the winding makes that cross product point down, so the function negates it.</p>
+<p>When <code>flat</code> is set it ignores the slope and returns straight up, so tilted gaps get the same lighting as the flat hex tops.</p>
+<figure><div class="svgwrap"><svg viewBox="0 0 640 260" role="img" aria-label="Gap vertices are shifted so the first is at the origin, and a normal is taken from a cross product">
+<defs><marker id="arr3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="currentColor"/></marker></defs>
+<polygon class="quad soft" points="100.0,114.0 220.0,138.0 270.4,123.6 150.4,99.6"/>
+<circle class="dot acc" cx="100.0" cy="114.0" r="5"/>
+<text class="lbl acc" x="92.0" y="132.0" text-anchor="end">v0 (origin)</text>
+<text class="lbl dim" x="140.0" y="240.0" text-anchor="middle">world space</text>
+<polygon class="quad" points="380.0,170.0 500.0,194.0 550.4,179.6 430.4,155.6"/>
+<circle class="dot acc" cx="380.0" cy="170.0" r="5"/>
+<text class="lbl mono" x="372.0" y="188.0" text-anchor="end">0,0,0</text>
+<line class="edge" x1="380.0" y1="170.0" x2="500.0" y2="194.0" marker-end="url(#arr3)"/>
+<line class="edge" x1="380.0" y1="170.0" x2="550.4" y2="179.6" marker-end="url(#arr3)"/>
+<text class="lbl mono" x="508.0" y="210.0" text-anchor="start">e1</text>
+<text class="lbl mono" x="558.4" y="179.6" text-anchor="start">e2</text>
+<line class="axis dash" x1="420.0" y1="158.0" x2="420.0" y2="218.0" marker-end="url(#arr3)"/>
+<text class="lbl dim" x="428.0" y="224.0" text-anchor="start">e1 × e2 (down)</text>
+<line class="edge acc" x1="420.0" y1="158.0" x2="420.0" y2="78.0" marker-end="url(#arr3)"/>
+<text class="lbl acc" x="428.0" y="78.0" text-anchor="start">normal = −(e1 × e2)</text>
+<line class="map" x1="260.0" y1="150.0" x2="330.0" y2="150.0" marker-end="url(#arr3)"/>
+<text class="lbl mono" x="295.0" y="140.0" text-anchor="middle">− v0</text>
+<text class="lbl dim" x="470.0" y="240.0" text-anchor="middle">origin-local</text></svg></div><figcaption><code>gap_vertex_data(verts, flat)</code>: subtract <code>v0</code> from every vertex, then take the normal from the first two edges. The winding makes the raw cross product point down, so it is negated. With <code>flat = true</code> it skips this and returns <code>+Y</code>, which matches the flat hex faces.</figcaption></figure>
+</div>
+</details>
+<details class="fn">
+<summary><span class="h3">1.4 <code>idw_interpolate_height</code><span class="lvl">weighted average</span></span><span class="gist">height at any point as a 1/d² weighted mean</span></summary>
+<div class="fnbody">
+<p>This answers "how high is the ground at an arbitrary point Q?" Every nearby corner votes with its height, and its vote counts <code>1 / d²</code>, where <code>d</code> is its distance to Q in the x–z plane:</p>
+<p class="formula">h(Q) = Σ hᵢ / dᵢ²  ⁄  Σ 1 / dᵢ²</p>
+<p>Near a corner its weight blows up, so the function simply snaps to that corner once <code>d² &lt; 0.001</code>. It returns <code>None</code> for an empty list and leaves the fallback to the caller.</p>
+<figure><div class="svgwrap"><svg viewBox="0 0 600 330" role="img" aria-label="Inverse distance weighting: nearer vertices pull the height harder">
+<defs><marker id="arr4" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="currentColor"/></marker></defs>
+<polygon class="face soft" points="370.0,170.0 335.0,109.4 265.0,109.4 230.0,170.0 265.0,230.6 335.0,230.6" />
+<line class="map" x1="324.5" y1="152.5" x2="370.0" y2="170.0" style="stroke-width:2.58"/>
+<circle class="dot" cx="370.0" cy="170.0" r="5"/>
+<text class="lbl mono" x="396.0" y="174.0" text-anchor="middle">h=4</text>
+<text class="lbl dim" x="396.0" y="188.0" text-anchor="middle">28%</text>
+<line class="map" x1="324.5" y1="152.5" x2="335.0" y2="109.4" style="stroke-width:2.99"/>
+<circle class="dot" cx="335.0" cy="109.4" r="5"/>
+<text class="lbl mono" x="348.0" y="90.9" text-anchor="middle">h=6</text>
+<text class="lbl dim" x="348.0" y="104.9" text-anchor="middle">34%</text>
+<line class="map" x1="324.5" y1="152.5" x2="265.0" y2="109.4" style="stroke-width:1.47"/>
+<circle class="dot" cx="265.0" cy="109.4" r="5"/>
+<text class="lbl mono" x="252.0" y="90.9" text-anchor="middle">h=9</text>
+<text class="lbl dim" x="252.0" y="104.9" text-anchor="middle">12%</text>
+<line class="map" x1="324.5" y1="152.5" x2="230.0" y2="170.0" style="stroke-width:1.11"/>
+<circle class="dot" cx="230.0" cy="170.0" r="5"/>
+<text class="lbl mono" x="204.0" y="174.0" text-anchor="middle">h=7</text>
+<text class="lbl dim" x="204.0" y="188.0" text-anchor="middle">7%</text>
+<line class="map" x1="324.5" y1="152.5" x2="265.0" y2="230.6" style="stroke-width:1.09"/>
+<circle class="dot" cx="265.0" cy="230.6" r="5"/>
+<text class="lbl mono" x="252.0" y="257.1" text-anchor="middle">h=3</text>
+<text class="lbl dim" x="252.0" y="271.1" text-anchor="middle">7%</text>
+<line class="map" x1="324.5" y1="152.5" x2="335.0" y2="230.6" style="stroke-width:1.36"/>
+<circle class="dot" cx="335.0" cy="230.6" r="5"/>
+<text class="lbl mono" x="348.0" y="257.1" text-anchor="middle">h=2</text>
+<text class="lbl dim" x="348.0" y="271.1" text-anchor="middle">11%</text>
+<circle class="dot acc" cx="324.5" cy="152.5" r="6"/>
+<text class="lbl acc" x="316.5" y="182.5" text-anchor="end">Q → 5.24</text></svg></div><figcaption><code>idw_interpolate_height(Q, verts)</code> with six example corners. Each weight is <code>1 / d²</code> (line thickness, share in %), so the answer is a weighted mean, here 5.24. A query within √0.001 of a vertex snaps to that vertex's height. <code>HGridLayout::interpolate_height</code> feeds it the corners of the hex under Q and its six neighbours.</figcaption></figure>
+</div>
+</details>
+<details class="fn">
+<summary><span class="h3">1.5 <code>quad_corner_indices</code><span class="lvl">hex direction tables</span></span><span class="gist">which corners form the gap across an edge</span></summary>
+<div class="fnbody">
+<p>Here the hex lattice itself comes in. hexx numbers a hex's six corners (<code>VertexDirection</code>) and six edges (<code>EdgeDirection</code>) separately. Edge <code>i</code> runs from corner <code>i</code> to corner <code>i+1</code>.</p>
+<p>The gap between a hex and its neighbour across edge <code>e</code> is a quad with two corners on each hex. On the neighbour, that same edge is edge <code>e+3</code>, and it is walked in the opposite direction. The function returns the four indices in a fixed order, <code>(v0, v1, n0, n1)</code>, so the quad always comes out as <code>[v0, n0, n1, v1]</code>.</p>
+<div class="tablewrap"><table>
+<tr><th>edge</th><th>faces neighbour</th><th>owner corners v0, v1</th><th>neighbour corners n0, n1</th></tr>
+<tr><td>0</td><td class="mono">(+1, 0)</td><td class="mono">0, 1</td><td class="mono">4, 3</td></tr>
+<tr><td>2</td><td class="mono">(−1, +1)</td><td class="mono">2, 3</td><td class="mono">0, 5</td></tr>
+<tr><td>4</td><td class="mono">(0, −1)</td><td class="mono">4, 5</td><td class="mono">2, 1</td></tr>
+</table></div>
+<p>Callers pass only 0, 2 and 4, because of the quad <a href="#ownership">ownership rule</a>.</p>
+<figure class="wide"><div class="svgwrap"><svg viewBox="0 0 760 450" role="img" aria-label="Hex corner and edge indices; each hex owns even edges and vertices 0 and 1">
+<defs><marker id="arr5" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="currentColor"/></marker></defs>
+<polygon class="face ghost" points="409.4,162.5 378.2,108.4 315.8,108.4 284.6,162.5 315.8,216.5 378.2,216.5" />
+<text class="lbl mono dim" x="347.0" y="166.5" text-anchor="middle">(1,0)</text>
+<polygon class="face ghost" points="292.4,94.9 261.2,40.9 198.8,40.9 167.6,94.9 198.8,148.9 261.2,148.9" />
+<text class="lbl mono dim" x="230.0" y="98.9" text-anchor="middle">(0,1)</text>
+<polygon class="face ghost" points="175.4,162.5 144.2,108.4 81.8,108.4 50.6,162.5 81.8,216.5 144.2,216.5" />
+<text class="lbl mono dim" x="113.0" y="166.5" text-anchor="middle">(-1,1)</text>
+<polygon class="face ghost" points="175.4,297.5 144.2,243.5 81.8,243.5 50.6,297.5 81.8,351.6 144.2,351.6" />
+<text class="lbl mono dim" x="113.0" y="301.5" text-anchor="middle">(-1,0)</text>
+<polygon class="face ghost" points="292.4,365.1 261.2,311.1 198.8,311.1 167.6,365.1 198.8,419.1 261.2,419.1" />
+<text class="lbl mono dim" x="230.0" y="369.1" text-anchor="middle">(0,-1)</text>
+<polygon class="face ghost" points="409.4,297.5 378.2,243.5 315.8,243.5 284.6,297.5 315.8,351.6 378.2,351.6" />
+<text class="lbl mono dim" x="347.0" y="301.5" text-anchor="middle">(1,-1)</text>
+<polygon class="face" points="292.4,230.0 261.2,176.0 198.8,176.0 167.6,230.0 198.8,284.0 261.2,284.0" />
+<line class="edge own" x1="292.4" y1="230.0" x2="261.2" y2="176.0"/>
+<text class="lbl acc" x="263.7" y="214.5" text-anchor="middle">e0</text>
+<line class="edge thin" x1="261.2" y1="176.0" x2="198.8" y2="176.0"/>
+<text class="lbl dim" x="230.0" y="195.1" text-anchor="middle">e1</text>
+<line class="edge own" x1="198.8" y1="176.0" x2="167.6" y2="230.0"/>
+<text class="lbl acc" x="196.3" y="214.5" text-anchor="middle">e2</text>
+<line class="edge thin" x1="167.6" y1="230.0" x2="198.8" y2="284.0"/>
+<text class="lbl dim" x="196.3" y="253.5" text-anchor="middle">e3</text>
+<line class="edge own" x1="198.8" y1="284.0" x2="261.2" y2="284.0"/>
+<text class="lbl acc" x="230.0" y="272.9" text-anchor="middle">e4</text>
+<line class="edge thin" x1="261.2" y1="284.0" x2="292.4" y2="230.0"/>
+<text class="lbl dim" x="263.7" y="253.5" text-anchor="middle">e5</text>
+<circle class="dot junc" cx="292.4" cy="230.0" r="6"/>
+<text class="lbl mono" x="309.6" y="234.0" text-anchor="middle">0</text>
+<circle class="dot junc" cx="261.2" cy="176.0" r="6"/>
+<text class="lbl mono" x="269.8" y="165.1" text-anchor="middle">1</text>
+<circle class="dot" cx="198.8" cy="176.0" r="4"/>
+<text class="lbl mono" x="190.2" y="165.1" text-anchor="middle">2</text>
+<circle class="dot" cx="167.6" cy="230.0" r="4"/>
+<text class="lbl mono" x="150.4" y="234.0" text-anchor="middle">3</text>
+<circle class="dot" cx="198.8" cy="284.0" r="4"/>
+<text class="lbl mono" x="190.2" y="302.9" text-anchor="middle">4</text>
+<circle class="dot" cx="261.2" cy="284.0" r="4"/>
+<text class="lbl mono" x="269.8" y="302.9" text-anchor="middle">5</text>
+<text class="lbl mono" x="230.0" y="234.0" text-anchor="middle">(0,0)</text>
+<polygon class="face" points="618.5,250.0 589.2,199.3 530.8,199.3 501.5,250.0 530.8,300.7 589.2,300.7" />
+<polygon class="face" points="735.5,182.5 706.2,131.8 647.8,131.8 618.5,182.5 647.8,233.1 706.2,233.1" />
+<polygon class="quad" points="618.5,250.0 647.8,233.1 618.5,182.5 589.2,199.3" />
+<line class="diag" x1="618.5" y1="250.0" x2="618.5" y2="182.5"/>
+<circle class="dot" cx="618.5" cy="250.0" r="4"/>
+<text class="lbl mono" x="608.5" y="268.0" text-anchor="end">v0 = 0</text>
+<circle class="dot" cx="647.8" cy="233.1" r="4"/>
+<text class="lbl mono" x="657.8" y="251.1" text-anchor="start">n0 = 4</text>
+<circle class="dot" cx="618.5" cy="182.5" r="4"/>
+<text class="lbl mono" x="628.5" y="174.5" text-anchor="start">n1 = 3</text>
+<circle class="dot" cx="589.2" cy="199.3" r="4"/>
+<text class="lbl mono" x="579.2" y="191.3" text-anchor="end">v1 = 1</text>
+<text class="lbl" x="560.0" y="254.0" text-anchor="middle">owner</text>
+<text class="lbl" x="677.0" y="186.5" text-anchor="middle">neighbour</text>
+<text class="lbl mono" x="560.0" y="430.0" text-anchor="middle">quad_corner_indices(0) = (0, 1, 4, 3)</text></svg></div><figcaption>Left: the flat-top hex at <code>(0,0)</code> with corner indices 0–5 (<code>VertexDirection</code>) and edge indices e0–e5 (<code>EdgeDirection</code>, labelled with the neighbour each edge faces). Thick edges e0, e2, e4 are the ones it owns. The two larger dots are its owned junction corners, 0 and 1. Right: <code>quad_corner_indices(0)</code> pairs owner corners 0 and 1 with neighbour corners 4 and 3. The dashed line is the <code>v0–n1</code> diagonal the quad is split along. Drawn with x to the right and z up.</figcaption></figure>
+</div>
+</details>
+<details class="fn">
+<summary><span class="h3">1.6 <code>gap_filler</code><span class="lvl">ownership counting</span></span><span class="gist">counts the gap quads and junction triangles a set of cells produces</span></summary>
+<div class="fnbody">
+<p><code>gap_filler</code> counts what the <a href="#ownership">ownership rules</a> produce for any set of cells: one quad per even edge whose neighbour exists, one junction per corner 0 or 1 whose two other hexes exist. A unit test (<code>quad_bridge_edges_count_matches_gap_filler</code>) checks its quad count against <code>quad_bridge_edges</code>.</p>
+<figure><div class="svgwrap"><svg viewBox="0 0 520 480" role="img" aria-label="A radius 2 grid: every interior gap is filled exactly once">
+<defs><marker id="arr6" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="currentColor"/></marker></defs>
+<polygon class="face missing" points="501.0,110.5 484.0,81.0 450.0,81.0 433.0,110.5 450.0,140.0 484.0,140.0" />
+<polygon class="face missing" points="501.0,190.2 484.0,160.7 450.0,160.7 433.0,190.2 450.0,219.6 484.0,219.6" />
+<polygon class="face missing" points="501.0,269.8 484.0,240.4 450.0,240.4 433.0,269.8 450.0,299.3 484.0,299.3" />
+<polygon class="face missing" points="501.0,349.5 484.0,320.0 450.0,320.0 433.0,349.5 450.0,379.0 484.0,379.0" />
+<polygon class="face missing" points="432.0,70.7 415.0,41.2 381.0,41.2 364.0,70.7 381.0,100.1 415.0,100.1" />
+<polygon class="face missing" points="432.0,389.3 415.0,359.9 381.0,359.9 364.0,389.3 381.0,418.8 415.0,418.8" />
+<polygon class="face missing" points="363.0,30.8 346.0,1.3 312.0,1.3 295.0,30.8 312.0,60.3 346.0,60.3" />
+<polygon class="face missing" points="363.0,429.2 346.0,399.7 312.0,399.7 295.0,429.2 312.0,458.7 346.0,458.7" />
+<polygon class="face missing" points="294.0,-9.0 277.0,-38.5 243.0,-38.5 226.0,-9.0 243.0,20.5 277.0,20.5" />
+<polygon class="face missing" points="294.0,469.0 277.0,439.5 243.0,439.5 226.0,469.0 243.0,498.5 277.0,498.5" />
+<polygon class="face missing" points="225.0,30.8 208.0,1.3 174.0,1.3 157.0,30.8 174.0,60.3 208.0,60.3" />
+<polygon class="face missing" points="225.0,429.2 208.0,399.7 174.0,399.7 157.0,429.2 174.0,458.7 208.0,458.7" />
+<polygon class="face missing" points="156.0,70.7 139.0,41.2 105.0,41.2 88.0,70.7 105.0,100.1 139.0,100.1" />
+<polygon class="face missing" points="156.0,389.3 139.0,359.9 105.0,359.9 88.0,389.3 105.0,418.8 139.0,418.8" />
+<polygon class="face missing" points="87.0,110.5 70.0,81.0 36.0,81.0 19.0,110.5 36.0,140.0 70.0,140.0" />
+<polygon class="face missing" points="87.0,190.2 70.0,160.7 36.0,160.7 19.0,190.2 36.0,219.6 70.0,219.6" />
+<polygon class="face missing" points="87.0,269.8 70.0,240.4 36.0,240.4 19.0,269.8 36.0,299.3 70.0,299.3" />
+<polygon class="face missing" points="87.0,349.5 70.0,320.0 36.0,320.0 19.0,349.5 36.0,379.0 70.0,379.0" />
+<polygon class="face" points="156.0,309.7 139.0,280.2 105.0,280.2 88.0,309.7 105.0,339.2 139.0,339.2" />
+<polygon class="face" points="156.0,230.0 139.0,200.5 105.0,200.5 88.0,230.0 105.0,259.5 139.0,259.5" />
+<polygon class="face" points="156.0,150.3 139.0,120.8 105.0,120.8 88.0,150.3 105.0,179.8 139.0,179.8" />
+<polygon class="face" points="225.0,349.5 208.0,320.0 174.0,320.0 157.0,349.5 174.0,379.0 208.0,379.0" />
+<polygon class="face" points="225.0,269.8 208.0,240.4 174.0,240.4 157.0,269.8 174.0,299.3 208.0,299.3" />
+<polygon class="face" points="225.0,190.2 208.0,160.7 174.0,160.7 157.0,190.2 174.0,219.6 208.0,219.6" />
+<polygon class="face" points="225.0,110.5 208.0,81.0 174.0,81.0 157.0,110.5 174.0,140.0 208.0,140.0" />
+<polygon class="face" points="294.0,389.3 277.0,359.9 243.0,359.9 226.0,389.3 243.0,418.8 277.0,418.8" />
+<polygon class="face" points="294.0,309.7 277.0,280.2 243.0,280.2 226.0,309.7 243.0,339.2 277.0,339.2" />
+<polygon class="face" points="294.0,230.0 277.0,200.5 243.0,200.5 226.0,230.0 243.0,259.5 277.0,259.5" />
+<polygon class="face" points="294.0,150.3 277.0,120.8 243.0,120.8 226.0,150.3 243.0,179.8 277.0,179.8" />
+<polygon class="face" points="294.0,70.7 277.0,41.2 243.0,41.2 226.0,70.7 243.0,100.1 277.0,100.1" />
+<polygon class="face" points="363.0,349.5 346.0,320.0 312.0,320.0 295.0,349.5 312.0,379.0 346.0,379.0" />
+<polygon class="face" points="363.0,269.8 346.0,240.4 312.0,240.4 295.0,269.8 312.0,299.3 346.0,299.3" />
+<polygon class="face" points="363.0,190.2 346.0,160.7 312.0,160.7 295.0,190.2 312.0,219.6 346.0,219.6" />
+<polygon class="face" points="363.0,110.5 346.0,81.0 312.0,81.0 295.0,110.5 312.0,140.0 346.0,140.0" />
+<polygon class="face" points="432.0,309.7 415.0,280.2 381.0,280.2 364.0,309.7 381.0,339.2 415.0,339.2" />
+<polygon class="face" points="432.0,230.0 415.0,200.5 381.0,200.5 364.0,230.0 381.0,259.5 415.0,259.5" />
+<polygon class="face" points="432.0,150.3 415.0,120.8 381.0,120.8 364.0,150.3 381.0,179.8 415.0,179.8" />
+<polygon class="quad" points="156.0,309.7 174.0,299.3 157.0,269.8 139.0,280.2" />
+<polygon class="junc" points="156.0,309.7 174.0,320.0 174.0,299.3" />
+<polygon class="junc" points="139.0,280.2 157.0,269.8 139.0,259.5" />
+<polygon class="quad" points="156.0,230.0 174.0,219.6 157.0,190.2 139.0,200.5" />
+<polygon class="quad" points="105.0,259.5 105.0,280.2 139.0,280.2 139.0,259.5" />
+<polygon class="junc" points="156.0,230.0 174.0,240.4 174.0,219.6" />
+<polygon class="junc" points="139.0,200.5 157.0,190.2 139.0,179.8" />
+<polygon class="quad" points="156.0,150.3 174.0,140.0 157.0,110.5 139.0,120.8" />
+<polygon class="quad" points="105.0,179.8 105.0,200.5 139.0,200.5 139.0,179.8" />
+<polygon class="junc" points="156.0,150.3 174.0,160.7 174.0,140.0" />
+<polygon class="quad" points="225.0,349.5 243.0,339.2 226.0,309.7 208.0,320.0" />
+<polygon class="quad" points="174.0,320.0 156.0,309.7 139.0,339.2 157.0,349.5" />
+<polygon class="junc" points="225.0,349.5 243.0,359.9 243.0,339.2" />
+<polygon class="junc" points="208.0,320.0 226.0,309.7 208.0,299.3" />
+<polygon class="quad" points="225.0,269.8 243.0,259.5 226.0,230.0 208.0,240.4" />
+<polygon class="quad" points="174.0,240.4 156.0,230.0 139.0,259.5 157.0,269.8" />
+<polygon class="quad" points="174.0,299.3 174.0,320.0 208.0,320.0 208.0,299.3" />
+<polygon class="junc" points="225.0,269.8 243.0,280.2 243.0,259.5" />
+<polygon class="junc" points="208.0,240.4 226.0,230.0 208.0,219.6" />
+<polygon class="quad" points="225.0,190.2 243.0,179.8 226.0,150.3 208.0,160.7" />
+<polygon class="quad" points="174.0,160.7 156.0,150.3 139.0,179.8 157.0,190.2" />
+<polygon class="quad" points="174.0,219.6 174.0,240.4 208.0,240.4 208.0,219.6" />
+<polygon class="junc" points="225.0,190.2 243.0,200.5 243.0,179.8" />
+<polygon class="junc" points="208.0,160.7 226.0,150.3 208.0,140.0" />
+<polygon class="quad" points="225.0,110.5 243.0,100.1 226.0,70.7 208.0,81.0" />
+<polygon class="quad" points="174.0,140.0 174.0,160.7 208.0,160.7 208.0,140.0" />
+<polygon class="junc" points="225.0,110.5 243.0,120.8 243.0,100.1" />
+<polygon class="quad" points="294.0,389.3 312.0,379.0 295.0,349.5 277.0,359.9" />
+<polygon class="quad" points="243.0,359.9 225.0,349.5 208.0,379.0 226.0,389.3" />
+<polygon class="junc" points="277.0,359.9 295.0,349.5 277.0,339.2" />
+<polygon class="quad" points="294.0,309.7 312.0,299.3 295.0,269.8 277.0,280.2" />
+<polygon class="quad" points="243.0,280.2 225.0,269.8 208.0,299.3 226.0,309.7" />
+<polygon class="quad" points="243.0,339.2 243.0,359.9 277.0,359.9 277.0,339.2" />
+<polygon class="junc" points="294.0,309.7 312.0,320.0 312.0,299.3" />
+<polygon class="junc" points="277.0,280.2 295.0,269.8 277.0,259.5" />
+<polygon class="quad" points="294.0,230.0 312.0,219.6 295.0,190.2 277.0,200.5" />
+<polygon class="quad" points="243.0,200.5 225.0,190.2 208.0,219.6 226.0,230.0" />
+<polygon class="quad" points="243.0,259.5 243.0,280.2 277.0,280.2 277.0,259.5" />
+<polygon class="junc" points="294.0,230.0 312.0,240.4 312.0,219.6" />
+<polygon class="junc" points="277.0,200.5 295.0,190.2 277.0,179.8" />
+<polygon class="quad" points="294.0,150.3 312.0,140.0 295.0,110.5 277.0,120.8" />
+<polygon class="quad" points="243.0,120.8 225.0,110.5 208.0,140.0 226.0,150.3" />
+<polygon class="quad" points="243.0,179.8 243.0,200.5 277.0,200.5 277.0,179.8" />
+<polygon class="junc" points="294.0,150.3 312.0,160.7 312.0,140.0" />
+<polygon class="junc" points="277.0,120.8 295.0,110.5 277.0,100.1" />
+<polygon class="quad" points="243.0,100.1 243.0,120.8 277.0,120.8 277.0,100.1" />
+<polygon class="quad" points="363.0,349.5 381.0,339.2 364.0,309.7 346.0,320.0" />
+<polygon class="quad" points="312.0,320.0 294.0,309.7 277.0,339.2 295.0,349.5" />
+<polygon class="junc" points="346.0,320.0 364.0,309.7 346.0,299.3" />
+<polygon class="quad" points="363.0,269.8 381.0,259.5 364.0,230.0 346.0,240.4" />
+<polygon class="quad" points="312.0,240.4 294.0,230.0 277.0,259.5 295.0,269.8" />
+<polygon class="quad" points="312.0,299.3 312.0,320.0 346.0,320.0 346.0,299.3" />
+<polygon class="junc" points="363.0,269.8 381.0,280.2 381.0,259.5" />
+<polygon class="junc" points="346.0,240.4 364.0,230.0 346.0,219.6" />
+<polygon class="quad" points="363.0,190.2 381.0,179.8 364.0,150.3 346.0,160.7" />
+<polygon class="quad" points="312.0,160.7 294.0,150.3 277.0,179.8 295.0,190.2" />
+<polygon class="quad" points="312.0,219.6 312.0,240.4 346.0,240.4 346.0,219.6" />
+<polygon class="junc" points="363.0,190.2 381.0,200.5 381.0,179.8" />
+<polygon class="junc" points="346.0,160.7 364.0,150.3 346.0,140.0" />
+<polygon class="quad" points="312.0,81.0 294.0,70.7 277.0,100.1 295.0,110.5" />
+<polygon class="quad" points="312.0,140.0 312.0,160.7 346.0,160.7 346.0,140.0" />
+<polygon class="quad" points="381.0,280.2 363.0,269.8 346.0,299.3 364.0,309.7" />
+<polygon class="quad" points="381.0,200.5 363.0,190.2 346.0,219.6 364.0,230.0" />
+<polygon class="quad" points="381.0,259.5 381.0,280.2 415.0,280.2 415.0,259.5" />
+<polygon class="quad" points="381.0,120.8 363.0,110.5 346.0,140.0 364.0,150.3" />
+<polygon class="quad" points="381.0,179.8 381.0,200.5 415.0,200.5 415.0,179.8" />
+<text class="lbl mono" x="260.0" y="460.0" text-anchor="middle">19 cells → 42 quads, 24 junction tris</text></svg></div><figcaption><code>gap_filler</code> on the 19 cells of a radius-2 grid returns <code>(42, 24)</code>. Blue are the gap quads, amber the 3-hex junction triangles. Each is drawn once, by its owner. The dashed ring would be radius 3: those cells don't exist, so the outer cells' gaps toward them are simply skipped. This is the rim the real map has too.</figcaption></figure>
+</div>
+</details>
+
+<h2 id="resolution">2 · Resolution functions from hexx</h2>
+<p>hexx (0.24, <code>hex/mod.rs</code>) can treat a radius-<code>r</code> hexagon of cells as one cell of a coarser hex grid. It calls these <em>resolutions</em>, after Sander Evers' "hexagon tiling of a hexagonal grid". The <a href="#chunks"><code>chunk</code> module</a> builds on two of them: a chunk with coordinate <code>c</code> holds the cells with <code>hex.to_lower_res(r) == c</code>, and its centre cell is <code>c.to_higher_res(r)</code>. The other functions below are hexx background; the crate doesn't call them.</p>
+
+<details class="fn">
+<summary><span class="h3">R.1 <code>Hex::range_count</code></span><span class="gist">cells in a radius-r hexagon</span></summary>
+<div class="fnbody">
+<p class="formula">range_count(r) = 3·r·(r + 1) + 1</p>
+<p>Ring <code>k</code> has <code>6k</code> cells, and summing over rings plus the centre gives this. For <code>r = 2</code> it's 19, for <code>r = 6</code> it's 127, and for a radius-60 grid it's 10,981. In <code>to_lower_res</code> this number is called the <code>area</code>: one coarse cell holds exactly this many fine cells.</p>
+</div>
+</details>
+
+<details class="fn">
+<summary><span class="h3">R.2 <code>Hex::to_higher_res</code></span><span class="gist">chunk coordinate → its centre cell, linear</span></summary>
+<div class="fnbody">
+<p>Going down to finer cells is a plain linear map in cubic coordinates <code>(x, y, z = −x − y)</code>:</p>
+<p class="formula">to_higher_res((x, y), r) = ( x·(r+1) − r·z ,  y·(r+1) − r·x )</p>
+<p>Chunk <code>(1,0)</code> goes to <code>(2r+1, −r)</code>, which is <code>(5,−2)</code> for <code>r = 2</code>. Every chunk centre is an integer combination of two such basis vectors. The coarse lattice is the fine one scaled by <code>√range_count(r)</code> and rotated, so chunk rows never line up with cell rows.</p>
+<p>The function is <code>const</code> and exact integer arithmetic.</p>
+<figure><div class="svgwrap"><svg viewBox="0 0 660 600" role="img" aria-label="to_higher_res maps chunk coordinates onto the centres of chunk hexagons">
+<defs><marker id="arr9" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="currentColor"/></marker></defs>
+<polygon class="tile t0" points="119.5,433.4 109.2,415.6 88.8,415.6 78.5,433.4 88.8,451.1 109.2,451.1" />
+<polygon class="tile t0" points="119.5,395.3 109.2,377.5 88.8,377.5 78.5,395.3 88.8,413.0 109.2,413.0" />
+<polygon class="tile t2" points="119.5,357.2 109.2,339.4 88.8,339.4 78.5,357.2 88.8,374.9 109.2,374.9" />
+<polygon class="tile t2" points="119.5,319.1 109.2,301.3 88.8,301.3 78.5,319.1 88.8,336.8 109.2,336.8" />
+<polygon class="tile t2" points="119.5,280.9 109.2,263.2 88.8,263.2 78.5,280.9 88.8,298.7 109.2,298.7" />
+<polygon class="tile t0" points="119.5,242.8 109.2,225.1 88.8,225.1 78.5,242.8 88.8,260.6 109.2,260.6" />
+<polygon class="tile t0" points="119.5,204.7 109.2,187.0 88.8,187.0 78.5,204.7 88.8,222.5 109.2,222.5" />
+<polygon class="tile t0" points="119.5,166.6 109.2,148.9 88.8,148.9 78.5,166.6 88.8,184.4 109.2,184.4" />
+<polygon class="tile t0" points="152.5,452.4 142.2,434.7 121.8,434.7 111.5,452.4 121.8,470.1 142.2,470.1" />
+<polygon class="tile t0" points="152.5,414.3 142.2,396.6 121.8,396.6 111.5,414.3 121.8,432.0 142.2,432.0" />
+<polygon class="tile t2" points="152.5,376.2 142.2,358.5 121.8,358.5 111.5,376.2 121.8,393.9 142.2,393.9" />
+<polygon class="tile t2" points="152.5,338.1 142.2,320.4 121.8,320.4 111.5,338.1 121.8,355.8 142.2,355.8" />
+<polygon class="tile t2" points="152.5,300.0 142.2,282.3 121.8,282.3 111.5,300.0 121.8,317.7 142.2,317.7" />
+<polygon class="tile t2" points="152.5,261.9 142.2,244.2 121.8,244.2 111.5,261.9 121.8,279.6 142.2,279.6" />
+<polygon class="tile t0" points="152.5,223.8 142.2,206.1 121.8,206.1 111.5,223.8 121.8,241.5 142.2,241.5" />
+<polygon class="tile t0" points="152.5,185.7 142.2,168.0 121.8,168.0 111.5,185.7 121.8,203.4 142.2,203.4" />
+<polygon class="tile t0" points="152.5,147.6 142.2,129.9 121.8,129.9 111.5,147.6 121.8,165.3 142.2,165.3" />
+<polygon class="tile t0" points="185.5,471.5 175.2,453.8 154.8,453.8 144.5,471.5 154.8,489.2 175.2,489.2" />
+<polygon class="tile t0" points="185.5,433.4 175.2,415.6 154.8,415.6 144.5,433.4 154.8,451.1 175.2,451.1" />
+<polygon class="tile t2" points="185.5,395.3 175.2,377.5 154.8,377.5 144.5,395.3 154.8,413.0 175.2,413.0" />
+<polygon class="tile t2" points="185.5,357.2 175.2,339.4 154.8,339.4 144.5,357.2 154.8,374.9 175.2,374.9" />
+<polygon class="tile t2" points="185.5,319.1 175.2,301.3 154.8,301.3 144.5,319.1 154.8,336.8 175.2,336.8" />
+<polygon class="tile t2" points="185.5,280.9 175.2,263.2 154.8,263.2 144.5,280.9 154.8,298.7 175.2,298.7" />
+<polygon class="tile t2" points="185.5,242.8 175.2,225.1 154.8,225.1 144.5,242.8 154.8,260.6 175.2,260.6" />
+<polygon class="tile t1" points="185.5,204.7 175.2,187.0 154.8,187.0 144.5,204.7 154.8,222.5 175.2,222.5" />
+<polygon class="tile t1" points="185.5,166.6 175.2,148.9 154.8,148.9 144.5,166.6 154.8,184.4 175.2,184.4" />
+<polygon class="tile t1" points="185.5,128.5 175.2,110.8 154.8,110.8 144.5,128.5 154.8,146.2 175.2,146.2" />
+<polygon class="tile t1" points="218.5,490.5 208.2,472.8 187.8,472.8 177.5,490.5 187.8,508.2 208.2,508.2" />
+<polygon class="tile t1" points="218.5,452.4 208.2,434.7 187.8,434.7 177.5,452.4 187.8,470.1 208.2,470.1" />
+<polygon class="tile t1" points="218.5,414.3 208.2,396.6 187.8,396.6 177.5,414.3 187.8,432.0 208.2,432.0" />
+<polygon class="tile t2" points="218.5,376.2 208.2,358.5 187.8,358.5 177.5,376.2 187.8,393.9 208.2,393.9" />
+<polygon class="tile t2" points="218.5,338.1 208.2,320.4 187.8,320.4 177.5,338.1 187.8,355.8 208.2,355.8" />
+<polygon class="tile t2" points="218.5,300.0 208.2,282.3 187.8,282.3 177.5,300.0 187.8,317.7 208.2,317.7" />
+<polygon class="tile t2" points="218.5,261.9 208.2,244.2 187.8,244.2 177.5,261.9 187.8,279.6 208.2,279.6" />
+<polygon class="tile t1" points="218.5,223.8 208.2,206.1 187.8,206.1 177.5,223.8 187.8,241.5 208.2,241.5" />
+<polygon class="tile t1" points="218.5,185.7 208.2,168.0 187.8,168.0 177.5,185.7 187.8,203.4 208.2,203.4" />
+<polygon class="tile t1" points="218.5,147.6 208.2,129.9 187.8,129.9 177.5,147.6 187.8,165.3 208.2,165.3" />
+<polygon class="tile t1" points="218.5,109.5 208.2,91.8 187.8,91.8 177.5,109.5 187.8,127.2 208.2,127.2" />
+<polygon class="tile t1" points="251.5,509.6 241.2,491.9 220.8,491.9 210.5,509.6 220.8,527.3 241.2,527.3" />
+<polygon class="tile t1" points="251.5,471.5 241.2,453.8 220.8,453.8 210.5,471.5 220.8,489.2 241.2,489.2" />
+<polygon class="tile t1" points="251.5,433.4 241.2,415.6 220.8,415.6 210.5,433.4 220.8,451.1 241.2,451.1" />
+<polygon class="tile t1" points="251.5,395.3 241.2,377.5 220.8,377.5 210.5,395.3 220.8,413.0 241.2,413.0" />
+<polygon class="tile t2" points="251.5,357.2 241.2,339.4 220.8,339.4 210.5,357.2 220.8,374.9 241.2,374.9" />
+<polygon class="tile t2" points="251.5,319.1 241.2,301.3 220.8,301.3 210.5,319.1 220.8,336.8 241.2,336.8" />
+<polygon class="tile t2" points="251.5,280.9 241.2,263.2 220.8,263.2 210.5,280.9 220.8,298.7 241.2,298.7" />
+<polygon class="tile t1" points="251.5,242.8 241.2,225.1 220.8,225.1 210.5,242.8 220.8,260.6 241.2,260.6" />
+<polygon class="tile t1" points="251.5,204.7 241.2,187.0 220.8,187.0 210.5,204.7 220.8,222.5 241.2,222.5" />
+<polygon class="tile t1" points="251.5,166.6 241.2,148.9 220.8,148.9 210.5,166.6 220.8,184.4 241.2,184.4" />
+<polygon class="tile t1" points="251.5,128.5 241.2,110.8 220.8,110.8 210.5,128.5 220.8,146.2 241.2,146.2" />
+<polygon class="tile t1" points="251.5,90.4 241.2,72.7 220.8,72.7 210.5,90.4 220.8,108.1 241.2,108.1" />
+<polygon class="tile t1" points="284.5,528.6 274.2,510.9 253.8,510.9 243.5,528.6 253.8,546.3 274.2,546.3" />
+<polygon class="tile t1" points="284.5,490.5 274.2,472.8 253.8,472.8 243.5,490.5 253.8,508.2 274.2,508.2" />
+<polygon class="tile t1" points="284.5,452.4 274.2,434.7 253.8,434.7 243.5,452.4 253.8,470.1 274.2,470.1" />
+<polygon class="tile t1" points="284.5,414.3 274.2,396.6 253.8,396.6 243.5,414.3 253.8,432.0 274.2,432.0" />
+<polygon class="tile t1" points="284.5,376.2 274.2,358.5 253.8,358.5 243.5,376.2 253.8,393.9 274.2,393.9" />
+<polygon class="tile t0" points="284.5,338.1 274.2,320.4 253.8,320.4 243.5,338.1 253.8,355.8 274.2,355.8" />
+<polygon class="tile t0" points="284.5,300.0 274.2,282.3 253.8,282.3 243.5,300.0 253.8,317.7 274.2,317.7" />
+<polygon class="tile t0" points="284.5,261.9 274.2,244.2 253.8,244.2 243.5,261.9 253.8,279.6 274.2,279.6" />
+<polygon class="tile t1" points="284.5,223.8 274.2,206.1 253.8,206.1 243.5,223.8 253.8,241.5 274.2,241.5" />
+<polygon class="tile t1" points="284.5,185.7 274.2,168.0 253.8,168.0 243.5,185.7 253.8,203.4 274.2,203.4" />
+<polygon class="tile t1" points="284.5,147.6 274.2,129.9 253.8,129.9 243.5,147.6 253.8,165.3 274.2,165.3" />
+<polygon class="tile t1" points="284.5,109.5 274.2,91.8 253.8,91.8 243.5,109.5 253.8,127.2 274.2,127.2" />
+<polygon class="tile t0" points="284.5,71.4 274.2,53.7 253.8,53.7 243.5,71.4 253.8,89.1 274.2,89.1" />
+<polygon class="tile t0" points="317.5,547.7 307.2,530.0 286.8,530.0 276.5,547.7 286.8,565.4 307.2,565.4" />
+<polygon class="tile t1" points="317.5,509.6 307.2,491.9 286.8,491.9 276.5,509.6 286.8,527.3 307.2,527.3" />
+<polygon class="tile t1" points="317.5,471.5 307.2,453.8 286.8,453.8 276.5,471.5 286.8,489.2 307.2,489.2" />
+<polygon class="tile t1" points="317.5,433.4 307.2,415.6 286.8,415.6 276.5,433.4 286.8,451.1 307.2,451.1" />
+<polygon class="tile t1" points="317.5,395.3 307.2,377.5 286.8,377.5 276.5,395.3 286.8,413.0 307.2,413.0" />
+<polygon class="tile t0" points="317.5,357.2 307.2,339.4 286.8,339.4 276.5,357.2 286.8,374.9 307.2,374.9" />
+<polygon class="tile t0" points="317.5,319.1 307.2,301.3 286.8,301.3 276.5,319.1 286.8,336.8 307.2,336.8" />
+<polygon class="tile t0" points="317.5,280.9 307.2,263.2 286.8,263.2 276.5,280.9 286.8,298.7 307.2,298.7" />
+<polygon class="tile t0" points="317.5,242.8 307.2,225.1 286.8,225.1 276.5,242.8 286.8,260.6 307.2,260.6" />
+<polygon class="tile t1" points="317.5,204.7 307.2,187.0 286.8,187.0 276.5,204.7 286.8,222.5 307.2,222.5" />
+<polygon class="tile t1" points="317.5,166.6 307.2,148.9 286.8,148.9 276.5,166.6 286.8,184.4 307.2,184.4" />
+<polygon class="tile t1" points="317.5,128.5 307.2,110.8 286.8,110.8 276.5,128.5 286.8,146.2 307.2,146.2" />
+<polygon class="tile t0" points="317.5,90.4 307.2,72.7 286.8,72.7 276.5,90.4 286.8,108.1 307.2,108.1" />
+<polygon class="tile t0" points="317.5,52.3 307.2,34.6 286.8,34.6 276.5,52.3 286.8,70.0 307.2,70.0" />
+<polygon class="tile t0" points="350.5,566.7 340.2,549.0 319.8,549.0 309.5,566.7 319.8,584.5 340.2,584.5" />
+<polygon class="tile t0" points="350.5,528.6 340.2,510.9 319.8,510.9 309.5,528.6 319.8,546.3 340.2,546.3" />
+<polygon class="tile t1" points="350.5,490.5 340.2,472.8 319.8,472.8 309.5,490.5 319.8,508.2 340.2,508.2" />
+<polygon class="tile t1" points="350.5,452.4 340.2,434.7 319.8,434.7 309.5,452.4 319.8,470.1 340.2,470.1" />
+<polygon class="tile t1" points="350.5,414.3 340.2,396.6 319.8,396.6 309.5,414.3 319.8,432.0 340.2,432.0" />
+<polygon class="tile t0" points="350.5,376.2 340.2,358.5 319.8,358.5 309.5,376.2 319.8,393.9 340.2,393.9" />
+<polygon class="tile t0" points="350.5,338.1 340.2,320.4 319.8,320.4 309.5,338.1 319.8,355.8 340.2,355.8" />
+<polygon class="tile t0" points="350.5,300.0 340.2,282.3 319.8,282.3 309.5,300.0 319.8,317.7 340.2,317.7" />
+<polygon class="tile t0" points="350.5,261.9 340.2,244.2 319.8,244.2 309.5,261.9 319.8,279.6 340.2,279.6" />
+<polygon class="tile t0" points="350.5,223.8 340.2,206.1 319.8,206.1 309.5,223.8 319.8,241.5 340.2,241.5" />
+<polygon class="tile t2" points="350.5,185.7 340.2,168.0 319.8,168.0 309.5,185.7 319.8,203.4 340.2,203.4" />
+<polygon class="tile t2" points="350.5,147.6 340.2,129.9 319.8,129.9 309.5,147.6 319.8,165.3 340.2,165.3" />
+<polygon class="tile t2" points="350.5,109.5 340.2,91.8 319.8,91.8 309.5,109.5 319.8,127.2 340.2,127.2" />
+<polygon class="tile t0" points="350.5,71.4 340.2,53.7 319.8,53.7 309.5,71.4 319.8,89.1 340.2,89.1" />
+<polygon class="tile t0" points="350.5,33.3 340.2,15.5 319.8,15.5 309.5,33.3 319.8,51.0 340.2,51.0" />
+<polygon class="tile t0" points="383.5,547.7 373.2,530.0 352.8,530.0 342.5,547.7 352.8,565.4 373.2,565.4" />
+<polygon class="tile t0" points="383.5,509.6 373.2,491.9 352.8,491.9 342.5,509.6 352.8,527.3 373.2,527.3" />
+<polygon class="tile t2" points="383.5,471.5 373.2,453.8 352.8,453.8 342.5,471.5 352.8,489.2 373.2,489.2" />
+<polygon class="tile t2" points="383.5,433.4 373.2,415.6 352.8,415.6 342.5,433.4 352.8,451.1 373.2,451.1" />
+<polygon class="tile t2" points="383.5,395.3 373.2,377.5 352.8,377.5 342.5,395.3 352.8,413.0 373.2,413.0" />
+<polygon class="tile t0" points="383.5,357.2 373.2,339.4 352.8,339.4 342.5,357.2 352.8,374.9 373.2,374.9" />
+<polygon class="tile t0" points="383.5,319.1 373.2,301.3 352.8,301.3 342.5,319.1 352.8,336.8 373.2,336.8" />
+<polygon class="tile t0" points="383.5,280.9 373.2,263.2 352.8,263.2 342.5,280.9 352.8,298.7 373.2,298.7" />
+<polygon class="tile t0" points="383.5,242.8 373.2,225.1 352.8,225.1 342.5,242.8 352.8,260.6 373.2,260.6" />
+<polygon class="tile t2" points="383.5,204.7 373.2,187.0 352.8,187.0 342.5,204.7 352.8,222.5 373.2,222.5" />
+<polygon class="tile t2" points="383.5,166.6 373.2,148.9 352.8,148.9 342.5,166.6 352.8,184.4 373.2,184.4" />
+<polygon class="tile t2" points="383.5,128.5 373.2,110.8 352.8,110.8 342.5,128.5 352.8,146.2 373.2,146.2" />
+<polygon class="tile t2" points="383.5,90.4 373.2,72.7 352.8,72.7 342.5,90.4 352.8,108.1 373.2,108.1" />
+<polygon class="tile t0" points="383.5,52.3 373.2,34.6 352.8,34.6 342.5,52.3 352.8,70.0 373.2,70.0" />
+<polygon class="tile t0" points="416.5,528.6 406.2,510.9 385.8,510.9 375.5,528.6 385.8,546.3 406.2,546.3" />
+<polygon class="tile t2" points="416.5,490.5 406.2,472.8 385.8,472.8 375.5,490.5 385.8,508.2 406.2,508.2" />
+<polygon class="tile t2" points="416.5,452.4 406.2,434.7 385.8,434.7 375.5,452.4 385.8,470.1 406.2,470.1" />
+<polygon class="tile t2" points="416.5,414.3 406.2,396.6 385.8,396.6 375.5,414.3 385.8,432.0 406.2,432.0" />
+<polygon class="tile t2" points="416.5,376.2 406.2,358.5 385.8,358.5 375.5,376.2 385.8,393.9 406.2,393.9" />
+<polygon class="tile t0" points="416.5,338.1 406.2,320.4 385.8,320.4 375.5,338.1 385.8,355.8 406.2,355.8" />
+<polygon class="tile t0" points="416.5,300.0 406.2,282.3 385.8,282.3 375.5,300.0 385.8,317.7 406.2,317.7" />
+<polygon class="tile t0" points="416.5,261.9 406.2,244.2 385.8,244.2 375.5,261.9 385.8,279.6 406.2,279.6" />
+<polygon class="tile t2" points="416.5,223.8 406.2,206.1 385.8,206.1 375.5,223.8 385.8,241.5 406.2,241.5" />
+<polygon class="tile t2" points="416.5,185.7 406.2,168.0 385.8,168.0 375.5,185.7 385.8,203.4 406.2,203.4" />
+<polygon class="tile t2" points="416.5,147.6 406.2,129.9 385.8,129.9 375.5,147.6 385.8,165.3 406.2,165.3" />
+<polygon class="tile t2" points="416.5,109.5 406.2,91.8 385.8,91.8 375.5,109.5 385.8,127.2 406.2,127.2" />
+<polygon class="tile t2" points="416.5,71.4 406.2,53.7 385.8,53.7 375.5,71.4 385.8,89.1 406.2,89.1" />
+<polygon class="tile t2" points="449.5,509.6 439.2,491.9 418.8,491.9 408.5,509.6 418.8,527.3 439.2,527.3" />
+<polygon class="tile t2" points="449.5,471.5 439.2,453.8 418.8,453.8 408.5,471.5 418.8,489.2 439.2,489.2" />
+<polygon class="tile t2" points="449.5,433.4 439.2,415.6 418.8,415.6 408.5,433.4 418.8,451.1 439.2,451.1" />
+<polygon class="tile t2" points="449.5,395.3 439.2,377.5 418.8,377.5 408.5,395.3 418.8,413.0 439.2,413.0" />
+<polygon class="tile t2" points="449.5,357.2 439.2,339.4 418.8,339.4 408.5,357.2 418.8,374.9 439.2,374.9" />
+<polygon class="tile t1" points="449.5,319.1 439.2,301.3 418.8,301.3 408.5,319.1 418.8,336.8 439.2,336.8" />
+<polygon class="tile t1" points="449.5,280.9 439.2,263.2 418.8,263.2 408.5,280.9 418.8,298.7 439.2,298.7" />
+<polygon class="tile t1" points="449.5,242.8 439.2,225.1 418.8,225.1 408.5,242.8 418.8,260.6 439.2,260.6" />
+<polygon class="tile t2" points="449.5,204.7 439.2,187.0 418.8,187.0 408.5,204.7 418.8,222.5 439.2,222.5" />
+<polygon class="tile t2" points="449.5,166.6 439.2,148.9 418.8,148.9 408.5,166.6 418.8,184.4 439.2,184.4" />
+<polygon class="tile t2" points="449.5,128.5 439.2,110.8 418.8,110.8 408.5,128.5 418.8,146.2 439.2,146.2" />
+<polygon class="tile t2" points="449.5,90.4 439.2,72.7 418.8,72.7 408.5,90.4 418.8,108.1 439.2,108.1" />
+<polygon class="tile t2" points="482.5,490.5 472.2,472.8 451.8,472.8 441.5,490.5 451.8,508.2 472.2,508.2" />
+<polygon class="tile t2" points="482.5,452.4 472.2,434.7 451.8,434.7 441.5,452.4 451.8,470.1 472.2,470.1" />
+<polygon class="tile t2" points="482.5,414.3 472.2,396.6 451.8,396.6 441.5,414.3 451.8,432.0 472.2,432.0" />
+<polygon class="tile t2" points="482.5,376.2 472.2,358.5 451.8,358.5 441.5,376.2 451.8,393.9 472.2,393.9" />
+<polygon class="tile t1" points="482.5,338.1 472.2,320.4 451.8,320.4 441.5,338.1 451.8,355.8 472.2,355.8" />
+<polygon class="tile t1" points="482.5,300.0 472.2,282.3 451.8,282.3 441.5,300.0 451.8,317.7 472.2,317.7" />
+<polygon class="tile t1" points="482.5,261.9 472.2,244.2 451.8,244.2 441.5,261.9 451.8,279.6 472.2,279.6" />
+<polygon class="tile t1" points="482.5,223.8 472.2,206.1 451.8,206.1 441.5,223.8 451.8,241.5 472.2,241.5" />
+<polygon class="tile t2" points="482.5,185.7 472.2,168.0 451.8,168.0 441.5,185.7 451.8,203.4 472.2,203.4" />
+<polygon class="tile t2" points="482.5,147.6 472.2,129.9 451.8,129.9 441.5,147.6 451.8,165.3 472.2,165.3" />
+<polygon class="tile t2" points="482.5,109.5 472.2,91.8 451.8,91.8 441.5,109.5 451.8,127.2 472.2,127.2" />
+<polygon class="tile t2" points="515.5,471.5 505.2,453.8 484.8,453.8 474.5,471.5 484.8,489.2 505.2,489.2" />
+<polygon class="tile t2" points="515.5,433.4 505.2,415.6 484.8,415.6 474.5,433.4 484.8,451.1 505.2,451.1" />
+<polygon class="tile t2" points="515.5,395.3 505.2,377.5 484.8,377.5 474.5,395.3 484.8,413.0 505.2,413.0" />
+<polygon class="tile t1" points="515.5,357.2 505.2,339.4 484.8,339.4 474.5,357.2 484.8,374.9 505.2,374.9" />
+<polygon class="tile t1" points="515.5,319.1 505.2,301.3 484.8,301.3 474.5,319.1 484.8,336.8 505.2,336.8" />
+<polygon class="tile t1" points="515.5,280.9 505.2,263.2 484.8,263.2 474.5,280.9 484.8,298.7 505.2,298.7" />
+<polygon class="tile t1" points="515.5,242.8 505.2,225.1 484.8,225.1 474.5,242.8 484.8,260.6 505.2,260.6" />
+<polygon class="tile t1" points="515.5,204.7 505.2,187.0 484.8,187.0 474.5,204.7 484.8,222.5 505.2,222.5" />
+<polygon class="tile t0" points="515.5,166.6 505.2,148.9 484.8,148.9 474.5,166.6 484.8,184.4 505.2,184.4" />
+<polygon class="tile t0" points="515.5,128.5 505.2,110.8 484.8,110.8 474.5,128.5 484.8,146.2 505.2,146.2" />
+<polygon class="tile t0" points="548.5,452.4 538.2,434.7 517.8,434.7 507.5,452.4 517.8,470.1 538.2,470.1" />
+<polygon class="tile t0" points="548.5,414.3 538.2,396.6 517.8,396.6 507.5,414.3 517.8,432.0 538.2,432.0" />
+<polygon class="tile t0" points="548.5,376.2 538.2,358.5 517.8,358.5 507.5,376.2 517.8,393.9 538.2,393.9" />
+<polygon class="tile t1" points="548.5,338.1 538.2,320.4 517.8,320.4 507.5,338.1 517.8,355.8 538.2,355.8" />
+<polygon class="tile t1" points="548.5,300.0 538.2,282.3 517.8,282.3 507.5,300.0 517.8,317.7 538.2,317.7" />
+<polygon class="tile t1" points="548.5,261.9 538.2,244.2 517.8,244.2 507.5,261.9 517.8,279.6 538.2,279.6" />
+<polygon class="tile t1" points="548.5,223.8 538.2,206.1 517.8,206.1 507.5,223.8 517.8,241.5 538.2,241.5" />
+<polygon class="tile t0" points="548.5,185.7 538.2,168.0 517.8,168.0 507.5,185.7 517.8,203.4 538.2,203.4" />
+<polygon class="tile t0" points="548.5,147.6 538.2,129.9 517.8,129.9 507.5,147.6 517.8,165.3 538.2,165.3" />
+<polygon class="tile t0" points="581.5,433.4 571.2,415.6 550.8,415.6 540.5,433.4 550.8,451.1 571.2,451.1" />
+<polygon class="tile t0" points="581.5,395.3 571.2,377.5 550.8,377.5 540.5,395.3 550.8,413.0 571.2,413.0" />
+<polygon class="tile t0" points="581.5,357.2 571.2,339.4 550.8,339.4 540.5,357.2 550.8,374.9 571.2,374.9" />
+<polygon class="tile t1" points="581.5,319.1 571.2,301.3 550.8,301.3 540.5,319.1 550.8,336.8 571.2,336.8" />
+<polygon class="tile t1" points="581.5,280.9 571.2,263.2 550.8,263.2 540.5,280.9 550.8,298.7 571.2,298.7" />
+<polygon class="tile t1" points="581.5,242.8 571.2,225.1 550.8,225.1 540.5,242.8 550.8,260.6 571.2,260.6" />
+<polygon class="tile t0" points="581.5,204.7 571.2,187.0 550.8,187.0 540.5,204.7 550.8,222.5 571.2,222.5" />
+<polygon class="tile t0" points="581.5,166.6 571.2,148.9 550.8,148.9 540.5,166.6 550.8,184.4 571.2,184.4" />
+<line class="edge acc" x1="330.0" y1="300.0" x2="495.0" y2="280.9" marker-end="url(#arr9)"/>
+<circle class="dot acc" cx="495.0" cy="280.9" r="4"/>
+<text class="lbl mono tiny" x="495.0" y="268.9" text-anchor="middle">(1,0) → (5,−2)</text>
+<line class="edge acc" x1="330.0" y1="300.0" x2="396.0" y2="147.6" marker-end="url(#arr9)"/>
+<circle class="dot acc" cx="396.0" cy="147.6" r="4"/>
+<text class="lbl mono tiny" x="396.0" y="135.6" text-anchor="middle">(0,1) → (2,3)</text>
+<line class="edge acc" x1="330.0" y1="300.0" x2="231.0" y2="166.6" marker-end="url(#arr9)"/>
+<circle class="dot acc" cx="231.0" cy="166.6" r="4"/>
+<text class="lbl mono tiny" x="231.0" y="154.6" text-anchor="middle">(−1,1) → (−3,5)</text>
+<circle class="dot" cx="330.0" cy="300.0" r="4"/></svg></div><figcaption><code>to_higher_res(chunk, 2)</code> for three neighbouring chunks of <code>(0,0)</code>. It is a linear map: chunk <code>(1,0)</code> lands on cell <code>(5,−2)</code> and chunk <code>(0,1)</code> on <code>(2,3)</code>, so every chunk centre is an integer mix of those two vectors. The coarse grid is the fine grid scaled by about √19 and rotated by about 23°, which is why chunk rows don't follow cell rows.</figcaption></figure>
+</div>
+</details>
+
+<details class="fn">
+<summary><span class="h3">R.3 <code>Hex::to_local</code> and <code>wrap_in_range</code></span><span class="gist">offset inside the chunk; a wraparound world</span></summary>
+<div class="fnbody">
+<p class="formula">to_local(h, r) = h − to_higher_res(to_lower_res(h, r), r)</p>
+<p>This gives a cell's position relative to its chunk's centre, and it's always within distance <code>r</code>. Together with the chunk coordinate it recovers <code>h</code>.</p>
+<p><code>wrap_in_range(r)</code> is literally <code>to_local(r)</code>, read as "fold the plane onto one hexagon around the origin".</p>
+<figure><div class="svgwrap"><svg viewBox="0 0 560 380" role="img" aria-label="to_local gives a cell's offset from its chunk centre; wrap_in_range is the same map">
+<defs><marker id="arr10" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="currentColor"/></marker></defs>
+<polygon class="tile t0" points="78.6,258.9 63.3,232.4 32.7,232.4 17.4,258.9 32.7,285.4 63.3,285.4" />
+<polygon class="tile t0" points="78.6,200.0 63.3,173.5 32.7,173.5 17.4,200.0 32.7,226.5 63.3,226.5" />
+<polygon class="tile t0" points="78.6,141.1 63.3,114.6 32.7,114.6 17.4,141.1 32.7,167.6 63.3,167.6" />
+<polygon class="tile t0" points="129.6,288.3 114.3,261.8 83.7,261.8 68.4,288.3 83.7,314.8 114.3,314.8" />
+<polygon class="tile t0" points="129.6,229.4 114.3,202.9 83.7,202.9 68.4,229.4 83.7,255.9 114.3,255.9" />
+<polygon class="tile t0" points="129.6,170.6 114.3,144.1 83.7,144.1 68.4,170.6 83.7,197.1 114.3,197.1" />
+<polygon class="tile t0" points="129.6,111.7 114.3,85.2 83.7,85.2 68.4,111.7 83.7,138.2 114.3,138.2" />
+<polygon class="tile t0" points="180.6,317.8 165.3,291.3 134.7,291.3 119.4,317.8 134.7,344.3 165.3,344.3" />
+<polygon class="tile t0" points="180.6,258.9 165.3,232.4 134.7,232.4 119.4,258.9 134.7,285.4 165.3,285.4" />
+<polygon class="tile t0" points="180.6,200.0 165.3,173.5 134.7,173.5 119.4,200.0 134.7,226.5 165.3,226.5" />
+<polygon class="tile t0" points="180.6,141.1 165.3,114.6 134.7,114.6 119.4,141.1 134.7,167.6 165.3,167.6" />
+<polygon class="tile t0" points="180.6,82.2 165.3,55.7 134.7,55.7 119.4,82.2 134.7,108.7 165.3,108.7" />
+<polygon class="tile t0" points="231.6,288.3 216.3,261.8 185.7,261.8 170.4,288.3 185.7,314.8 216.3,314.8" />
+<polygon class="tile t0" points="231.6,229.4 216.3,202.9 185.7,202.9 170.4,229.4 185.7,255.9 216.3,255.9" />
+<polygon class="tile t0" points="231.6,170.6 216.3,144.1 185.7,144.1 170.4,170.6 185.7,197.1 216.3,197.1" />
+<polygon class="tile t0" points="231.6,111.7 216.3,85.2 185.7,85.2 170.4,111.7 185.7,138.2 216.3,138.2" />
+<polygon class="tile t0" points="282.6,258.9 267.3,232.4 236.7,232.4 221.4,258.9 236.7,285.4 267.3,285.4" />
+<polygon class="tile t0" points="282.6,200.0 267.3,173.5 236.7,173.5 221.4,200.0 236.7,226.5 267.3,226.5" />
+<polygon class="tile t0" points="282.6,141.1 267.3,114.6 236.7,114.6 221.4,141.1 236.7,167.6 267.3,167.6" />
+<polygon class="tile t1" points="333.6,229.4 318.3,202.9 287.7,202.9 272.4,229.4 287.7,255.9 318.3,255.9" />
+<polygon class="tile t1" points="333.6,170.6 318.3,144.1 287.7,144.1 272.4,170.6 287.7,197.1 318.3,197.1" />
+<polygon class="tile t1" points="333.6,111.7 318.3,85.2 287.7,85.2 272.4,111.7 287.7,138.2 318.3,138.2" />
+<polygon class="tile t1" points="384.6,258.9 369.3,232.4 338.7,232.4 323.4,258.9 338.7,285.4 369.3,285.4" />
+<polygon class="tile t1" points="384.6,200.0 369.3,173.5 338.7,173.5 323.4,200.0 338.7,226.5 369.3,226.5" />
+<polygon class="tile t1" points="384.6,141.1 369.3,114.6 338.7,114.6 323.4,141.1 338.7,167.6 369.3,167.6" />
+<polygon class="tile t1" points="384.6,82.2 369.3,55.7 338.7,55.7 323.4,82.2 338.7,108.7 369.3,108.7" />
+<polygon class="tile t1" points="435.6,288.3 420.3,261.8 389.7,261.8 374.4,288.3 389.7,314.8 420.3,314.8" />
+<polygon class="tile t1" points="435.6,229.4 420.3,202.9 389.7,202.9 374.4,229.4 389.7,255.9 420.3,255.9" />
+<polygon class="tile t1" points="435.6,170.6 420.3,144.1 389.7,144.1 374.4,170.6 389.7,197.1 420.3,197.1" />
+<polygon class="tile t1" points="435.6,111.7 420.3,85.2 389.7,85.2 374.4,111.7 389.7,138.2 420.3,138.2" />
+<polygon class="tile t1" points="435.6,52.8 420.3,26.3 389.7,26.3 374.4,52.8 389.7,79.3 420.3,79.3" />
+<polygon class="tile t1" points="486.6,258.9 471.3,232.4 440.7,232.4 425.4,258.9 440.7,285.4 471.3,285.4" />
+<polygon class="tile t1" points="486.6,200.0 471.3,173.5 440.7,173.5 425.4,200.0 440.7,226.5 471.3,226.5" />
+<polygon class="tile t1" points="486.6,141.1 471.3,114.6 440.7,114.6 425.4,141.1 440.7,167.6 471.3,167.6" />
+<polygon class="tile t1" points="486.6,82.2 471.3,55.7 440.7,55.7 425.4,82.2 440.7,108.7 471.3,108.7" />
+<polygon class="tile t1" points="537.6,229.4 522.3,202.9 491.7,202.9 476.4,229.4 491.7,255.9 522.3,255.9" />
+<polygon class="tile t1" points="537.6,170.6 522.3,144.1 491.7,144.1 476.4,170.6 491.7,197.1 522.3,197.1" />
+<polygon class="tile t1" points="537.6,111.7 522.3,85.2 491.7,85.2 476.4,111.7 491.7,138.2 522.3,138.2" />
+<polygon class="quad" points="384.6,82.2 369.3,55.7 338.7,55.7 323.4,82.2 338.7,108.7 369.3,108.7" />
+<polygon class="junc" points="129.6,111.7 114.3,85.2 83.7,85.2 68.4,111.7 83.7,138.2 114.3,138.2" />
+<circle class="dot" cx="405.0" cy="170.6" r="4"/><circle class="dot" cx="150.0" cy="200.0" r="4"/>
+<line class="edge acc" x1="405.0" y1="170.6" x2="354.0" y2="82.2" marker-end="url(#arr10)"/>
+<line class="edge" x1="150.0" y1="200.0" x2="99.0" y2="111.7" marker-end="url(#arr10)"/>
+<line class="map dash" x1="354.0" y1="82.2" x2="99.0" y2="111.7"/>
+<text class="lbl mono" x="384.0" y="60.2" text-anchor="start">h = (4,0)</text>
+<text class="lbl mono tiny" x="417.0" y="186.6" text-anchor="start">centre (5,−2)</text>
+<text class="lbl mono" x="69.0" y="89.7" text-anchor="end">(−1,2)</text>
+<text class="lbl mono tiny" x="150.0" y="218.0" text-anchor="middle">(0,0)</text></svg></div><figcaption>Cell <code>h = (4,0)</code> (blue) is in chunk (1,0), whose centre is <code>(5,−2)</code>. <code>to_local(h, 2)</code> = <code>h − to_higher_res(to_lower_res(h, 2), 2)</code> = <code>(−1,2)</code>. Read from the origin instead, the same offset is the amber cell. That is <code>wrap_in_range(2)</code>: it folds the whole plane onto one radius-2 hexagon.</figcaption></figure>
+</div>
+</details>
+
+<details class="fn">
+<summary><span class="h3">R.4 <code>Hex::to_lower_res</code></span><span class="gist">cell → chunk coordinate, the hexmod</span></summary>
+<div class="fnbody">
+<p>Going up to coarse cells has to answer "which hexagon contains me?" for a hexagonal tiling. A plain division can't do that. hexx does it in two floor steps over cubic coordinates, with <code>area = range_count(r)</code> and <code>shift = 3r + 2</code>:</p>
+<p class="formula">X = ⌊(y + shift·x) / area⌋<br>Y = ⌊(z + shift·y) / area⌋<br>Z = ⌊(x + shift·z) / area⌋</p>
+<p class="formula">chunk = ( ⌊(1 + X − Y) / 3⌋ ,  ⌊(1 + Y − Z) / 3⌋ )</p>
+<p>Step 1 projects the cell onto three axes, each skewed by <code>shift</code> so it runs along the rotated coarse lattice, and counts how many <code>area</code>-wide bands it has crossed. That places the cell in one triangle of a triangular grid. Step 2 is ordinary hex rounding of that triangle onto the hexagon that owns it. Worked through for <code>h = (4,0)</code>, <code>r = 2</code> (area 19, shift 8):</p>
+<div class="tablewrap"><table>
+<tr><th>step</th><th>value</th></tr>
+<tr><td>cubic <code>(x, y, z)</code></td><td class="mono">(4, 0, −4)</td></tr>
+<tr><td><code>X = ⌊(0 + 8·4) / 19⌋</code></td><td class="mono">⌊32/19⌋ = 1</td></tr>
+<tr><td><code>Y = ⌊(−4 + 8·0) / 19⌋</code></td><td class="mono">⌊−4/19⌋ = −1</td></tr>
+<tr><td><code>Z = ⌊(4 + 8·(−4)) / 19⌋</code></td><td class="mono">⌊−28/19⌋ = −2</td></tr>
+<tr><td><code>q = ⌊(1 + X − Y) / 3⌋</code></td><td class="mono">⌊3/3⌋ = 1</td></tr>
+<tr><td><code>r = ⌊(1 + Y − Z) / 3⌋</code></td><td class="mono">⌊2/3⌋ = 0</td></tr>
+<tr><td>chunk</td><td class="mono">(1, 0) ✓ matches figure R.3</td></tr>
+</table></div>
+<p><strong>A limit for large coordinates:</strong> hexx computes <code>y + shift·x</code> in <code>i32</code>, then divides as <code>f32</code>. Integers are exact in <code>f32</code> only up to 2²⁴ = 16,777,216. Past about <code>16.7M / (3r + 2)</code> cells from the origin (roughly 840,000 cells for <code>r = 6</code>), the floor can land on the wrong side of a band edge, and a cell can be put in the wrong chunk. <code>NoiseWorld::chunk</code> inherits this limit.</p>
+<figure><div class="svgwrap"><svg viewBox="0 0 660 600" role="img" aria-label="A radius 7 grid split into radius 2 chunks; outer chunks are partial">
+<defs><marker id="arr8" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="currentColor"/></marker></defs>
+<polygon class="tile t0 part" points="119.5,433.4 109.2,415.6 88.8,415.6 78.5,433.4 88.8,451.1 109.2,451.1" />
+<polygon class="tile t0 part" points="119.5,395.3 109.2,377.5 88.8,377.5 78.5,395.3 88.8,413.0 109.2,413.0" />
+<polygon class="tile t2" points="119.5,357.2 109.2,339.4 88.8,339.4 78.5,357.2 88.8,374.9 109.2,374.9" />
+<polygon class="tile t2" points="119.5,319.1 109.2,301.3 88.8,301.3 78.5,319.1 88.8,336.8 109.2,336.8" />
+<polygon class="tile t2" points="119.5,280.9 109.2,263.2 88.8,263.2 78.5,280.9 88.8,298.7 109.2,298.7" />
+<polygon class="tile t0 part" points="119.5,242.8 109.2,225.1 88.8,225.1 78.5,242.8 88.8,260.6 109.2,260.6" />
+<polygon class="tile t0 part" points="119.5,204.7 109.2,187.0 88.8,187.0 78.5,204.7 88.8,222.5 109.2,222.5" />
+<polygon class="tile t0 part" points="119.5,166.6 109.2,148.9 88.8,148.9 78.5,166.6 88.8,184.4 109.2,184.4" />
+<polygon class="tile t0 part" points="152.5,452.4 142.2,434.7 121.8,434.7 111.5,452.4 121.8,470.1 142.2,470.1" />
+<polygon class="tile t0 part" points="152.5,414.3 142.2,396.6 121.8,396.6 111.5,414.3 121.8,432.0 142.2,432.0" />
+<polygon class="tile t2" points="152.5,376.2 142.2,358.5 121.8,358.5 111.5,376.2 121.8,393.9 142.2,393.9" />
+<polygon class="tile t2" points="152.5,338.1 142.2,320.4 121.8,320.4 111.5,338.1 121.8,355.8 142.2,355.8" />
+<polygon class="tile t2" points="152.5,300.0 142.2,282.3 121.8,282.3 111.5,300.0 121.8,317.7 142.2,317.7" />
+<polygon class="tile t2" points="152.5,261.9 142.2,244.2 121.8,244.2 111.5,261.9 121.8,279.6 142.2,279.6" />
+<polygon class="tile t0 part" points="152.5,223.8 142.2,206.1 121.8,206.1 111.5,223.8 121.8,241.5 142.2,241.5" />
+<polygon class="tile t0 part" points="152.5,185.7 142.2,168.0 121.8,168.0 111.5,185.7 121.8,203.4 142.2,203.4" />
+<polygon class="tile t0 part" points="152.5,147.6 142.2,129.9 121.8,129.9 111.5,147.6 121.8,165.3 142.2,165.3" />
+<polygon class="tile t0 part" points="185.5,471.5 175.2,453.8 154.8,453.8 144.5,471.5 154.8,489.2 175.2,489.2" />
+<polygon class="tile t0 part" points="185.5,433.4 175.2,415.6 154.8,415.6 144.5,433.4 154.8,451.1 175.2,451.1" />
+<polygon class="tile t2" points="185.5,395.3 175.2,377.5 154.8,377.5 144.5,395.3 154.8,413.0 175.2,413.0" />
+<polygon class="tile t2" points="185.5,357.2 175.2,339.4 154.8,339.4 144.5,357.2 154.8,374.9 175.2,374.9" />
+<polygon class="tile t2" points="185.5,319.1 175.2,301.3 154.8,301.3 144.5,319.1 154.8,336.8 175.2,336.8" />
+<polygon class="tile t2" points="185.5,280.9 175.2,263.2 154.8,263.2 144.5,280.9 154.8,298.7 175.2,298.7" />
+<polygon class="tile t2" points="185.5,242.8 175.2,225.1 154.8,225.1 144.5,242.8 154.8,260.6 175.2,260.6" />
+<polygon class="tile t1" points="185.5,204.7 175.2,187.0 154.8,187.0 144.5,204.7 154.8,222.5 175.2,222.5" />
+<polygon class="tile t1" points="185.5,166.6 175.2,148.9 154.8,148.9 144.5,166.6 154.8,184.4 175.2,184.4" />
+<polygon class="tile t1" points="185.5,128.5 175.2,110.8 154.8,110.8 144.5,128.5 154.8,146.2 175.2,146.2" />
+<polygon class="tile t1" points="218.5,490.5 208.2,472.8 187.8,472.8 177.5,490.5 187.8,508.2 208.2,508.2" />
+<polygon class="tile t1" points="218.5,452.4 208.2,434.7 187.8,434.7 177.5,452.4 187.8,470.1 208.2,470.1" />
+<polygon class="tile t1" points="218.5,414.3 208.2,396.6 187.8,396.6 177.5,414.3 187.8,432.0 208.2,432.0" />
+<polygon class="tile t2" points="218.5,376.2 208.2,358.5 187.8,358.5 177.5,376.2 187.8,393.9 208.2,393.9" />
+<polygon class="tile t2" points="218.5,338.1 208.2,320.4 187.8,320.4 177.5,338.1 187.8,355.8 208.2,355.8" />
+<polygon class="tile t2" points="218.5,300.0 208.2,282.3 187.8,282.3 177.5,300.0 187.8,317.7 208.2,317.7" />
+<polygon class="tile t2" points="218.5,261.9 208.2,244.2 187.8,244.2 177.5,261.9 187.8,279.6 208.2,279.6" />
+<polygon class="tile t1" points="218.5,223.8 208.2,206.1 187.8,206.1 177.5,223.8 187.8,241.5 208.2,241.5" />
+<polygon class="tile t1" points="218.5,185.7 208.2,168.0 187.8,168.0 177.5,185.7 187.8,203.4 208.2,203.4" />
+<polygon class="tile t1" points="218.5,147.6 208.2,129.9 187.8,129.9 177.5,147.6 187.8,165.3 208.2,165.3" />
+<polygon class="tile t1" points="218.5,109.5 208.2,91.8 187.8,91.8 177.5,109.5 187.8,127.2 208.2,127.2" />
+<polygon class="tile t1" points="251.5,509.6 241.2,491.9 220.8,491.9 210.5,509.6 220.8,527.3 241.2,527.3" />
+<polygon class="tile t1" points="251.5,471.5 241.2,453.8 220.8,453.8 210.5,471.5 220.8,489.2 241.2,489.2" />
+<polygon class="tile t1" points="251.5,433.4 241.2,415.6 220.8,415.6 210.5,433.4 220.8,451.1 241.2,451.1" />
+<polygon class="tile t1" points="251.5,395.3 241.2,377.5 220.8,377.5 210.5,395.3 220.8,413.0 241.2,413.0" />
+<polygon class="tile t2" points="251.5,357.2 241.2,339.4 220.8,339.4 210.5,357.2 220.8,374.9 241.2,374.9" />
+<polygon class="tile t2" points="251.5,319.1 241.2,301.3 220.8,301.3 210.5,319.1 220.8,336.8 241.2,336.8" />
+<polygon class="tile t2" points="251.5,280.9 241.2,263.2 220.8,263.2 210.5,280.9 220.8,298.7 241.2,298.7" />
+<polygon class="tile t1" points="251.5,242.8 241.2,225.1 220.8,225.1 210.5,242.8 220.8,260.6 241.2,260.6" />
+<polygon class="tile t1" points="251.5,204.7 241.2,187.0 220.8,187.0 210.5,204.7 220.8,222.5 241.2,222.5" />
+<polygon class="tile t1" points="251.5,166.6 241.2,148.9 220.8,148.9 210.5,166.6 220.8,184.4 241.2,184.4" />
+<polygon class="tile t1" points="251.5,128.5 241.2,110.8 220.8,110.8 210.5,128.5 220.8,146.2 241.2,146.2" />
+<polygon class="tile t1" points="251.5,90.4 241.2,72.7 220.8,72.7 210.5,90.4 220.8,108.1 241.2,108.1" />
+<polygon class="tile t1" points="284.5,528.6 274.2,510.9 253.8,510.9 243.5,528.6 253.8,546.3 274.2,546.3" />
+<polygon class="tile t1" points="284.5,490.5 274.2,472.8 253.8,472.8 243.5,490.5 253.8,508.2 274.2,508.2" />
+<polygon class="tile t1" points="284.5,452.4 274.2,434.7 253.8,434.7 243.5,452.4 253.8,470.1 274.2,470.1" />
+<polygon class="tile t1" points="284.5,414.3 274.2,396.6 253.8,396.6 243.5,414.3 253.8,432.0 274.2,432.0" />
+<polygon class="tile t1" points="284.5,376.2 274.2,358.5 253.8,358.5 243.5,376.2 253.8,393.9 274.2,393.9" />
+<polygon class="tile t0" points="284.5,338.1 274.2,320.4 253.8,320.4 243.5,338.1 253.8,355.8 274.2,355.8" />
+<polygon class="tile t0" points="284.5,300.0 274.2,282.3 253.8,282.3 243.5,300.0 253.8,317.7 274.2,317.7" />
+<polygon class="tile t0" points="284.5,261.9 274.2,244.2 253.8,244.2 243.5,261.9 253.8,279.6 274.2,279.6" />
+<polygon class="tile t1" points="284.5,223.8 274.2,206.1 253.8,206.1 243.5,223.8 253.8,241.5 274.2,241.5" />
+<polygon class="tile t1" points="284.5,185.7 274.2,168.0 253.8,168.0 243.5,185.7 253.8,203.4 274.2,203.4" />
+<polygon class="tile t1" points="284.5,147.6 274.2,129.9 253.8,129.9 243.5,147.6 253.8,165.3 274.2,165.3" />
+<polygon class="tile t1" points="284.5,109.5 274.2,91.8 253.8,91.8 243.5,109.5 253.8,127.2 274.2,127.2" />
+<polygon class="tile t0 part" points="284.5,71.4 274.2,53.7 253.8,53.7 243.5,71.4 253.8,89.1 274.2,89.1" />
+<polygon class="tile t0 part" points="317.5,547.7 307.2,530.0 286.8,530.0 276.5,547.7 286.8,565.4 307.2,565.4" />
+<polygon class="tile t1" points="317.5,509.6 307.2,491.9 286.8,491.9 276.5,509.6 286.8,527.3 307.2,527.3" />
+<polygon class="tile t1" points="317.5,471.5 307.2,453.8 286.8,453.8 276.5,471.5 286.8,489.2 307.2,489.2" />
+<polygon class="tile t1" points="317.5,433.4 307.2,415.6 286.8,415.6 276.5,433.4 286.8,451.1 307.2,451.1" />
+<polygon class="tile t1" points="317.5,395.3 307.2,377.5 286.8,377.5 276.5,395.3 286.8,413.0 307.2,413.0" />
+<polygon class="tile t0" points="317.5,357.2 307.2,339.4 286.8,339.4 276.5,357.2 286.8,374.9 307.2,374.9" />
+<polygon class="tile t0" points="317.5,319.1 307.2,301.3 286.8,301.3 276.5,319.1 286.8,336.8 307.2,336.8" />
+<polygon class="tile t0" points="317.5,280.9 307.2,263.2 286.8,263.2 276.5,280.9 286.8,298.7 307.2,298.7" />
+<polygon class="tile t0" points="317.5,242.8 307.2,225.1 286.8,225.1 276.5,242.8 286.8,260.6 307.2,260.6" />
+<polygon class="tile t1" points="317.5,204.7 307.2,187.0 286.8,187.0 276.5,204.7 286.8,222.5 307.2,222.5" />
+<polygon class="tile t1" points="317.5,166.6 307.2,148.9 286.8,148.9 276.5,166.6 286.8,184.4 307.2,184.4" />
+<polygon class="tile t1" points="317.5,128.5 307.2,110.8 286.8,110.8 276.5,128.5 286.8,146.2 307.2,146.2" />
+<polygon class="tile t0 part" points="317.5,90.4 307.2,72.7 286.8,72.7 276.5,90.4 286.8,108.1 307.2,108.1" />
+<polygon class="tile t0 part" points="317.5,52.3 307.2,34.6 286.8,34.6 276.5,52.3 286.8,70.0 307.2,70.0" />
+<polygon class="tile t0 part" points="350.5,566.7 340.2,549.0 319.8,549.0 309.5,566.7 319.8,584.5 340.2,584.5" />
+<polygon class="tile t0 part" points="350.5,528.6 340.2,510.9 319.8,510.9 309.5,528.6 319.8,546.3 340.2,546.3" />
+<polygon class="tile t1" points="350.5,490.5 340.2,472.8 319.8,472.8 309.5,490.5 319.8,508.2 340.2,508.2" />
+<polygon class="tile t1" points="350.5,452.4 340.2,434.7 319.8,434.7 309.5,452.4 319.8,470.1 340.2,470.1" />
+<polygon class="tile t1" points="350.5,414.3 340.2,396.6 319.8,396.6 309.5,414.3 319.8,432.0 340.2,432.0" />
+<polygon class="tile t0" points="350.5,376.2 340.2,358.5 319.8,358.5 309.5,376.2 319.8,393.9 340.2,393.9" />
+<polygon class="tile t0" points="350.5,338.1 340.2,320.4 319.8,320.4 309.5,338.1 319.8,355.8 340.2,355.8" />
+<polygon class="tile t0" points="350.5,300.0 340.2,282.3 319.8,282.3 309.5,300.0 319.8,317.7 340.2,317.7" />
+<polygon class="tile t0" points="350.5,261.9 340.2,244.2 319.8,244.2 309.5,261.9 319.8,279.6 340.2,279.6" />
+<polygon class="tile t0" points="350.5,223.8 340.2,206.1 319.8,206.1 309.5,223.8 319.8,241.5 340.2,241.5" />
+<polygon class="tile t2" points="350.5,185.7 340.2,168.0 319.8,168.0 309.5,185.7 319.8,203.4 340.2,203.4" />
+<polygon class="tile t2" points="350.5,147.6 340.2,129.9 319.8,129.9 309.5,147.6 319.8,165.3 340.2,165.3" />
+<polygon class="tile t2" points="350.5,109.5 340.2,91.8 319.8,91.8 309.5,109.5 319.8,127.2 340.2,127.2" />
+<polygon class="tile t0 part" points="350.5,71.4 340.2,53.7 319.8,53.7 309.5,71.4 319.8,89.1 340.2,89.1" />
+<polygon class="tile t0 part" points="350.5,33.3 340.2,15.5 319.8,15.5 309.5,33.3 319.8,51.0 340.2,51.0" />
+<polygon class="tile t0 part" points="383.5,547.7 373.2,530.0 352.8,530.0 342.5,547.7 352.8,565.4 373.2,565.4" />
+<polygon class="tile t0 part" points="383.5,509.6 373.2,491.9 352.8,491.9 342.5,509.6 352.8,527.3 373.2,527.3" />
+<polygon class="tile t2" points="383.5,471.5 373.2,453.8 352.8,453.8 342.5,471.5 352.8,489.2 373.2,489.2" />
+<polygon class="tile t2" points="383.5,433.4 373.2,415.6 352.8,415.6 342.5,433.4 352.8,451.1 373.2,451.1" />
+<polygon class="tile t2" points="383.5,395.3 373.2,377.5 352.8,377.5 342.5,395.3 352.8,413.0 373.2,413.0" />
+<polygon class="tile t0" points="383.5,357.2 373.2,339.4 352.8,339.4 342.5,357.2 352.8,374.9 373.2,374.9" />
+<polygon class="tile t0" points="383.5,319.1 373.2,301.3 352.8,301.3 342.5,319.1 352.8,336.8 373.2,336.8" />
+<polygon class="tile t0" points="383.5,280.9 373.2,263.2 352.8,263.2 342.5,280.9 352.8,298.7 373.2,298.7" />
+<polygon class="tile t0" points="383.5,242.8 373.2,225.1 352.8,225.1 342.5,242.8 352.8,260.6 373.2,260.6" />
+<polygon class="tile t2" points="383.5,204.7 373.2,187.0 352.8,187.0 342.5,204.7 352.8,222.5 373.2,222.5" />
+<polygon class="tile t2" points="383.5,166.6 373.2,148.9 352.8,148.9 342.5,166.6 352.8,184.4 373.2,184.4" />
+<polygon class="tile t2" points="383.5,128.5 373.2,110.8 352.8,110.8 342.5,128.5 352.8,146.2 373.2,146.2" />
+<polygon class="tile t2" points="383.5,90.4 373.2,72.7 352.8,72.7 342.5,90.4 352.8,108.1 373.2,108.1" />
+<polygon class="tile t0 part" points="383.5,52.3 373.2,34.6 352.8,34.6 342.5,52.3 352.8,70.0 373.2,70.0" />
+<polygon class="tile t0 part" points="416.5,528.6 406.2,510.9 385.8,510.9 375.5,528.6 385.8,546.3 406.2,546.3" />
+<polygon class="tile t2" points="416.5,490.5 406.2,472.8 385.8,472.8 375.5,490.5 385.8,508.2 406.2,508.2" />
+<polygon class="tile t2" points="416.5,452.4 406.2,434.7 385.8,434.7 375.5,452.4 385.8,470.1 406.2,470.1" />
+<polygon class="tile t2" points="416.5,414.3 406.2,396.6 385.8,396.6 375.5,414.3 385.8,432.0 406.2,432.0" />
+<polygon class="tile t2" points="416.5,376.2 406.2,358.5 385.8,358.5 375.5,376.2 385.8,393.9 406.2,393.9" />
+<polygon class="tile t0" points="416.5,338.1 406.2,320.4 385.8,320.4 375.5,338.1 385.8,355.8 406.2,355.8" />
+<polygon class="tile t0" points="416.5,300.0 406.2,282.3 385.8,282.3 375.5,300.0 385.8,317.7 406.2,317.7" />
+<polygon class="tile t0" points="416.5,261.9 406.2,244.2 385.8,244.2 375.5,261.9 385.8,279.6 406.2,279.6" />
+<polygon class="tile t2" points="416.5,223.8 406.2,206.1 385.8,206.1 375.5,223.8 385.8,241.5 406.2,241.5" />
+<polygon class="tile t2" points="416.5,185.7 406.2,168.0 385.8,168.0 375.5,185.7 385.8,203.4 406.2,203.4" />
+<polygon class="tile t2" points="416.5,147.6 406.2,129.9 385.8,129.9 375.5,147.6 385.8,165.3 406.2,165.3" />
+<polygon class="tile t2" points="416.5,109.5 406.2,91.8 385.8,91.8 375.5,109.5 385.8,127.2 406.2,127.2" />
+<polygon class="tile t2" points="416.5,71.4 406.2,53.7 385.8,53.7 375.5,71.4 385.8,89.1 406.2,89.1" />
+<polygon class="tile t2" points="449.5,509.6 439.2,491.9 418.8,491.9 408.5,509.6 418.8,527.3 439.2,527.3" />
+<polygon class="tile t2" points="449.5,471.5 439.2,453.8 418.8,453.8 408.5,471.5 418.8,489.2 439.2,489.2" />
+<polygon class="tile t2" points="449.5,433.4 439.2,415.6 418.8,415.6 408.5,433.4 418.8,451.1 439.2,451.1" />
+<polygon class="tile t2" points="449.5,395.3 439.2,377.5 418.8,377.5 408.5,395.3 418.8,413.0 439.2,413.0" />
+<polygon class="tile t2" points="449.5,357.2 439.2,339.4 418.8,339.4 408.5,357.2 418.8,374.9 439.2,374.9" />
+<polygon class="tile t1" points="449.5,319.1 439.2,301.3 418.8,301.3 408.5,319.1 418.8,336.8 439.2,336.8" />
+<polygon class="tile t1" points="449.5,280.9 439.2,263.2 418.8,263.2 408.5,280.9 418.8,298.7 439.2,298.7" />
+<polygon class="tile t1" points="449.5,242.8 439.2,225.1 418.8,225.1 408.5,242.8 418.8,260.6 439.2,260.6" />
+<polygon class="tile t2" points="449.5,204.7 439.2,187.0 418.8,187.0 408.5,204.7 418.8,222.5 439.2,222.5" />
+<polygon class="tile t2" points="449.5,166.6 439.2,148.9 418.8,148.9 408.5,166.6 418.8,184.4 439.2,184.4" />
+<polygon class="tile t2" points="449.5,128.5 439.2,110.8 418.8,110.8 408.5,128.5 418.8,146.2 439.2,146.2" />
+<polygon class="tile t2" points="449.5,90.4 439.2,72.7 418.8,72.7 408.5,90.4 418.8,108.1 439.2,108.1" />
+<polygon class="tile t2" points="482.5,490.5 472.2,472.8 451.8,472.8 441.5,490.5 451.8,508.2 472.2,508.2" />
+<polygon class="tile t2" points="482.5,452.4 472.2,434.7 451.8,434.7 441.5,452.4 451.8,470.1 472.2,470.1" />
+<polygon class="tile t2" points="482.5,414.3 472.2,396.6 451.8,396.6 441.5,414.3 451.8,432.0 472.2,432.0" />
+<polygon class="tile t2" points="482.5,376.2 472.2,358.5 451.8,358.5 441.5,376.2 451.8,393.9 472.2,393.9" />
+<polygon class="tile t1" points="482.5,338.1 472.2,320.4 451.8,320.4 441.5,338.1 451.8,355.8 472.2,355.8" />
+<polygon class="tile t1" points="482.5,300.0 472.2,282.3 451.8,282.3 441.5,300.0 451.8,317.7 472.2,317.7" />
+<polygon class="tile t1" points="482.5,261.9 472.2,244.2 451.8,244.2 441.5,261.9 451.8,279.6 472.2,279.6" />
+<polygon class="tile t1" points="482.5,223.8 472.2,206.1 451.8,206.1 441.5,223.8 451.8,241.5 472.2,241.5" />
+<polygon class="tile t2" points="482.5,185.7 472.2,168.0 451.8,168.0 441.5,185.7 451.8,203.4 472.2,203.4" />
+<polygon class="tile t2" points="482.5,147.6 472.2,129.9 451.8,129.9 441.5,147.6 451.8,165.3 472.2,165.3" />
+<polygon class="tile t2" points="482.5,109.5 472.2,91.8 451.8,91.8 441.5,109.5 451.8,127.2 472.2,127.2" />
+<polygon class="tile t2" points="515.5,471.5 505.2,453.8 484.8,453.8 474.5,471.5 484.8,489.2 505.2,489.2" />
+<polygon class="tile t2" points="515.5,433.4 505.2,415.6 484.8,415.6 474.5,433.4 484.8,451.1 505.2,451.1" />
+<polygon class="tile t2" points="515.5,395.3 505.2,377.5 484.8,377.5 474.5,395.3 484.8,413.0 505.2,413.0" />
+<polygon class="tile t1" points="515.5,357.2 505.2,339.4 484.8,339.4 474.5,357.2 484.8,374.9 505.2,374.9" />
+<polygon class="tile t1" points="515.5,319.1 505.2,301.3 484.8,301.3 474.5,319.1 484.8,336.8 505.2,336.8" />
+<polygon class="tile t1" points="515.5,280.9 505.2,263.2 484.8,263.2 474.5,280.9 484.8,298.7 505.2,298.7" />
+<polygon class="tile t1" points="515.5,242.8 505.2,225.1 484.8,225.1 474.5,242.8 484.8,260.6 505.2,260.6" />
+<polygon class="tile t1" points="515.5,204.7 505.2,187.0 484.8,187.0 474.5,204.7 484.8,222.5 505.2,222.5" />
+<polygon class="tile t0 part" points="515.5,166.6 505.2,148.9 484.8,148.9 474.5,166.6 484.8,184.4 505.2,184.4" />
+<polygon class="tile t0 part" points="515.5,128.5 505.2,110.8 484.8,110.8 474.5,128.5 484.8,146.2 505.2,146.2" />
+<polygon class="tile t0 part" points="548.5,452.4 538.2,434.7 517.8,434.7 507.5,452.4 517.8,470.1 538.2,470.1" />
+<polygon class="tile t0 part" points="548.5,414.3 538.2,396.6 517.8,396.6 507.5,414.3 517.8,432.0 538.2,432.0" />
+<polygon class="tile t0 part" points="548.5,376.2 538.2,358.5 517.8,358.5 507.5,376.2 517.8,393.9 538.2,393.9" />
+<polygon class="tile t1" points="548.5,338.1 538.2,320.4 517.8,320.4 507.5,338.1 517.8,355.8 538.2,355.8" />
+<polygon class="tile t1" points="548.5,300.0 538.2,282.3 517.8,282.3 507.5,300.0 517.8,317.7 538.2,317.7" />
+<polygon class="tile t1" points="548.5,261.9 538.2,244.2 517.8,244.2 507.5,261.9 517.8,279.6 538.2,279.6" />
+<polygon class="tile t1" points="548.5,223.8 538.2,206.1 517.8,206.1 507.5,223.8 517.8,241.5 538.2,241.5" />
+<polygon class="tile t0 part" points="548.5,185.7 538.2,168.0 517.8,168.0 507.5,185.7 517.8,203.4 538.2,203.4" />
+<polygon class="tile t0 part" points="548.5,147.6 538.2,129.9 517.8,129.9 507.5,147.6 517.8,165.3 538.2,165.3" />
+<polygon class="tile t0 part" points="581.5,433.4 571.2,415.6 550.8,415.6 540.5,433.4 550.8,451.1 571.2,451.1" />
+<polygon class="tile t0 part" points="581.5,395.3 571.2,377.5 550.8,377.5 540.5,395.3 550.8,413.0 571.2,413.0" />
+<polygon class="tile t0 part" points="581.5,357.2 571.2,339.4 550.8,339.4 540.5,357.2 550.8,374.9 571.2,374.9" />
+<polygon class="tile t1" points="581.5,319.1 571.2,301.3 550.8,301.3 540.5,319.1 550.8,336.8 571.2,336.8" />
+<polygon class="tile t1" points="581.5,280.9 571.2,263.2 550.8,263.2 540.5,280.9 550.8,298.7 571.2,298.7" />
+<polygon class="tile t1" points="581.5,242.8 571.2,225.1 550.8,225.1 540.5,242.8 550.8,260.6 571.2,260.6" />
+<polygon class="tile t0 part" points="581.5,204.7 571.2,187.0 550.8,187.0 540.5,204.7 550.8,222.5 571.2,222.5" />
+<polygon class="tile t0 part" points="581.5,166.6 571.2,148.9 550.8,148.9 540.5,166.6 550.8,184.4 571.2,184.4" />
+<text class="lbl mono tiny" x="165.0" y="323.1" text-anchor="middle">-1,0</text>
+<text class="lbl mono tiny" x="231.0" y="170.6" text-anchor="middle">-1,1</text>
+<text class="lbl mono tiny" x="264.0" y="456.4" text-anchor="middle">0,-1</text>
+<text class="lbl mono tiny" x="330.0" y="304.0" text-anchor="middle">0,0</text>
+<text class="lbl mono tiny" x="396.0" y="151.6" text-anchor="middle">0,1</text>
+<text class="lbl mono tiny" x="429.0" y="437.4" text-anchor="middle">1,-1</text>
+<text class="lbl mono tiny" x="495.0" y="284.9" text-anchor="middle">1,0</text></svg></div><figcaption>A radius-7 grid (169 cells) grouped by <code>hex.to_lower_res(2)</code>. That makes 13 chunks, each labelled with its chunk coordinate at its centre cell. A full chunk holds 19 cells. The paler ones are cut off by the grid's hexagonal rim, because the chunk hexagons don't line up with it. Three colours are enough to keep neighbouring chunks apart.</figcaption></figure>
+<p>The figures on this page use a Python port of this function, checked against hexx for all 169 cells of the figure above.</p>
+</div>
+</details>
+<h2 id="cell">3 · What one cell owns</h2>
+<p><code>HGridLayout::new</code> builds a <code>HexagonalMap</code> of radius <code>settings.radius</code> around <code>Hex::ZERO</code>. Each cell gets its height and radius from <code>Fbm&lt;Perlin&gt;</code> sampled at its world centre divided by a scale (50 for height, 30 for radius).</p>
+<ul>
+<li>A cell's height and radius come from noise at its world position, unless pinned through <code>overrides</code>. Its neighbours don't affect them, and neither does the size or centre of the grid. That is why a chunk can be built on its own (<a href="#chunks">section 5</a>).</li>
+<li>Corners are <code>centre + unit_corner · cell.radius</code>, while centres are <code>√3 · nominal_hex_radius</code> apart on a fixed lattice. So a smaller cell widens the gaps around it, but never moves.</li>
+</ul>
+<p><code>all_tris(entangled)</code> walks the grid once. For each cell it appends, in a fixed order, exactly what that cell owns under the rules in 1.6:</p>
+<figure><div class="svgwrap"><svg viewBox="0 0 600 500" role="img" aria-label="One cell owns six face triangles, three gap quads and two junction triangles">
+<defs><marker id="arr7" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="currentColor"/></marker></defs>
+<polygon class="face ghost" points="504.2,170.3 471.1,113.0 404.9,113.0 371.8,170.3 404.9,227.7 471.1,227.7"/>
+<polygon class="face ghost" points="366.2,90.7 333.1,33.3 266.9,33.3 233.8,90.7 266.9,148.0 333.1,148.0"/>
+<polygon class="face ghost" points="228.2,170.3 195.1,113.0 128.9,113.0 95.8,170.3 128.9,227.7 195.1,227.7"/>
+<polygon class="face ghost" points="228.2,329.7 195.1,272.3 128.9,272.3 95.8,329.7 128.9,387.0 195.1,387.0"/>
+<polygon class="face ghost" points="366.2,409.3 333.1,352.0 266.9,352.0 233.8,409.3 266.9,466.7 333.1,466.7"/>
+<polygon class="face ghost" points="504.2,329.7 471.1,272.3 404.9,272.3 371.8,329.7 404.9,387.0 471.1,387.0"/>
+<polygon class="quad ghost" points="266.9,148.0 266.9,192.6 333.1,192.6 333.1,148.0"/>
+<polygon class="quad ghost" points="228.2,329.7 266.9,307.4 233.8,250.0 195.1,272.3"/>
+<polygon class="quad ghost" points="404.9,272.3 366.2,250.0 333.1,307.4 371.8,329.7"/>
+<polygon class="face fan" points="300.0,250.0 366.2,250.0 333.1,192.6"/>
+<polygon class="face fan" points="300.0,250.0 333.1,192.6 266.9,192.6"/>
+<polygon class="face fan" points="300.0,250.0 266.9,192.6 233.8,250.0"/>
+<polygon class="face fan" points="300.0,250.0 233.8,250.0 266.9,307.4"/>
+<polygon class="face fan" points="300.0,250.0 266.9,307.4 333.1,307.4"/>
+<polygon class="face fan" points="300.0,250.0 333.1,307.4 366.2,250.0"/>
+<polygon class="quad" points="366.2,250.0 404.9,227.7 371.8,170.3 333.1,192.6"/>
+<line x1="366.2" y1="250.0" x2="371.8" y2="170.3" class="diag"/>
+<polygon class="quad" points="266.9,192.6 228.2,170.3 195.1,227.7 233.8,250.0"/>
+<line x1="266.9" y1="192.6" x2="195.1" y2="227.7" class="diag"/>
+<polygon class="quad" points="266.9,307.4 266.9,352.0 333.1,352.0 333.1,307.4"/>
+<line x1="266.9" y1="307.4" x2="333.1" y2="352.0" class="diag"/>
+<polygon class="junc" points="366.2,250.0 404.9,272.3 404.9,227.7"/>
+<polygon class="junc" points="333.1,192.6 371.8,170.3 333.1,148.0"/>
+<text class="lbl mono" x="333.1" y="234.9" text-anchor="middle">0</text>
+<text class="lbl mono" x="300.0" y="215.8" text-anchor="middle">1</text>
+<text class="lbl mono" x="266.9" y="234.9" text-anchor="middle">2</text>
+<text class="lbl mono" x="266.9" y="273.1" text-anchor="middle">3</text>
+<text class="lbl mono" x="300.0" y="292.2" text-anchor="middle">4</text>
+<text class="lbl mono" x="333.1" y="273.1" text-anchor="middle">5</text>
+<text class="lbl mono" x="381.0" y="220.0" text-anchor="middle">6</text>
+<text class="lbl mono" x="357.0" y="208.3" text-anchor="middle">7</text>
+<text class="lbl mono" x="230.1" y="200.9" text-anchor="middle">8</text>
+<text class="lbl mono" x="231.9" y="227.4" text-anchor="middle">9</text>
+<text class="lbl mono" x="289.0" y="341.1" text-anchor="middle">10</text>
+<text class="lbl mono" x="311.0" y="326.2" text-anchor="middle">11</text>
+<text class="lbl mono acc2" x="420.0" y="254.0" text-anchor="middle">12</text>
+<text class="lbl mono acc2" x="360.0" y="156.3" text-anchor="middle">13</text>
+<text class="lbl mono acc" x="360.2" y="266.0" text-anchor="end">a</text>
+<text class="lbl mono acc" x="412.9" y="243.7" text-anchor="start">b</text>
+<text class="lbl mono acc" x="379.8" y="164.3" text-anchor="start">c</text>
+<text class="lbl mono acc" x="327.1" y="186.6" text-anchor="end">d</text></svg></div><figcaption>For cell <code>(0,0)</code>, <code>all_tris(false)</code> appends 14 triangles, numbered here in append order. 0–5 are the face fan. 6–11 are the quads on e0, e2, e4, each split into <code>[a,b,c]</code> then <code>[a,c,d]</code>. 12 and 13 are the junctions at corners 0 and 1. The faint quads on e1, e3, e5 belong to the neighbours and get appended when those cells run. The other four junctions are owned by neighbours too.</figcaption></figure>
+<p>Because ownership is per cell, any way of splitting the cells into groups splits the triangle stream with no overlap and no holes. Chunks are one such split; <code>chunk::tests::owned_streams_partition_world</code> checks it bit for bit.</p>
+<h2 id="entangled">4 · Entangled cells</h2>
+<p>Each cell carries an <code>entangled</code> flag (<a href="https://github.com/dynnamitt/apicult-desigual-rs/issues/8">#8</a>), set through the <code>entangle: &amp;[Hex]</code> argument of <code>HGridLayout::new</code>, and two rules for the gaps:</p>
+<ul>
+<li>A gap quad is entangled only if <em>both</em> its cells are (the "bridging" rule).</li>
+<li>Junction triangles are never entangled. <code>all_tris(true)</code> skips them, and <code>all_tris(false)</code> always includes them.</li>
+</ul>
+<p><code>all_tris(entangled)</code>, <code>hex_face_tris(entangled)</code> and <code>gap_quad_tris(entangled)</code> return only the matching part, so a consumer can drive entangled and plain cells with two materials. <code>entangle_borderline(dir)</code> marks one outer side of the grid.</p>
+<p>Example: entangle the whole outer ring of a radius-3 grid. <code>all_tris(false)</code> skips the ring's faces and the gaps between two ring cells, but keeps every gap that reaches an inner cell, whoever owns it. The inner cells come out with a closed outline:</p>
+<figure><div class="svgwrap"><svg viewBox="0 0 500 490" role="img" aria-label="A radius 3 layout with its outer ring entangled: all_tris(false) closes the outline of the inner cells">
+<defs><marker id="arr11" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="currentColor"/></marker></defs>
+<polygon class="face entring" points="114.6,336.5 101.3,313.5 74.7,313.5 61.4,336.5 74.7,359.6 101.3,359.6" />
+<polygon class="face entring" points="114.6,274.2 101.3,251.1 74.7,251.1 61.4,274.2 74.7,297.2 101.3,297.2" />
+<polygon class="face entring" points="114.6,211.8 101.3,188.8 74.7,188.8 61.4,211.8 74.7,234.9 101.3,234.9" />
+<polygon class="face entring" points="114.6,149.5 101.3,126.4 74.7,126.4 61.4,149.5 74.7,172.5 101.3,172.5" />
+<polygon class="face entring" points="168.6,367.7 155.3,344.6 128.7,344.6 115.4,367.7 128.7,390.8 155.3,390.8" />
+<polygon class="face entring" points="168.6,118.3 155.3,95.2 128.7,95.2 115.4,118.3 128.7,141.4 155.3,141.4" />
+<polygon class="face entring" points="222.6,398.9 209.3,375.8 182.7,375.8 169.4,398.9 182.7,422.0 209.3,422.0" />
+<polygon class="face entring" points="222.6,87.1 209.3,64.0 182.7,64.0 169.4,87.1 182.7,110.2 209.3,110.2" />
+<polygon class="face entring" points="276.6,430.1 263.3,407.0 236.7,407.0 223.4,430.1 236.7,453.1 263.3,453.1" />
+<polygon class="face entring" points="276.6,55.9 263.3,32.9 236.7,32.9 223.4,55.9 236.7,79.0 263.3,79.0" />
+<polygon class="face entring" points="330.6,398.9 317.3,375.8 290.7,375.8 277.4,398.9 290.7,422.0 317.3,422.0" />
+<polygon class="face entring" points="330.6,87.1 317.3,64.0 290.7,64.0 277.4,87.1 290.7,110.2 317.3,110.2" />
+<polygon class="face entring" points="384.6,367.7 371.3,344.6 344.7,344.6 331.4,367.7 344.7,390.8 371.3,390.8" />
+<polygon class="face entring" points="384.6,118.3 371.3,95.2 344.7,95.2 331.4,118.3 344.7,141.4 371.3,141.4" />
+<polygon class="face entring" points="438.6,336.5 425.3,313.5 398.7,313.5 385.4,336.5 398.7,359.6 425.3,359.6" />
+<polygon class="face entring" points="438.6,274.2 425.3,251.1 398.7,251.1 385.4,274.2 398.7,297.2 425.3,297.2" />
+<polygon class="face entring" points="438.6,211.8 425.3,188.8 398.7,188.8 385.4,211.8 398.7,234.9 425.3,234.9" />
+<polygon class="face entring" points="438.6,149.5 425.3,126.4 398.7,126.4 385.4,149.5 398.7,172.5 425.3,172.5" />
+<polygon class="face" points="168.6,305.4 155.3,282.3 128.7,282.3 115.4,305.4 128.7,328.4 155.3,328.4" />
+<polygon class="face" points="168.6,243.0 155.3,219.9 128.7,219.9 115.4,243.0 128.7,266.1 155.3,266.1" />
+<polygon class="face" points="168.6,180.6 155.3,157.6 128.7,157.6 115.4,180.6 128.7,203.7 155.3,203.7" />
+<polygon class="face" points="222.6,336.5 209.3,313.5 182.7,313.5 169.4,336.5 182.7,359.6 209.3,359.6" />
+<polygon class="face" points="222.6,274.2 209.3,251.1 182.7,251.1 169.4,274.2 182.7,297.2 209.3,297.2" />
+<polygon class="face" points="222.6,211.8 209.3,188.8 182.7,188.8 169.4,211.8 182.7,234.9 209.3,234.9" />
+<polygon class="face" points="222.6,149.5 209.3,126.4 182.7,126.4 169.4,149.5 182.7,172.5 209.3,172.5" />
+<polygon class="face" points="276.6,367.7 263.3,344.6 236.7,344.6 223.4,367.7 236.7,390.8 263.3,390.8" />
+<polygon class="face" points="276.6,305.4 263.3,282.3 236.7,282.3 223.4,305.4 236.7,328.4 263.3,328.4" />
+<polygon class="face" points="276.6,243.0 263.3,219.9 236.7,219.9 223.4,243.0 236.7,266.1 263.3,266.1" />
+<polygon class="face" points="276.6,180.6 263.3,157.6 236.7,157.6 223.4,180.6 236.7,203.7 263.3,203.7" />
+<polygon class="face" points="276.6,118.3 263.3,95.2 236.7,95.2 223.4,118.3 236.7,141.4 263.3,141.4" />
+<polygon class="face" points="330.6,336.5 317.3,313.5 290.7,313.5 277.4,336.5 290.7,359.6 317.3,359.6" />
+<polygon class="face" points="330.6,274.2 317.3,251.1 290.7,251.1 277.4,274.2 290.7,297.2 317.3,297.2" />
+<polygon class="face" points="330.6,211.8 317.3,188.8 290.7,188.8 277.4,211.8 290.7,234.9 317.3,234.9" />
+<polygon class="face" points="330.6,149.5 317.3,126.4 290.7,126.4 277.4,149.5 290.7,172.5 317.3,172.5" />
+<polygon class="face" points="384.6,305.4 371.3,282.3 344.7,282.3 331.4,305.4 344.7,328.4 371.3,328.4" />
+<polygon class="face" points="384.6,243.0 371.3,219.9 344.7,219.9 331.4,243.0 344.7,266.1 371.3,266.1" />
+<polygon class="face" points="384.6,180.6 371.3,157.6 344.7,157.6 331.4,180.6 344.7,203.7 371.3,203.7" />
+<polygon class="quad" points="168.6,305.4 182.7,297.2 169.4,274.2 155.3,282.3" />
+<polygon class="quad" points="128.7,282.3 114.6,274.2 101.3,297.2 115.4,305.4" />
+<polygon class="quad" points="128.7,328.4 128.7,344.6 155.3,344.6 155.3,328.4" />
+<polygon class="junc" points="168.6,305.4 182.7,313.5 182.7,297.2" />
+<polygon class="junc" points="155.3,282.3 169.4,274.2 155.3,266.1" />
+<polygon class="quad" points="168.6,243.0 182.7,234.9 169.4,211.8 155.3,219.9" />
+<polygon class="quad" points="128.7,219.9 114.6,211.8 101.3,234.9 115.4,243.0" />
+<polygon class="quad" points="128.7,266.1 128.7,282.3 155.3,282.3 155.3,266.1" />
+<polygon class="junc" points="168.6,243.0 182.7,251.1 182.7,234.9" />
+<polygon class="junc" points="155.3,219.9 169.4,211.8 155.3,203.7" />
+<polygon class="quad" points="168.6,180.6 182.7,172.5 169.4,149.5 155.3,157.6" />
+<polygon class="quad" points="128.7,157.6 114.6,149.5 101.3,172.5 115.4,180.6" />
+<polygon class="quad" points="128.7,203.7 128.7,219.9 155.3,219.9 155.3,203.7" />
+<polygon class="junc" points="168.6,180.6 182.7,188.8 182.7,172.5" />
+<polygon class="junc" points="155.3,157.6 169.4,149.5 155.3,141.4" />
+<polygon class="quad" points="222.6,336.5 236.7,328.4 223.4,305.4 209.3,313.5" />
+<polygon class="quad" points="182.7,313.5 168.6,305.4 155.3,328.4 169.4,336.5" />
+<polygon class="quad" points="182.7,359.6 182.7,375.8 209.3,375.8 209.3,359.6" />
+<polygon class="junc" points="222.6,336.5 236.7,344.6 236.7,328.4" />
+<polygon class="junc" points="209.3,313.5 223.4,305.4 209.3,297.2" />
+<polygon class="quad" points="222.6,274.2 236.7,266.1 223.4,243.0 209.3,251.1" />
+<polygon class="quad" points="182.7,251.1 168.6,243.0 155.3,266.1 169.4,274.2" />
+<polygon class="quad" points="182.7,297.2 182.7,313.5 209.3,313.5 209.3,297.2" />
+<polygon class="junc" points="222.6,274.2 236.7,282.3 236.7,266.1" />
+<polygon class="junc" points="209.3,251.1 223.4,243.0 209.3,234.9" />
+<polygon class="quad" points="222.6,211.8 236.7,203.7 223.4,180.6 209.3,188.8" />
+<polygon class="quad" points="182.7,188.8 168.6,180.6 155.3,203.7 169.4,211.8" />
+<polygon class="quad" points="182.7,234.9 182.7,251.1 209.3,251.1 209.3,234.9" />
+<polygon class="junc" points="222.6,211.8 236.7,219.9 236.7,203.7" />
+<polygon class="junc" points="209.3,188.8 223.4,180.6 209.3,172.5" />
+<polygon class="quad" points="222.6,149.5 236.7,141.4 223.4,118.3 209.3,126.4" />
+<polygon class="quad" points="182.7,126.4 168.6,118.3 155.3,141.4 169.4,149.5" />
+<polygon class="quad" points="182.7,172.5 182.7,188.8 209.3,188.8 209.3,172.5" />
+<polygon class="junc" points="222.6,149.5 236.7,157.6 236.7,141.4" />
+<polygon class="junc" points="209.3,126.4 223.4,118.3 209.3,110.2" />
+<polygon class="quad" points="276.6,367.7 290.7,359.6 277.4,336.5 263.3,344.6" />
+<polygon class="quad" points="236.7,344.6 222.6,336.5 209.3,359.6 223.4,367.7" />
+<polygon class="quad" points="236.7,390.8 236.7,407.0 263.3,407.0 263.3,390.8" />
+<polygon class="junc" points="276.6,367.7 290.7,375.8 290.7,359.6" />
+<polygon class="junc" points="263.3,344.6 277.4,336.5 263.3,328.4" />
+<polygon class="quad" points="276.6,305.4 290.7,297.2 277.4,274.2 263.3,282.3" />
+<polygon class="quad" points="236.7,282.3 222.6,274.2 209.3,297.2 223.4,305.4" />
+<polygon class="quad" points="236.7,328.4 236.7,344.6 263.3,344.6 263.3,328.4" />
+<polygon class="junc" points="276.6,305.4 290.7,313.5 290.7,297.2" />
+<polygon class="junc" points="263.3,282.3 277.4,274.2 263.3,266.1" />
+<polygon class="quad" points="276.6,243.0 290.7,234.9 277.4,211.8 263.3,219.9" />
+<polygon class="quad" points="236.7,219.9 222.6,211.8 209.3,234.9 223.4,243.0" />
+<polygon class="quad" points="236.7,266.1 236.7,282.3 263.3,282.3 263.3,266.1" />
+<polygon class="junc" points="276.6,243.0 290.7,251.1 290.7,234.9" />
+<polygon class="junc" points="263.3,219.9 277.4,211.8 263.3,203.7" />
+<polygon class="quad" points="276.6,180.6 290.7,172.5 277.4,149.5 263.3,157.6" />
+<polygon class="quad" points="236.7,157.6 222.6,149.5 209.3,172.5 223.4,180.6" />
+<polygon class="quad" points="236.7,203.7 236.7,219.9 263.3,219.9 263.3,203.7" />
+<polygon class="junc" points="276.6,180.6 290.7,188.8 290.7,172.5" />
+<polygon class="junc" points="263.3,157.6 277.4,149.5 263.3,141.4" />
+<polygon class="quad" points="276.6,118.3 290.7,110.2 277.4,87.1 263.3,95.2" />
+<polygon class="quad" points="236.7,95.2 222.6,87.1 209.3,110.2 223.4,118.3" />
+<polygon class="quad" points="236.7,141.4 236.7,157.6 263.3,157.6 263.3,141.4" />
+<polygon class="junc" points="276.6,118.3 290.7,126.4 290.7,110.2" />
+<polygon class="junc" points="263.3,95.2 277.4,87.1 263.3,79.0" />
+<polygon class="quad" points="330.6,336.5 344.7,328.4 331.4,305.4 317.3,313.5" />
+<polygon class="quad" points="290.7,313.5 276.6,305.4 263.3,328.4 277.4,336.5" />
+<polygon class="quad" points="290.7,359.6 290.7,375.8 317.3,375.8 317.3,359.6" />
+<polygon class="junc" points="330.6,336.5 344.7,344.6 344.7,328.4" />
+<polygon class="junc" points="317.3,313.5 331.4,305.4 317.3,297.2" />
+<polygon class="quad" points="330.6,274.2 344.7,266.1 331.4,243.0 317.3,251.1" />
+<polygon class="quad" points="290.7,251.1 276.6,243.0 263.3,266.1 277.4,274.2" />
+<polygon class="quad" points="290.7,297.2 290.7,313.5 317.3,313.5 317.3,297.2" />
+<polygon class="junc" points="330.6,274.2 344.7,282.3 344.7,266.1" />
+<polygon class="junc" points="317.3,251.1 331.4,243.0 317.3,234.9" />
+<polygon class="quad" points="330.6,211.8 344.7,203.7 331.4,180.6 317.3,188.8" />
+<polygon class="quad" points="290.7,188.8 276.6,180.6 263.3,203.7 277.4,211.8" />
+<polygon class="quad" points="290.7,234.9 290.7,251.1 317.3,251.1 317.3,234.9" />
+<polygon class="junc" points="330.6,211.8 344.7,219.9 344.7,203.7" />
+<polygon class="junc" points="317.3,188.8 331.4,180.6 317.3,172.5" />
+<polygon class="quad" points="330.6,149.5 344.7,141.4 331.4,118.3 317.3,126.4" />
+<polygon class="quad" points="290.7,126.4 276.6,118.3 263.3,141.4 277.4,149.5" />
+<polygon class="quad" points="290.7,172.5 290.7,188.8 317.3,188.8 317.3,172.5" />
+<polygon class="junc" points="330.6,149.5 344.7,157.6 344.7,141.4" />
+<polygon class="junc" points="317.3,126.4 331.4,118.3 317.3,110.2" />
+<polygon class="quad" points="384.6,305.4 398.7,297.2 385.4,274.2 371.3,282.3" />
+<polygon class="quad" points="344.7,282.3 330.6,274.2 317.3,297.2 331.4,305.4" />
+<polygon class="quad" points="344.7,328.4 344.7,344.6 371.3,344.6 371.3,328.4" />
+<polygon class="junc" points="384.6,305.4 398.7,313.5 398.7,297.2" />
+<polygon class="junc" points="371.3,282.3 385.4,274.2 371.3,266.1" />
+<polygon class="quad" points="384.6,243.0 398.7,234.9 385.4,211.8 371.3,219.9" />
+<polygon class="quad" points="344.7,219.9 330.6,211.8 317.3,234.9 331.4,243.0" />
+<polygon class="quad" points="344.7,266.1 344.7,282.3 371.3,282.3 371.3,266.1" />
+<polygon class="junc" points="384.6,243.0 398.7,251.1 398.7,234.9" />
+<polygon class="junc" points="371.3,219.9 385.4,211.8 371.3,203.7" />
+<polygon class="quad" points="384.6,180.6 398.7,172.5 385.4,149.5 371.3,157.6" />
+<polygon class="quad" points="344.7,157.6 330.6,149.5 317.3,172.5 331.4,180.6" />
+<polygon class="quad" points="344.7,203.7 344.7,219.9 371.3,219.9 371.3,203.7" />
+<polygon class="junc" points="384.6,180.6 398.7,188.8 398.7,172.5" />
+<polygon class="junc" points="371.3,157.6 385.4,149.5 371.3,141.4" />
+<polygon class="quad" points="114.6,336.5 128.7,328.4 115.4,305.4 101.3,313.5" />
+<polygon class="junc" points="114.6,336.5 128.7,344.6 128.7,328.4" />
+<polygon class="junc" points="101.3,313.5 115.4,305.4 101.3,297.2" />
+<polygon class="quad" points="114.6,274.2 128.7,266.1 115.4,243.0 101.3,251.1" />
+<polygon class="junc" points="114.6,274.2 128.7,282.3 128.7,266.1" />
+<polygon class="junc" points="101.3,251.1 115.4,243.0 101.3,234.9" />
+<polygon class="quad" points="114.6,211.8 128.7,203.7 115.4,180.6 101.3,188.8" />
+<polygon class="junc" points="114.6,211.8 128.7,219.9 128.7,203.7" />
+<polygon class="junc" points="101.3,188.8 115.4,180.6 101.3,172.5" />
+<polygon class="junc" points="114.6,149.5 128.7,157.6 128.7,141.4" />
+<polygon class="quad" points="168.6,367.7 182.7,359.6 169.4,336.5 155.3,344.6" />
+<polygon class="junc" points="168.6,367.7 182.7,375.8 182.7,359.6" />
+<polygon class="junc" points="155.3,344.6 169.4,336.5 155.3,328.4" />
+<polygon class="quad" points="128.7,141.4 128.7,157.6 155.3,157.6 155.3,141.4" />
+<polygon class="junc" points="168.6,118.3 182.7,126.4 182.7,110.2" />
+<polygon class="quad" points="222.6,398.9 236.7,390.8 223.4,367.7 209.3,375.8" />
+<polygon class="junc" points="222.6,398.9 236.7,407.0 236.7,390.8" />
+<polygon class="junc" points="209.3,375.8 223.4,367.7 209.3,359.6" />
+<polygon class="quad" points="182.7,110.2 182.7,126.4 209.3,126.4 209.3,110.2" />
+<polygon class="junc" points="222.6,87.1 236.7,95.2 236.7,79.0" />
+<polygon class="junc" points="263.3,407.0 277.4,398.9 263.3,390.8" />
+<polygon class="quad" points="236.7,79.0 236.7,95.2 263.3,95.2 263.3,79.0" />
+<polygon class="quad" points="290.7,375.8 276.6,367.7 263.3,390.8 277.4,398.9" />
+<polygon class="junc" points="317.3,375.8 331.4,367.7 317.3,359.6" />
+<polygon class="quad" points="290.7,110.2 290.7,126.4 317.3,126.4 317.3,110.2" />
+<polygon class="quad" points="344.7,344.6 330.6,336.5 317.3,359.6 331.4,367.7" />
+<polygon class="junc" points="371.3,344.6 385.4,336.5 371.3,328.4" />
+<polygon class="quad" points="344.7,141.4 344.7,157.6 371.3,157.6 371.3,141.4" />
+<polygon class="quad" points="398.7,313.5 384.6,305.4 371.3,328.4 385.4,336.5" />
+<polygon class="quad" points="398.7,251.1 384.6,243.0 371.3,266.1 385.4,274.2" />
+<polygon class="quad" points="398.7,188.8 384.6,180.6 371.3,203.7 385.4,211.8" /></svg></div><figcaption><code>HGridLayout::new</code> with <code>radius: 3</code> and every cell of ring 3 in <code>entangle</code>. <code>all_tris(false)</code> draws the 19 inner faces (solid) and every gap touching an inner cell, whichever cell owns it. It skips the entangled cells' faces (dashed) and the gaps between two entangled cells. Ownership doesn't matter for the outline: it is closed on all six sides. That makes 312 triangles in total, the same as 19 faces plus every gap touching them. <code>HGridLayout::for_chunk(g, (0,0), 2)</code> builds exactly this layout, and <code>for_chunk_all_tris_counts</code> pins the 312.</figcaption></figure>
+<p>The terrain page's flower (<a href="https://github.com/dynnamitt/apicult-desigual-rs/issues/9">#9</a>) uses this per petal. Each petal entangles its ring of cells facing a neighbour and copies the neighbour's border values into it with overrides. The earlier-placed layout owns every shared seam, so the seams are drawn once, with no z-fighting and no doubled triangles.</p>
+<p><code>HGridLayout::for_chunk</code> builds exactly the layout in the figure above, for one chunk.</p>
+
+<h2 id="chunks">5 · Streaming chunks</h2>
+<p><code>src/chunk.rs</code> builds any chunk of an unbounded world on demand from its coordinate. <code>NoiseWorld { settings, chunk_radius }</code> implements <code>ChunkSource::chunk(coord) -&gt; Chunk</code>. One <code>NoiseWorld</code>, and so one set of seeds, serves the whole world.</p>
+<p>A chunk is the radius-<code>r</code> hexagon of cells with <code>hex.to_lower_res(r) == coord</code> (<a href="#resolution">section 2</a>). <code>HGridLayout::for_chunk(g, coord, r)</code> builds it with one extra <em>entangled ring</em> of neighbour cells at distance <code>r + 1</code>. It samples noise at world positions and ignores <code>g.radius</code>, so a chunk built alone matches its neighbours exactly. The layout is then cut into two streams:</p>
+<ul>
+<li><strong>owned</strong>: <code>owned_tris_into(cell, false)</code> for each of the chunk's own cells, concatenated (<code>owned_runs</code> gives each cell's count). Across all chunks the owned streams cover the world with no overlap and no holes.</li>
+<li><strong>seams</strong>: the gaps that ring cells own and that touch the chunk, grouped by the neighbour chunk that owns them (at most 6 groups). Each group is a copy of triangles in that neighbour's owned stream.</li>
+</ul>
+<figure><div class="svgwrap"><svg viewBox="0 0 500 490" role="img" aria-label="Chunk (0,0) of radius 2: its owned stream, and seam groups tinted by the neighbour chunk that owns them">
+<defs><marker id="arr12" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="currentColor"/></marker></defs>
+<polygon class="face entring t2" points="114.6,336.5 101.3,313.5 74.7,313.5 61.4,336.5 74.7,359.6 101.3,359.6" />
+<polygon class="face entring t2" points="114.6,274.2 101.3,251.1 74.7,251.1 61.4,274.2 74.7,297.2 101.3,297.2" />
+<polygon class="face entring t2" points="114.6,211.8 101.3,188.8 74.7,188.8 61.4,211.8 74.7,234.9 101.3,234.9" />
+<polygon class="face entring t1" points="114.6,149.5 101.3,126.4 74.7,126.4 61.4,149.5 74.7,172.5 101.3,172.5" />
+<polygon class="face entring t1" points="168.6,367.7 155.3,344.6 128.7,344.6 115.4,367.7 128.7,390.8 155.3,390.8" />
+<polygon class="face entring t1" points="168.6,118.3 155.3,95.2 128.7,95.2 115.4,118.3 128.7,141.4 155.3,141.4" />
+<polygon class="face entring t1" points="222.6,398.9 209.3,375.8 182.7,375.8 169.4,398.9 182.7,422.0 209.3,422.0" />
+<polygon class="face entring t1" points="222.6,87.1 209.3,64.0 182.7,64.0 169.4,87.1 182.7,110.2 209.3,110.2" />
+<polygon class="face entring t1" points="276.6,430.1 263.3,407.0 236.7,407.0 223.4,430.1 236.7,453.1 263.3,453.1" />
+<polygon class="face entring t2" points="276.6,55.9 263.3,32.9 236.7,32.9 223.4,55.9 236.7,79.0 263.3,79.0" />
+<polygon class="face entring t2" points="330.6,398.9 317.3,375.8 290.7,375.8 277.4,398.9 290.7,422.0 317.3,422.0" />
+<polygon class="face entring t2" points="330.6,87.1 317.3,64.0 290.7,64.0 277.4,87.1 290.7,110.2 317.3,110.2" />
+<polygon class="face entring t2" points="384.6,367.7 371.3,344.6 344.7,344.6 331.4,367.7 344.7,390.8 371.3,390.8" />
+<polygon class="face entring t2" points="384.6,118.3 371.3,95.2 344.7,95.2 331.4,118.3 344.7,141.4 371.3,141.4" />
+<polygon class="face entring t2" points="438.6,336.5 425.3,313.5 398.7,313.5 385.4,336.5 398.7,359.6 425.3,359.6" />
+<polygon class="face entring t1" points="438.6,274.2 425.3,251.1 398.7,251.1 385.4,274.2 398.7,297.2 425.3,297.2" />
+<polygon class="face entring t1" points="438.6,211.8 425.3,188.8 398.7,188.8 385.4,211.8 398.7,234.9 425.3,234.9" />
+<polygon class="face entring t1" points="438.6,149.5 425.3,126.4 398.7,126.4 385.4,149.5 398.7,172.5 425.3,172.5" />
+<polygon class="face" points="168.6,305.4 155.3,282.3 128.7,282.3 115.4,305.4 128.7,328.4 155.3,328.4" />
+<polygon class="face" points="168.6,243.0 155.3,219.9 128.7,219.9 115.4,243.0 128.7,266.1 155.3,266.1" />
+<polygon class="face" points="168.6,180.6 155.3,157.6 128.7,157.6 115.4,180.6 128.7,203.7 155.3,203.7" />
+<polygon class="face" points="222.6,336.5 209.3,313.5 182.7,313.5 169.4,336.5 182.7,359.6 209.3,359.6" />
+<polygon class="face" points="222.6,274.2 209.3,251.1 182.7,251.1 169.4,274.2 182.7,297.2 209.3,297.2" />
+<polygon class="face" points="222.6,211.8 209.3,188.8 182.7,188.8 169.4,211.8 182.7,234.9 209.3,234.9" />
+<polygon class="face" points="222.6,149.5 209.3,126.4 182.7,126.4 169.4,149.5 182.7,172.5 209.3,172.5" />
+<polygon class="face" points="276.6,367.7 263.3,344.6 236.7,344.6 223.4,367.7 236.7,390.8 263.3,390.8" />
+<polygon class="face" points="276.6,305.4 263.3,282.3 236.7,282.3 223.4,305.4 236.7,328.4 263.3,328.4" />
+<polygon class="face" points="276.6,243.0 263.3,219.9 236.7,219.9 223.4,243.0 236.7,266.1 263.3,266.1" />
+<polygon class="face" points="276.6,180.6 263.3,157.6 236.7,157.6 223.4,180.6 236.7,203.7 263.3,203.7" />
+<polygon class="face" points="276.6,118.3 263.3,95.2 236.7,95.2 223.4,118.3 236.7,141.4 263.3,141.4" />
+<polygon class="face" points="330.6,336.5 317.3,313.5 290.7,313.5 277.4,336.5 290.7,359.6 317.3,359.6" />
+<polygon class="face" points="330.6,274.2 317.3,251.1 290.7,251.1 277.4,274.2 290.7,297.2 317.3,297.2" />
+<polygon class="face" points="330.6,211.8 317.3,188.8 290.7,188.8 277.4,211.8 290.7,234.9 317.3,234.9" />
+<polygon class="face" points="330.6,149.5 317.3,126.4 290.7,126.4 277.4,149.5 290.7,172.5 317.3,172.5" />
+<polygon class="face" points="384.6,305.4 371.3,282.3 344.7,282.3 331.4,305.4 344.7,328.4 371.3,328.4" />
+<polygon class="face" points="384.6,243.0 371.3,219.9 344.7,219.9 331.4,243.0 344.7,266.1 371.3,266.1" />
+<polygon class="face" points="384.6,180.6 371.3,157.6 344.7,157.6 331.4,180.6 344.7,203.7 371.3,203.7" />
+<polygon class="quad" points="168.6,305.4 182.7,297.2 169.4,274.2 155.3,282.3" />
+<polygon class="quad" points="128.7,282.3 114.6,274.2 101.3,297.2 115.4,305.4" />
+<polygon class="quad" points="128.7,328.4 128.7,344.6 155.3,344.6 155.3,328.4" />
+<polygon class="junc" points="168.6,305.4 182.7,313.5 182.7,297.2" />
+<polygon class="junc" points="155.3,282.3 169.4,274.2 155.3,266.1" />
+<polygon class="quad" points="168.6,243.0 182.7,234.9 169.4,211.8 155.3,219.9" />
+<polygon class="quad" points="128.7,219.9 114.6,211.8 101.3,234.9 115.4,243.0" />
+<polygon class="quad" points="128.7,266.1 128.7,282.3 155.3,282.3 155.3,266.1" />
+<polygon class="junc" points="168.6,243.0 182.7,251.1 182.7,234.9" />
+<polygon class="junc" points="155.3,219.9 169.4,211.8 155.3,203.7" />
+<polygon class="quad" points="168.6,180.6 182.7,172.5 169.4,149.5 155.3,157.6" />
+<polygon class="quad" points="128.7,157.6 114.6,149.5 101.3,172.5 115.4,180.6" />
+<polygon class="quad" points="128.7,203.7 128.7,219.9 155.3,219.9 155.3,203.7" />
+<polygon class="junc" points="168.6,180.6 182.7,188.8 182.7,172.5" />
+<polygon class="junc" points="155.3,157.6 169.4,149.5 155.3,141.4" />
+<polygon class="quad" points="222.6,336.5 236.7,328.4 223.4,305.4 209.3,313.5" />
+<polygon class="quad" points="182.7,313.5 168.6,305.4 155.3,328.4 169.4,336.5" />
+<polygon class="quad" points="182.7,359.6 182.7,375.8 209.3,375.8 209.3,359.6" />
+<polygon class="junc" points="222.6,336.5 236.7,344.6 236.7,328.4" />
+<polygon class="junc" points="209.3,313.5 223.4,305.4 209.3,297.2" />
+<polygon class="quad" points="222.6,274.2 236.7,266.1 223.4,243.0 209.3,251.1" />
+<polygon class="quad" points="182.7,251.1 168.6,243.0 155.3,266.1 169.4,274.2" />
+<polygon class="quad" points="182.7,297.2 182.7,313.5 209.3,313.5 209.3,297.2" />
+<polygon class="junc" points="222.6,274.2 236.7,282.3 236.7,266.1" />
+<polygon class="junc" points="209.3,251.1 223.4,243.0 209.3,234.9" />
+<polygon class="quad" points="222.6,211.8 236.7,203.7 223.4,180.6 209.3,188.8" />
+<polygon class="quad" points="182.7,188.8 168.6,180.6 155.3,203.7 169.4,211.8" />
+<polygon class="quad" points="182.7,234.9 182.7,251.1 209.3,251.1 209.3,234.9" />
+<polygon class="junc" points="222.6,211.8 236.7,219.9 236.7,203.7" />
+<polygon class="junc" points="209.3,188.8 223.4,180.6 209.3,172.5" />
+<polygon class="quad" points="222.6,149.5 236.7,141.4 223.4,118.3 209.3,126.4" />
+<polygon class="quad" points="182.7,126.4 168.6,118.3 155.3,141.4 169.4,149.5" />
+<polygon class="quad" points="182.7,172.5 182.7,188.8 209.3,188.8 209.3,172.5" />
+<polygon class="junc" points="222.6,149.5 236.7,157.6 236.7,141.4" />
+<polygon class="junc" points="209.3,126.4 223.4,118.3 209.3,110.2" />
+<polygon class="quad" points="276.6,367.7 290.7,359.6 277.4,336.5 263.3,344.6" />
+<polygon class="quad" points="236.7,344.6 222.6,336.5 209.3,359.6 223.4,367.7" />
+<polygon class="quad" points="236.7,390.8 236.7,407.0 263.3,407.0 263.3,390.8" />
+<polygon class="junc" points="276.6,367.7 290.7,375.8 290.7,359.6" />
+<polygon class="junc" points="263.3,344.6 277.4,336.5 263.3,328.4" />
+<polygon class="quad" points="276.6,305.4 290.7,297.2 277.4,274.2 263.3,282.3" />
+<polygon class="quad" points="236.7,282.3 222.6,274.2 209.3,297.2 223.4,305.4" />
+<polygon class="quad" points="236.7,328.4 236.7,344.6 263.3,344.6 263.3,328.4" />
+<polygon class="junc" points="276.6,305.4 290.7,313.5 290.7,297.2" />
+<polygon class="junc" points="263.3,282.3 277.4,274.2 263.3,266.1" />
+<polygon class="quad" points="276.6,243.0 290.7,234.9 277.4,211.8 263.3,219.9" />
+<polygon class="quad" points="236.7,219.9 222.6,211.8 209.3,234.9 223.4,243.0" />
+<polygon class="quad" points="236.7,266.1 236.7,282.3 263.3,282.3 263.3,266.1" />
+<polygon class="junc" points="276.6,243.0 290.7,251.1 290.7,234.9" />
+<polygon class="junc" points="263.3,219.9 277.4,211.8 263.3,203.7" />
+<polygon class="quad" points="276.6,180.6 290.7,172.5 277.4,149.5 263.3,157.6" />
+<polygon class="quad" points="236.7,157.6 222.6,149.5 209.3,172.5 223.4,180.6" />
+<polygon class="quad" points="236.7,203.7 236.7,219.9 263.3,219.9 263.3,203.7" />
+<polygon class="junc" points="276.6,180.6 290.7,188.8 290.7,172.5" />
+<polygon class="junc" points="263.3,157.6 277.4,149.5 263.3,141.4" />
+<polygon class="quad" points="276.6,118.3 290.7,110.2 277.4,87.1 263.3,95.2" />
+<polygon class="quad" points="236.7,95.2 222.6,87.1 209.3,110.2 223.4,118.3" />
+<polygon class="quad" points="236.7,141.4 236.7,157.6 263.3,157.6 263.3,141.4" />
+<polygon class="junc" points="276.6,118.3 290.7,126.4 290.7,110.2" />
+<polygon class="junc" points="263.3,95.2 277.4,87.1 263.3,79.0" />
+<polygon class="quad" points="330.6,336.5 344.7,328.4 331.4,305.4 317.3,313.5" />
+<polygon class="quad" points="290.7,313.5 276.6,305.4 263.3,328.4 277.4,336.5" />
+<polygon class="quad" points="290.7,359.6 290.7,375.8 317.3,375.8 317.3,359.6" />
+<polygon class="junc" points="330.6,336.5 344.7,344.6 344.7,328.4" />
+<polygon class="junc" points="317.3,313.5 331.4,305.4 317.3,297.2" />
+<polygon class="quad" points="330.6,274.2 344.7,266.1 331.4,243.0 317.3,251.1" />
+<polygon class="quad" points="290.7,251.1 276.6,243.0 263.3,266.1 277.4,274.2" />
+<polygon class="quad" points="290.7,297.2 290.7,313.5 317.3,313.5 317.3,297.2" />
+<polygon class="junc" points="330.6,274.2 344.7,282.3 344.7,266.1" />
+<polygon class="junc" points="317.3,251.1 331.4,243.0 317.3,234.9" />
+<polygon class="quad" points="330.6,211.8 344.7,203.7 331.4,180.6 317.3,188.8" />
+<polygon class="quad" points="290.7,188.8 276.6,180.6 263.3,203.7 277.4,211.8" />
+<polygon class="quad" points="290.7,234.9 290.7,251.1 317.3,251.1 317.3,234.9" />
+<polygon class="junc" points="330.6,211.8 344.7,219.9 344.7,203.7" />
+<polygon class="junc" points="317.3,188.8 331.4,180.6 317.3,172.5" />
+<polygon class="quad" points="330.6,149.5 344.7,141.4 331.4,118.3 317.3,126.4" />
+<polygon class="quad" points="290.7,126.4 276.6,118.3 263.3,141.4 277.4,149.5" />
+<polygon class="quad" points="290.7,172.5 290.7,188.8 317.3,188.8 317.3,172.5" />
+<polygon class="junc" points="330.6,149.5 344.7,157.6 344.7,141.4" />
+<polygon class="junc" points="317.3,126.4 331.4,118.3 317.3,110.2" />
+<polygon class="quad" points="384.6,305.4 398.7,297.2 385.4,274.2 371.3,282.3" />
+<polygon class="quad" points="344.7,282.3 330.6,274.2 317.3,297.2 331.4,305.4" />
+<polygon class="quad" points="344.7,328.4 344.7,344.6 371.3,344.6 371.3,328.4" />
+<polygon class="junc" points="384.6,305.4 398.7,313.5 398.7,297.2" />
+<polygon class="junc" points="371.3,282.3 385.4,274.2 371.3,266.1" />
+<polygon class="quad" points="384.6,243.0 398.7,234.9 385.4,211.8 371.3,219.9" />
+<polygon class="quad" points="344.7,219.9 330.6,211.8 317.3,234.9 331.4,243.0" />
+<polygon class="quad" points="344.7,266.1 344.7,282.3 371.3,282.3 371.3,266.1" />
+<polygon class="junc" points="384.6,243.0 398.7,251.1 398.7,234.9" />
+<polygon class="junc" points="371.3,219.9 385.4,211.8 371.3,203.7" />
+<polygon class="quad" points="384.6,180.6 398.7,172.5 385.4,149.5 371.3,157.6" />
+<polygon class="quad" points="344.7,157.6 330.6,149.5 317.3,172.5 331.4,180.6" />
+<polygon class="quad" points="344.7,203.7 344.7,219.9 371.3,219.9 371.3,203.7" />
+<polygon class="junc" points="384.6,180.6 398.7,188.8 398.7,172.5" />
+<polygon class="junc" points="371.3,157.6 385.4,149.5 371.3,141.4" />
+<polygon class="seam t2" points="114.6,336.5 128.7,328.4 115.4,305.4 101.3,313.5" />
+<polygon class="seam t2" points="114.6,336.5 128.7,344.6 128.7,328.4" />
+<polygon class="seam t2" points="101.3,313.5 115.4,305.4 101.3,297.2" />
+<polygon class="seam t2" points="114.6,274.2 128.7,266.1 115.4,243.0 101.3,251.1" />
+<polygon class="seam t2" points="114.6,274.2 128.7,282.3 128.7,266.1" />
+<polygon class="seam t2" points="101.3,251.1 115.4,243.0 101.3,234.9" />
+<polygon class="seam t2" points="114.6,211.8 128.7,203.7 115.4,180.6 101.3,188.8" />
+<polygon class="seam t2" points="114.6,211.8 128.7,219.9 128.7,203.7" />
+<polygon class="seam t2" points="101.3,188.8 115.4,180.6 101.3,172.5" />
+<polygon class="seam t1" points="114.6,149.5 128.7,157.6 128.7,141.4" />
+<polygon class="seam t1" points="168.6,367.7 182.7,359.6 169.4,336.5 155.3,344.6" />
+<polygon class="seam t1" points="168.6,367.7 182.7,375.8 182.7,359.6" />
+<polygon class="seam t1" points="155.3,344.6 169.4,336.5 155.3,328.4" />
+<polygon class="seam t1" points="128.7,141.4 128.7,157.6 155.3,157.6 155.3,141.4" />
+<polygon class="seam t1" points="168.6,118.3 182.7,126.4 182.7,110.2" />
+<polygon class="seam t1" points="222.6,398.9 236.7,390.8 223.4,367.7 209.3,375.8" />
+<polygon class="seam t1" points="222.6,398.9 236.7,407.0 236.7,390.8" />
+<polygon class="seam t1" points="209.3,375.8 223.4,367.7 209.3,359.6" />
+<polygon class="seam t1" points="182.7,110.2 182.7,126.4 209.3,126.4 209.3,110.2" />
+<polygon class="seam t1" points="222.6,87.1 236.7,95.2 236.7,79.0" />
+<polygon class="seam t1" points="263.3,407.0 277.4,398.9 263.3,390.8" />
+<polygon class="seam t2" points="236.7,79.0 236.7,95.2 263.3,95.2 263.3,79.0" />
+<polygon class="seam t2" points="290.7,375.8 276.6,367.7 263.3,390.8 277.4,398.9" />
+<polygon class="seam t2" points="317.3,375.8 331.4,367.7 317.3,359.6" />
+<polygon class="seam t2" points="290.7,110.2 290.7,126.4 317.3,126.4 317.3,110.2" />
+<polygon class="seam t2" points="344.7,344.6 330.6,336.5 317.3,359.6 331.4,367.7" />
+<polygon class="seam t2" points="371.3,344.6 385.4,336.5 371.3,328.4" />
+<polygon class="seam t2" points="344.7,141.4 344.7,157.6 371.3,157.6 371.3,141.4" />
+<polygon class="seam t2" points="398.7,313.5 384.6,305.4 371.3,328.4 385.4,336.5" />
+<polygon class="seam t1" points="398.7,251.1 384.6,243.0 371.3,266.1 385.4,274.2" />
+<polygon class="seam t1" points="398.7,188.8 384.6,180.6 371.3,203.7 385.4,211.8" />
+<text class="lbl mono" x="36.2" y="288.2" text-anchor="middle">(−1,0)</text>
+<text class="lbl mono" x="107.4" y="82.4" text-anchor="middle">(−1,1)</text>
+<text class="lbl mono" x="178.7" y="452.8" text-anchor="middle">(0,−1)</text>
+<text class="lbl mono" x="321.3" y="41.2" text-anchor="middle">(0,1)</text>
+<text class="lbl mono" x="392.6" y="411.6" text-anchor="middle">(1,−1)</text>
+<text class="lbl mono" x="463.8" y="205.8" text-anchor="middle">(1,0)</text></svg></div><figcaption>Chunk <code>(0,0)</code> with <code>chunk_radius = 2</code>. <code>for_chunk</code> adds ring 3 (dashed), tinted by the neighbour chunk each ring cell belongs to, labelled outside. <strong>Owned</strong>, solid: the 19 faces and every gap an own cell owns, 266 triangles. <strong>Seams</strong>, dashed and tinted: the gaps ring cells own that touch the chunk, 46 triangles in 6 groups, one per neighbour chunk. Together they make the same 312 triangles as the figure in section 4. Once a neighbour is loaded, its owned stream draws the same triangles, so its seam group is hidden.</figcaption></figure>
+<p>Rules for consumers, from the module docs:</p>
+<ol>
+<li>Always draw the owned stream. Draw seam group <em>k</em> only while neighbour chunk <em>k</em> isn't loaded, so the two copies are never visible together.</li>
+<li>Entangled cells are never state. A change to a cell goes to its owning chunk only.</li>
+<li>A changed cell rebuilds its own chunk and every chunk that has it in its entangled ring: 1 chunk for an interior cell, 2 along a chunk edge, 3 at a chunk corner.</li>
+</ol>
+<p>In the browser, <code>WasmChunkWorld::new(chunk_radius, height_seed, radius_seed)</code> hands out <code>chunk(q, r)</code> with flat <code>owned()</code> / <code>seam(i)</code> buffers and <code>seam_owners()</code>. The <a href="hex-stream.html">chunk treadmill</a> keeps seven chunks loaded around a moving camera and follows rule 1 on every step.</p>
+</main>
+<script>
+(function () {
+  var btn = document.getElementById("expand-all");
+  var all = function () { return document.querySelectorAll("details.fn"); };
+  var sync = function () { var open = [].every.call(all(), function (d) { return d.open; }); btn.textContent = open ? "Collapse all" : "Expand all"; };
+  btn.addEventListener("click", function () { var open = btn.textContent === "Expand all"; all().forEach(function (d) { d.open = open; }); sync(); });
+  all().forEach(function (d) { d.addEventListener("toggle", sync); });
+})();
+</script>
+</body>
+</html>

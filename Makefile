@@ -92,10 +92,18 @@ stream-html: prep
 	$(call RENDER_STREAM,web/hex-stream.html,$(OUT)/hex-stream.html)
 	cp $(COMMON_WEB) $(STREAM_WEB) $(OUT)/
 
+# Regenerate docs/guide.html from docs/guide/guide.tmpl.html (stdlib Python only).
+guide:
+	python3 docs/guide/gen.py --logo docs/logo.svg
+
+guide-html: prep
+	cp docs/guide.html $(OUT)/guide.html
+	cp web/page-nav.js $(OUT)/
+
 serve: preview
 	cd $(OUT); python3 -m http.server
 
-preview: svg-plain svg-rich json-v1 wasm preview-html terrain-html units-html crawler-html stream-html
+preview: svg-plain svg-rich json-v1 wasm preview-html terrain-html units-html crawler-html stream-html guide-html
 	@echo "preview built in $(OUT)/ (seed=$(HSEED), radius=$(RADIUS), units_radius=$(UNITS_RADIUS), crawler_radius=$(CRAWLER_RADIUS), stream_chunk_radius=$(STREAM_CHUNK_RADIUS))"
 
-.PHONY: build test test-js prep svg-plain svg-rich json-v1 wasm preview-html terrain-html units-html crawler-html stream-html preview serve
+.PHONY: build test test-js prep svg-plain svg-rich json-v1 wasm preview-html terrain-html units-html crawler-html stream-html guide guide-html preview serve
