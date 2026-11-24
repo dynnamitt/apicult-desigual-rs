@@ -62,6 +62,50 @@ export enum VertexDir {
 }
 
 /**
+ * One built chunk. All tri buffers are flat `n_tris * 9` floats in world space.
+ */
+export class WasmChunk {
+    private constructor();
+    free(): void;
+    [Symbol.dispose](): void;
+    /**
+     * World `[x, z]` of the chunk's centre cell.
+     */
+    center(): Float32Array;
+    /**
+     * Owned stream — always drawn.
+     */
+    owned(): Float32Array;
+    /**
+     * Seam group `i` — draw only while its owner chunk isn't loaded. Empty when out of range.
+     */
+    seam(i: number): Float32Array;
+    /**
+     * Owning neighbour chunk of each seam group, flat `[q0, r0, q1, r1, …]`.
+     */
+    seam_owners(): Int32Array;
+}
+
+/**
+ * Chunk generator for one world: every chunk shares `chunk_radius` and both
+ * noise seeds (other settings are `HGridSettings::default()`).
+ */
+export class WasmChunkWorld {
+    free(): void;
+    [Symbol.dispose](): void;
+    /**
+     * Builds chunk `(q, r)` on the chunk lattice. Same seeds and coord give the same output.
+     */
+    chunk(q: number, r: number): WasmChunk;
+    /**
+     * @param chunk_radius — rings of cells per chunk.
+     * @param height_seed — height-noise seed, the same for every chunk.
+     * @param radius_seed — radius-noise seed, the same for every chunk.
+     */
+    constructor(chunk_radius: number, height_seed: number, radius_seed: number);
+}
+
+/**
  * Opaque handle wrapping `HGridLayout`. Build once, query repeatedly.
  */
 export class WasmLayout {
@@ -149,9 +193,17 @@ export interface InitOutput {
     readonly __wbg_set_overridespec_q: (a: number, b: number) => void;
     readonly __wbg_set_overridespec_r: (a: number, b: number) => void;
     readonly __wbg_set_overridespec_value: (a: number, b: number) => void;
+    readonly __wbg_wasmchunk_free: (a: number, b: number) => void;
+    readonly __wbg_wasmchunkworld_free: (a: number, b: number) => void;
     readonly __wbg_wasmlayout_free: (a: number, b: number) => void;
     readonly entanglespec_new: (a: number, b: number) => number;
     readonly overridespec_new: (a: number, b: number, c: number, d: number) => number;
+    readonly wasmchunk_center: (a: number) => [number, number];
+    readonly wasmchunk_owned: (a: number) => [number, number];
+    readonly wasmchunk_seam: (a: number, b: number) => [number, number];
+    readonly wasmchunk_seam_owners: (a: number) => [number, number];
+    readonly wasmchunkworld_chunk: (a: number, b: number, c: number) => number;
+    readonly wasmchunkworld_new: (a: number, b: number, c: number) => number;
     readonly wasmlayout_borderline_cells: (a: number, b: number) => [number, number];
     readonly wasmlayout_face_bridge_quads: (a: number, b: number) => [number, number];
     readonly wasmlayout_face_tris: (a: number, b: number) => [number, number];
@@ -159,8 +211,8 @@ export interface InitOutput {
     readonly wasmlayout_tris: (a: number, b: number) => [number, number];
     readonly wasmlayout_wire_edges: (a: number, b: number) => [number, number];
     readonly __wbindgen_externrefs: WebAssembly.Table;
-    readonly __externref_drop_slice: (a: number, b: number) => void;
     readonly __wbindgen_free: (a: number, b: number, c: number) => void;
+    readonly __externref_drop_slice: (a: number, b: number) => void;
     readonly __externref_table_alloc: () => number;
     readonly __wbindgen_malloc: (a: number, b: number) => number;
     readonly __wbindgen_start: () => void;

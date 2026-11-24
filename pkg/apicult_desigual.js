@@ -259,6 +259,112 @@ export const VertexDir = Object.freeze({
 });
 
 /**
+ * One built chunk. All tri buffers are flat `n_tris * 9` floats in world space.
+ */
+export class WasmChunk {
+    static __wrap(ptr) {
+        const obj = Object.create(WasmChunk.prototype);
+        obj.__wbg_ptr = ptr;
+        WasmChunkFinalization.register(obj, obj.__wbg_ptr, obj);
+        return obj;
+    }
+    __destroy_into_raw() {
+        const ptr = this.__wbg_ptr;
+        this.__wbg_ptr = 0;
+        WasmChunkFinalization.unregister(this);
+        return ptr;
+    }
+    free() {
+        const ptr = this.__destroy_into_raw();
+        wasm.__wbg_wasmchunk_free(ptr, 0);
+    }
+    /**
+     * World `[x, z]` of the chunk's centre cell.
+     * @returns {Float32Array}
+     */
+    center() {
+        const ret = wasm.wasmchunk_center(this.__wbg_ptr);
+        var v1 = getArrayF32FromWasm0(ret[0], ret[1]).slice();
+        wasm.__wbindgen_free(ret[0], ret[1] * 4, 4);
+        return v1;
+    }
+    /**
+     * Owned stream — always drawn.
+     * @returns {Float32Array}
+     */
+    owned() {
+        const ret = wasm.wasmchunk_owned(this.__wbg_ptr);
+        var v1 = getArrayF32FromWasm0(ret[0], ret[1]).slice();
+        wasm.__wbindgen_free(ret[0], ret[1] * 4, 4);
+        return v1;
+    }
+    /**
+     * Seam group `i` — draw only while its owner chunk isn't loaded. Empty when out of range.
+     * @param {number} i
+     * @returns {Float32Array}
+     */
+    seam(i) {
+        const ret = wasm.wasmchunk_seam(this.__wbg_ptr, i);
+        var v1 = getArrayF32FromWasm0(ret[0], ret[1]).slice();
+        wasm.__wbindgen_free(ret[0], ret[1] * 4, 4);
+        return v1;
+    }
+    /**
+     * Owning neighbour chunk of each seam group, flat `[q0, r0, q1, r1, …]`.
+     * @returns {Int32Array}
+     */
+    seam_owners() {
+        const ret = wasm.wasmchunk_seam_owners(this.__wbg_ptr);
+        var v1 = getArrayI32FromWasm0(ret[0], ret[1]).slice();
+        wasm.__wbindgen_free(ret[0], ret[1] * 4, 4);
+        return v1;
+    }
+}
+if (Symbol.dispose) WasmChunk.prototype[Symbol.dispose] = WasmChunk.prototype.free;
+
+/**
+ * Chunk generator for one world: every chunk shares `chunk_radius` and both
+ * noise seeds (other settings are `HGridSettings::default()`).
+ */
+export class WasmChunkWorld {
+    __destroy_into_raw() {
+        const ptr = this.__wbg_ptr;
+        this.__wbg_ptr = 0;
+        WasmChunkWorldFinalization.unregister(this);
+        return ptr;
+    }
+    free() {
+        const ptr = this.__destroy_into_raw();
+        wasm.__wbg_wasmchunkworld_free(ptr, 0);
+    }
+    /**
+     * Builds chunk `(q, r)` on the chunk lattice. Same seeds and coord give the same output.
+     * @param {number} q
+     * @param {number} r
+     * @returns {WasmChunk}
+     */
+    chunk(q, r) {
+        const ret = wasm.wasmchunkworld_chunk(this.__wbg_ptr, q, r);
+        return WasmChunk.__wrap(ret);
+    }
+    /**
+     * @param chunk_radius — rings of cells per chunk.
+     * @param height_seed — height-noise seed, the same for every chunk.
+     * @param radius_seed — radius-noise seed, the same for every chunk.
+     * @param {number} chunk_radius
+     * @param {number} height_seed
+     * @param {number} radius_seed
+     */
+    constructor(chunk_radius, height_seed, radius_seed) {
+        const ret = wasm.wasmchunkworld_new(chunk_radius, height_seed, radius_seed);
+        this.__wbg_ptr = ret;
+        WasmChunkWorldFinalization.register(this, this.__wbg_ptr, this);
+        return this;
+    }
+}
+if (Symbol.dispose) WasmChunkWorld.prototype[Symbol.dispose] = WasmChunkWorld.prototype.free;
+
+/**
  * Opaque handle wrapping `HGridLayout`. Build once, query repeatedly.
  */
 export class WasmLayout {
@@ -334,11 +440,21 @@ export class WasmLayout {
      * @param {EntangleSpec[]} entangle
      */
     constructor(radius, height_seed, radius_seed, overrides, entangle) {
-        const ptr0 = passArrayJsValueToWasm0(overrides, wasm.__wbindgen_malloc);
-        const len0 = WASM_VECTOR_LEN;
-        const ptr1 = passArrayJsValueToWasm0(entangle, wasm.__wbindgen_malloc);
-        const len1 = WASM_VECTOR_LEN;
-        const ret = wasm.wasmlayout_new(radius, height_seed, radius_seed, ptr0, len0, ptr1, len1);
+        const val3 = +radius;
+        const val4 = +height_seed;
+        const val5 = +radius_seed;
+        let ptr0, len0, ptr1, len1;
+        try {
+            ptr0 = passArrayJsValueToWasm0(overrides, wasm.__wbindgen_malloc);
+            len0 = WASM_VECTOR_LEN;
+            ptr1 = passArrayJsValueToWasm0(entangle, wasm.__wbindgen_malloc);
+            len1 = WASM_VECTOR_LEN;
+        } catch (e) {
+            if (ptr1) { wasm.__externref_drop_slice(ptr1, len1); wasm.__wbindgen_free(ptr1, len1 * 4, 4); }
+            if (ptr0) { wasm.__externref_drop_slice(ptr0, len0); wasm.__wbindgen_free(ptr0, len0 * 4, 4); }
+            throw e;
+        }
+        const ret = wasm.wasmlayout_new(val3, val4, val5, ptr0, len0, ptr1, len1);
         this.__wbg_ptr = ret;
         WasmLayoutFinalization.register(this, this.__wbg_ptr, this);
         return this;
@@ -377,7 +493,7 @@ if (Symbol.dispose) WasmLayout.prototype[Symbol.dispose] = WasmLayout.prototype.
 function __wbg_get_imports() {
     const import0 = {
         __proto__: null,
-        __wbg___wbindgen_throw_5d9e815e6fdf150f: function(arg0, arg1) {
+        __wbg___wbindgen_throw_4c88d8bf264fd984: function(arg0, arg1) {
             throw new Error(getStringFromWasm0(arg0, arg1));
         },
         __wbg_entanglespec_unwrap: function(arg0) {
@@ -394,12 +510,11 @@ function __wbg_get_imports() {
         },
         __wbindgen_init_externref_table: function() {
             const table = wasm.__wbindgen_externrefs;
-            const offset = table.grow(4);
             table.set(0, undefined);
-            table.set(offset + 0, undefined);
-            table.set(offset + 1, null);
-            table.set(offset + 2, true);
-            table.set(offset + 3, false);
+            table.set(1024, undefined);
+            table.set(1025, null);
+            table.set(1026, true);
+            table.set(1027, false);
         },
     };
     return {
@@ -417,6 +532,12 @@ const HexCellViewFinalization = (typeof FinalizationRegistry === 'undefined')
 const OverrideSpecFinalization = (typeof FinalizationRegistry === 'undefined')
     ? { register: () => {}, unregister: () => {} }
     : new FinalizationRegistry(ptr => wasm.__wbg_overridespec_free(ptr, 1));
+const WasmChunkFinalization = (typeof FinalizationRegistry === 'undefined')
+    ? { register: () => {}, unregister: () => {} }
+    : new FinalizationRegistry(ptr => wasm.__wbg_wasmchunk_free(ptr, 1));
+const WasmChunkWorldFinalization = (typeof FinalizationRegistry === 'undefined')
+    ? { register: () => {}, unregister: () => {} }
+    : new FinalizationRegistry(ptr => wasm.__wbg_wasmchunkworld_free(ptr, 1));
 const WasmLayoutFinalization = (typeof FinalizationRegistry === 'undefined')
     ? { register: () => {}, unregister: () => {} }
     : new FinalizationRegistry(ptr => wasm.__wbg_wasmlayout_free(ptr, 1));
@@ -430,6 +551,11 @@ function addToExternrefTable0(obj) {
 function getArrayF32FromWasm0(ptr, len) {
     ptr = ptr >>> 0;
     return getFloat32ArrayMemory0().subarray(ptr / 4, ptr / 4 + len);
+}
+
+function getArrayI32FromWasm0(ptr, len) {
+    ptr = ptr >>> 0;
+    return getInt32ArrayMemory0().subarray(ptr / 4, ptr / 4 + len);
 }
 
 function getArrayJsValueFromWasm0(ptr, len) {
@@ -459,8 +585,17 @@ function getFloat32ArrayMemory0() {
     return cachedFloat32ArrayMemory0;
 }
 
+let cachedInt32ArrayMemory0 = null;
+function getInt32ArrayMemory0() {
+    if (cachedInt32ArrayMemory0 === null || cachedInt32ArrayMemory0.byteLength === 0) {
+        cachedInt32ArrayMemory0 = new Int32Array(wasm.memory.buffer);
+    }
+    return cachedInt32ArrayMemory0;
+}
+
 function getStringFromWasm0(ptr, len) {
-    return decodeText(ptr >>> 0, len);
+    ptr = ptr >>> 0;
+    return decodeText(getUint8ArrayMemory0().subarray(ptr, ptr + len));
 }
 
 let cachedUint8ArrayMemory0 = null;
@@ -481,18 +616,18 @@ function passArrayJsValueToWasm0(array, malloc) {
     return ptr;
 }
 
-let cachedTextDecoder = new TextDecoder('utf-8', { ignoreBOM: true, fatal: true });
+let cachedTextDecoder = new TextDecoder('utf-8', { ignoreBOM: true });
 cachedTextDecoder.decode();
 const MAX_SAFARI_DECODE_BYTES = 2146435072;
 let numBytesDecoded = 0;
-function decodeText(ptr, len) {
-    numBytesDecoded += len;
+function decodeText(bytes) {
+    numBytesDecoded += bytes.length;
     if (numBytesDecoded >= MAX_SAFARI_DECODE_BYTES) {
-        cachedTextDecoder = new TextDecoder('utf-8', { ignoreBOM: true, fatal: true });
+        cachedTextDecoder = new TextDecoder('utf-8', { ignoreBOM: true });
         cachedTextDecoder.decode();
-        numBytesDecoded = len;
+        numBytesDecoded = bytes.length;
     }
-    return cachedTextDecoder.decode(getUint8ArrayMemory0().subarray(ptr, ptr + len));
+    return cachedTextDecoder.decode(bytes);
 }
 
 let WASM_VECTOR_LEN = 0;
@@ -504,6 +639,7 @@ function __wbg_finalize_init(instance, module) {
     wasmModule = module;
     cachedDataViewMemory0 = null;
     cachedFloat32ArrayMemory0 = null;
+    cachedInt32ArrayMemory0 = null;
     cachedUint8ArrayMemory0 = null;
     wasm.__wbindgen_start();
     return wasm;
@@ -568,9 +704,17 @@ function initSync(module) {
     return __wbg_finalize_init(instance, module);
 }
 
+let __wbg_init_promise;
 async function __wbg_init(module_or_path) {
     if (wasm !== undefined) return wasm;
+    if (__wbg_init_promise === undefined) {
+        __wbg_init_promise = __wbg_init_once(module_or_path);
+        __wbg_init_promise.catch(() => { __wbg_init_promise = undefined; });
+    }
+    return __wbg_init_promise;
+}
 
+async function __wbg_init_once(module_or_path) {
 
     if (module_or_path !== undefined) {
         if (Object.getPrototypeOf(module_or_path) === Object.prototype) {
