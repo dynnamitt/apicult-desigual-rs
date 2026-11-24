@@ -294,8 +294,8 @@ a:focus-visible { outline: 2px solid var(--quad); outline-offset: 2px; }
 <p>Because ownership is per cell, any way of splitting the cells into groups splits the triangle stream with no overlap and no holes. Chunks are one such split; <code>chunk::tests::owned_streams_partition_world</code> checks it bit for bit.</p>
 <h2 id="entangled">4 · Entangled cells</h2>
 <p>Each cell carries an <code>entangled</code> flag (<a href="https://github.com/dynnamitt/apicult-desigual-rs/issues/8">#8</a>), set through the <code>entangle: &amp;[Hex]</code> argument of <code>HGridLayout::new</code>, and two rules for the gaps:</p>
-<ul>
-<li>A gap quad is entangled only if <em>both</em> its cells are (the "bridging" rule).</li>
+<ul id="entangle-rules">
+<li>A gap quad bridges two cells, so it is entangled only if <em>both</em> of them are. A quad between an entangled cell and a plain one counts as plain, and <code>all_tris(false)</code> draws it. (<a href="https://github.com/dynnamitt/apicult-desigual-rs/issues/8">#8</a> calls this the <em>bridging</em> rule.)</li>
 <li>Junction triangles are never entangled. <code>all_tris(true)</code> skips them, and <code>all_tris(false)</code> always includes them.</li>
 </ul>
 <p><code>all_tris(entangled)</code>, <code>hex_face_tris(entangled)</code> and <code>gap_quad_tris(entangled)</code> return only the matching part, so a consumer can drive entangled and plain cells with two materials. <code>entangle_borderline(dir)</code> marks one outer side of the grid.</p>
