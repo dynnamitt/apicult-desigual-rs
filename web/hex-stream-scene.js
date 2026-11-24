@@ -188,7 +188,8 @@ export function mount(canvas, statsEl, { initialSettings, WasmChunkWorld }) {
         camera.updateProjectionMatrix();
       }
       if (state.speed > 0) {
-        pos = advancePos(pos, chunkCenter(CHUNK_DIRS[state.direction], u, v), state.speed, dt);
+        const dirVec = chunkCenter(CHUNK_DIRS[state.direction], u, v);
+        pos = advancePos(pos, dirVec, state.speed, dt, chunkCenter(anchor, u, v));
         for (let d = nearestStep(pos, anchor, u, v); d !== -1; d = nearestStep(pos, anchor, u, v)) {
           step(d);
         }

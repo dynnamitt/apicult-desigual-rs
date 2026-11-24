@@ -11,6 +11,8 @@
 export const MAX_FRAME_DT = 0.1;
 /** Largest chunk radius the page builds; matches the input's `max`. */
 export const MAX_CHUNK_RADIUS = 6;
+/** Rate (1/s) at which the camera's sideways offset from its rail decays; off-rail it would zig-zag between two chunk rows. */
+export const RAIL_PULL = 3;
 
 /** The 6 axial neighbour offsets on the chunk lattice. */
 export const CHUNK_DIRS = [[1, 0], [1, -1], [0, -1], [-1, 0], [-1, 1], [0, 1]];
@@ -99,16 +101,26 @@ export const visibleSeamGroups = (owners, loaded) =>
 
 /**
  * Move the camera position along `dir` for one frame, with `dt` capped at
- * {@link MAX_FRAME_DT}.
+ * {@link MAX_FRAME_DT}, easing any sideways offset from the line through
+ * `rail` (along `dir`) away at {@link RAIL_PULL}. After a direction change the
+ * camera would otherwise run parallel to a row of chunk centres and the
+ * nearest-chunk anchor would zig-zag between two rows.
  * @param {[number, number]} pos world `(x, z)`
  * @param {[number, number]} dir world `(x, z)` direction, any non-zero length
  * @param {number} speed world units per second
  * @param {number} dt seconds since the last frame
+ * @param {[number, number]} [rail=pos] a point on the line to settle onto, e.g. the anchor's centre
  * @returns {[number, number]}
  */
-export const advancePos = (pos, [dx, dz], speed, dt) => {
-  const k = (speed * Math.min(dt, MAX_FRAME_DT)) / Math.hypot(dx, dz);
-  return [pos[0] + dx * k, pos[1] + dz * k];
+export const advancePos = (pos, [dx, dz], speed, dt, rail = pos) => {
+  const t = Math.min(dt, MAX_FRAME_DT), len = Math.hypot(dx, dz);
+  const ux = dx / len, uz = dz / len;
+  const ox = pos[0] - rail[0], oz = pos[1] - rail[1], along = ox * ux + oz * uz;
+  const pull = Math.exp(-RAIL_PULL * t) - 1; // negative: fraction of the sideways offset removed
+  return [
+    pos[0] + ux * speed * t + (ox - along * ux) * pull,
+    pos[1] + uz * speed * t + (oz - along * uz) * pull,
+  ];
 };
 
 /**
