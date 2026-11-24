@@ -7,6 +7,11 @@
  * not cell coordinates. No engine or wasm imports, so it runs under plain node.
  */
 
+/** Longest frame (s) one update may integrate; a tab back from the background would otherwise replay every step it missed in one frame. */
+export const MAX_FRAME_DT = 0.1;
+/** Largest chunk radius the page builds; matches the input's `max`. */
+export const MAX_CHUNK_RADIUS = 6;
+
 /** The 6 axial neighbour offsets on the chunk lattice. */
 export const CHUNK_DIRS = [[1, 0], [1, -1], [0, -1], [-1, 0], [-1, 1], [0, 1]];
 
@@ -91,3 +96,26 @@ export const nearestStep = (pos, anchor, u, v) => {
 export const visibleSeamGroups = (owners, loaded) =>
   Array.from({ length: owners.length / 2 }, (_, i) => i)
     .filter((i) => !loaded.has(chunkKey(owners[2 * i], owners[2 * i + 1])));
+
+/**
+ * Move the camera position along `dir` for one frame, with `dt` capped at
+ * {@link MAX_FRAME_DT}.
+ * @param {[number, number]} pos world `(x, z)`
+ * @param {[number, number]} dir world `(x, z)` direction, any non-zero length
+ * @param {number} speed world units per second
+ * @param {number} dt seconds since the last frame
+ * @returns {[number, number]}
+ */
+export const advancePos = (pos, [dx, dz], speed, dt) => {
+  const k = (speed * Math.min(dt, MAX_FRAME_DT)) / Math.hypot(dx, dz);
+  return [pos[0] + dx * k, pos[1] + dz * k];
+};
+
+/**
+ * Chunk radius from the sidebar, clamped to `0..MAX_CHUNK_RADIUS`; a negative
+ * value would wrap to `u32::MAX` across the wasm boundary and panic.
+ * @param {number} r parsed input (may be NaN)
+ * @returns {number}
+ */
+export const clampChunkRadius = (r) =>
+  Math.min(MAX_CHUNK_RADIUS, Math.max(0, Number.isFinite(r) ? Math.trunc(r) : 0));

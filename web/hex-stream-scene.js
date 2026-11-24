@@ -3,7 +3,7 @@ import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { weldedMesh } from "./hex-terrain.js";
 import {
   CHUNK_DIRS, chunkKey, footprint, stepFootprint, chunkCenter, nearestStep,
-  visibleSeamGroups,
+  visibleSeamGroups, advancePos, clampChunkRadius,
 } from "./hex-stream.js";
 import { randomU32, seedSequence } from "./seed.js";
 
@@ -144,7 +144,7 @@ export function mount(canvas, statsEl, { initialSettings, WasmChunkWorld }) {
       const [hSeed, rSeed] = state.seed === null
         ? [randomU32(), randomU32()]
         : seedSequence(state.seed, 2);
-      world = new WasmChunkWorld(state.chunkRadius, hSeed, rSeed);
+      world = new WasmChunkWorld(clampChunkRadius(state.chunkRadius), hSeed, rSeed);
       anchor = [0, 0];
       pos = [0, 0];
       steps = 0;
@@ -188,9 +188,7 @@ export function mount(canvas, statsEl, { initialSettings, WasmChunkWorld }) {
         camera.updateProjectionMatrix();
       }
       if (state.speed > 0) {
-        const [dx, dz] = chunkCenter(CHUNK_DIRS[state.direction], u, v);
-        const len = Math.hypot(dx, dz);
-        pos = [pos[0] + (dx / len) * state.speed * dt, pos[1] + (dz / len) * state.speed * dt];
+        pos = advancePos(pos, chunkCenter(CHUNK_DIRS[state.direction], u, v), state.speed, dt);
         for (let d = nearestStep(pos, anchor, u, v); d !== -1; d = nearestStep(pos, anchor, u, v)) {
           step(d);
         }

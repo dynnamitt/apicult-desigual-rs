@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   CHUNK_DIRS, chunkKey, footprint, stepFootprint, chunkCenter, nearestStep,
-  visibleSeamGroups,
+  visibleSeamGroups, advancePos, clampChunkRadius, MAX_FRAME_DT, MAX_CHUNK_RADIUS,
 } from "./hex-stream.js";
 
 const ANCHOR = [2, -1];
@@ -52,4 +52,19 @@ test("visibleSeamGroups hides groups whose owner is loaded", () => {
   const loaded = new Set([chunkKey(1, 0), chunkKey(-2, 3)]);
   assert.deepEqual(visibleSeamGroups(owners, loaded), [1]);
   assert.deepEqual(visibleSeamGroups(owners, new Set()), [0, 1, 2]);
+});
+
+test("advancePos caps a long frame so a backgrounded tab doesn't replay hours of steps", () => {
+  const speed = 10;
+  const [x, z] = advancePos([0, 0], [3, 4], speed, 3600);
+  assert.ok(Math.abs(Math.hypot(x, z) - speed * MAX_FRAME_DT) < 1e-9);
+  const [x1, z1] = advancePos([1, 1], [0, 2], speed, 0.05);
+  assert.ok(Math.abs(x1 - 1) < 1e-9 && Math.abs(z1 - 1.5) < 1e-9);
+});
+
+test("clampChunkRadius keeps typed values inside 0..MAX_CHUNK_RADIUS", () => {
+  assert.equal(clampChunkRadius(-1), 0);
+  assert.equal(clampChunkRadius(NaN), 0);
+  assert.equal(clampChunkRadius(99), MAX_CHUNK_RADIUS);
+  assert.equal(clampChunkRadius(3), 3);
 });
