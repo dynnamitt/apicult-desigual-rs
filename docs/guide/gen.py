@@ -23,6 +23,7 @@ args = ap.parse_args()
 SQ3 = math.sqrt(3)
 # Corner radius as a fraction of unit spacing: the logo (and the one-cell figure drawn from it), and the grid figures.
 LOGO_RATIO, GRID_RATIO = 0.72, 0.74
+TERMS_RATIO = 0.6  # the terms figure: wider gaps, so labels fit inside the pieces
 # Chunk radius of the for_chunk figures (sections 4 and 5); their counts are pinned in Rust for this value.
 CHUNK_R = 2
 
@@ -79,13 +80,15 @@ def ring(R): return [(q, r) for q in range(-R, R+1) for r in range(-R, R+1) if d
 def owned_gaps(q, r, cells, ratio, entangled=frozenset()):
     """The gaps cell (q, r) appends in owned_tris_into(cell, false): quads on its even edges whose
     neighbour exists (and isn't entangled together with it), junctions at its corners 0 and 1 whose
-    three hexes exist. Yields ("quad" | "junc", points)."""
+    three cells exist. Yields ("quad" | "junc", points)."""
     for e in (0, 2, 4):
         dq, dr = EDGE[e]; nb = (q+dq, r+dr)
         if nb in cells and not ((q, r) in entangled and nb in entangled): yield "quad", quad_pts(q, r, e, ratio)
     for vi in (0, 1):
         pts, co = junc_pts(q, r, vi, ratio)
         if all(c in cells for c in co): yield "junc", pts
+def fan(q, r, ratio):  # the six triangles a face is drawn with, from its centre
+    return [[center(q, r), corner(q, r, i, ratio), corner(q, r, (i+1) % 6, ratio)] for i in range(6)]
 def arrow(a, c, cls="edge acc"):
     return f'<line class="{cls}" x1="{a[0]:.1f}" y1="{a[1]:.1f}" x2="{c[0]:.1f}" y2="{c[1]:.1f}" marker-end="url(#arr)"/>'
 
@@ -110,13 +113,39 @@ def logo_shapes(v, R=LOGO_RATIO, fixed=False):
         dq, dr = EDGE[e]; out.append(P([corner(dq, dr, i, R) for i in range(6)], "ghost"))
     for e in (1, 3, 5):
         dq, dr = EDGE[e]; out.append(P(quad_pts(dq, dr, (e+3) % 6, R), "qghost"))
-    c0 = center(0, 0)
-    for i in range(6): out.append(P([c0, corner(0, 0, i, R), corner(0, 0, (i+1) % 6, R)], "face"))
+    out += [P(t, "face") for t in fan(0, 0, R)]
     for e in (0, 2, 4):
         q_ = quad_pts(0, 0, e, R); out.append(P(q_, "quad")); out.append(Ln(q_[0], q_[2]))
     for vi in (0, 1): out.append(P(junc_pts(0, 0, vi, R)[0], "junc"))
     return out
 figs = {}
+
+# ---- F0 terms: three cells meeting at a corner, labelled in place
+b = []
+v = View(130, 190, 245)
+TRIO = [(0, 0), (1, 0), (1, -1)]
+b += [hexpoly(v, *h, 1.0, "face missing") for h in TRIO]
+b += [poly(v, t, "face fan") for h in TRIO for t in fan(*h, TERMS_RATIO)]
+pieces = [g for h in TRIO for g in owned_gaps(*h, set(TRIO), TERMS_RATIO)]
+assert sorted(k for k, _ in pieces) == ["junc", "quad", "quad", "quad"]  # what the caption and labels describe
+b += [poly(v, pts, k) for k, pts in pieces]
+c0 = [corner(0, 0, i, TERMS_RATIO) for i in range(6)]
+b.append(line(v.p(c0[0]), v.p(c0[1]), "edge own"))
+mid = lambda pts: (sum(p[0] for p in pts)/len(pts), sum(p[1] for p in pts)/len(pts))
+def label(at, lines, cls="lbl"):  # centred lines of text at a world point
+    x, y = v.p(at); return [text(x, y + 4 + 13*k - 6.5*(len(lines)-1), t, cls) for k, t in enumerate(lines)]
+for i, c in enumerate(c0):
+    sp = v.p(c); b.append(f'<circle class="dot" cx="{sp[0]:.1f}" cy="{sp[1]:.1f}" r="3.5"/>')
+    b += label(corner(0, 0, i, TERMS_RATIO * 0.8), [str(i)], "lbl mono halo")
+sp = v.p(center(0, 0)); b.append(f'<circle class="dot acc" cx="{sp[0]:.1f}" cy="{sp[1]:.1f}" r="4"/>')
+b += label((0, -0.13), ["centre"], "lbl acc halo")
+b += label(mid([c0[0], c0[1], center(0, 0)]), ["edge 0"], "lbl acc halo")
+b += label(center(1, 0), ["face", "(1,0)"], "lbl halo")
+b += label(center(1, -1), ["face", "(1,−1)"], "lbl halo")
+b += [t for k, pts in pieces for t in label(mid(pts), ["gap", "quad"] if k == "quad" else ["junction"], "lbl" if k == "quad" else "lbl tiny")]
+b += label((center(0, 0)[0], -SQ3/2 - 0.12), ["nominal outline"], "lbl dim tiny")
+figs["f0"] = fig("\n".join(b), 560, 490, "Three cells meeting at a corner: faces, gap quads and a junction triangle",
+  "Cells <code>(0,0)</code>, <code>(1,0)</code> and <code>(1,−1)</code>, drawn with extra-wide gaps. Blue: gap quads. Amber: the junction triangle. Dashed: where faces of radius <code>nominal_hex_radius</code> would touch. Cell <code>(0,0)</code> shows its centre and corners 0–5; the thick line is its edge 0.")
 
 # ---- F1 map_noise_to_range
 b = []
@@ -148,8 +177,8 @@ r_ = 60
 b.append(f'<path class="arc" d="M{O[0]+r_},{O[1]} A{r_},{r_} 0 0 0 {O[0]+r_*math.cos(ang):.1f},{O[1]+r_*math.sin(ang):.1f}" marker-end="url(#arr)"/>')
 b.append(f'<line class="axis dash" x1="{O[0]}" y1="{O[1]}" x2="{O[0]+120*ux:.1f}" y2="{O[1]+120*uy:.1f}"/>')
 b.append(text(O[0]+58, O[1]-12, "rotation", "lbl acc", "start"))
-figs["f2"] = fig("\n".join(b), 520, 260, "A unit cuboid along X is rotated, stretched and moved onto an edge",
-  "<code>edge_cuboid_transform(from, to)</code> returns where to put a beam: its centre, its length, and the shortest rotation that turns +X onto the edge direction (<code>Quat::from_rotation_arc</code>). A zero-length edge gets no rotation.")
+figs["f2"] = fig("\n".join(b), 520, 260, "A unit cuboid along X is stretched, rotated and moved onto a segment",
+  "<code>edge_cuboid_transform(from, to)</code> returns where to put a cuboid: its centre, its length, and the shortest rotation that turns +X onto the segment's direction (<code>Quat::from_rotation_arc</code>). A zero-length segment gets no rotation.")
 
 # ---- F3 gap_vertex_data (oblique sketch)
 def obl(p, ox, oy):  # (x, y, z) -> svg, oblique
@@ -174,7 +203,7 @@ b.append(arrow((cx_, cy_), (cx_, cy_-80))); b.append(text(cx_+8, cy_-80, "normal
 b.append(arrow((260, 150), (330, 150), "map")); b.append(text(295, 140, "− v0", "lbl mono"))
 b.append(text(470, 240, "origin-local", "lbl dim"))
 figs["f3"] = fig("\n".join(b), 640, 260, "Gap vertices are shifted so the first is at the origin, and a normal is taken from a cross product",
-  "<code>gap_vertex_data(verts, flat)</code>: subtract <code>v0</code> from every vertex, then take the normal from the first two edges. The winding makes the raw cross product point down, so it is negated. With <code>flat = true</code> it skips this and returns <code>+Y</code>, which matches the flat hex faces.")
+  "<code>gap_vertex_data(verts, flat)</code>: subtract <code>v0</code> from every vertex, then take the normal from the first two edges. The winding makes the raw cross product point down, so it is negated. With <code>flat = true</code> it skips this and returns <code>+Y</code>, which matches the flat cell faces.")
 
 # ---- F4 IDW
 b = []
@@ -196,7 +225,7 @@ for (x, y, z), w in zip(verts, ws):
     b.append(text(sp[0]+dx, sp[1]-dz+18, f"{100*w/tot:.0f}%", "lbl dim"))
 qp = v.p(Q); b.append(f'<circle class="dot acc" cx="{qp[0]:.1f}" cy="{qp[1]:.1f}" r="6"/>'); b.append(text(qp[0]-8, qp[1]+30, f"Q → {hq:.2f}", "lbl acc", "end"))
 figs["f4"] = fig("\n".join(b), 600, 330, "Inverse distance weighting: nearer vertices pull the height harder",
-  f"<code>idw_interpolate_height(Q, verts)</code> with six example corners. Each weight is <code>1 / d²</code> (line thickness, share in %), so the answer is a weighted mean, here {hq:.2f}. A query within √0.001 of a vertex snaps to that vertex's height. <code>HGridLayout::interpolate_height</code> feeds it the corners of the hex under Q and its six neighbours.")
+  f"<code>idw_interpolate_height(Q, verts)</code> with six example corners. Each weight is <code>1 / d²</code> (line thickness, share in %), so the answer is a weighted mean, here {hq:.2f}. A query within √0.001 of a vertex snaps to that vertex's height. <code>HGridLayout::interpolate_height</code> feeds it the corners of the cell under Q and its six neighbours.")
 
 # ---- F5 directions + quad_corner_indices
 b = []
@@ -226,8 +255,8 @@ for nm, p, off in zip(["v0 = 0", "n0 = 4", "n1 = 3", "v1 = 1"], qp_, [(-10, 18),
 sp = v2.p(center(0, 0)); b.append(text(sp[0], sp[1]+4, "owner", "lbl"))
 sp = v2.p(center(1, 0)); b.append(text(sp[0], sp[1]+4, "neighbour", "lbl"))
 b.append(text(560, 430, "quad_corner_indices(0) = (0, 1, 4, 3)", "lbl mono"))
-figs["f5"] = fig("\n".join(b), 760, 450, "Hex corner and edge indices; each hex owns even edges and vertices 0 and 1",
-  "Left: the flat-top hex at <code>(0,0)</code> with corner indices 0–5 (<code>VertexDirection</code>) and edge indices e0–e5 (<code>EdgeDirection</code>, labelled with the neighbour each edge faces). Thick edges e0, e2, e4 are the ones it owns. The two larger dots are its owned junction corners, 0 and 1. Right: <code>quad_corner_indices(0)</code> pairs owner corners 0 and 1 with neighbour corners 4 and 3. The dashed line is the <code>v0–n1</code> diagonal the quad is split along. Drawn with x to the right and z up.", wide=True)
+figs["f5"] = fig("\n".join(b), 760, 450, "Cell corner and edge indices; each cell owns its even edges and corners 0 and 1",
+  "Left: the flat-top cell at <code>(0,0)</code> with corner indices 0–5 (<code>VertexDirection</code>) and edge indices e0–e5 (<code>EdgeDirection</code>, labelled with the neighbour each edge faces). Thick edges e0, e2, e4 are the ones it owns. The two larger dots are its owned junction corners, 0 and 1. Right: <code>quad_corner_indices(0)</code> pairs owner corners 0 and 1 with neighbour corners 4 and 3. The dashed line is the <code>v0–n1</code> diagonal the quad is split along. Drawn with x to the right and z up.", wide=True)
 
 # ---- F6 gap_filler r=2 grid
 v = View(46, 260, 230)
@@ -238,7 +267,7 @@ body = ([hexpoly(v, *h, GRID_RATIO, "face missing") for h in reversed(ring(3))]
         + [hexpoly(v, *h, GRID_RATIO, "face") for h in hexagon(2)] + [poly(v, pts, k) for k, pts in gaps])
 body.append(text(260, 460, f"19 cells → {nq} quads, {nj} junction tris", "lbl mono"))
 figs["f6"] = fig("\n".join(body), 520, 480, "A radius 2 grid: every interior gap is filled exactly once",
-  f"<code>gap_filler</code> on the 19 cells of a radius-2 grid returns <code>({nq}, {nj})</code>. Blue are the gap quads, amber the 3-hex junction triangles. Each is drawn once, by its owner. The dashed ring would be radius 3: those cells don't exist, so the outer cells' gaps toward them are simply skipped. This is the rim the real map has too.")
+  f"<code>gap_filler</code> on the 19 cells of a radius-2 grid returns <code>({nq}, {nj})</code>. Blue are the gap quads, amber the junction triangles. Each is drawn once, by its owner. The dashed ring would be radius 3: those cells don't exist, so the outer cells' gaps toward them are simply skipped. This is the rim the real map has too.")
 
 # ---- F7 one cell's owned stream
 v = View(92, 300, 250)
@@ -357,7 +386,7 @@ for k, svg in figs.items(): tmpl = tmpl.replace("{{" + k + "}}", svg)
 # extent: x ±(1.5+R), z ±(sqrt3 + R*sqrt3/2)
 LS = 60; LW = 2*(1.5+LOGO_RATIO)*LS + 8; LH = 2*(SQ3+LOGO_RATIO*SQ3/2)*LS + 8
 lv = View(LS, LW/2, LH/2)
-logo_file = (f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {LW:.0f} {LH:.0f}" role="img" aria-label="apicult-desigual logo: one hex cell with the gaps it owns">\n'
+logo_file = (f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {LW:.0f} {LH:.0f}" role="img" aria-label="apicult-desigual logo: one cell with the gaps it owns">\n'
              + "\n".join(logo_shapes(lv, fixed=True)) + "\n</svg>\n")
 if args.logo: args.logo.write_text(logo_file)
 logo_inline = (f'<svg class="logo" viewBox="0 0 {LW:.0f} {LH:.0f}" role="img" aria-label="apicult-desigual logo">'

@@ -21,7 +21,7 @@ Zero game-engine dependencies — `glam` for vectors, `hexx` for hex coordinates
 
 The [live demo](https://dynnamitt.github.io/apicult-desigual-rs/) constructs the layout entirely inside the wasm module on page load and pulls flat `Float32Array` buffers (welded mesh + wireframe edges) straight into a thin three.js viewer — no JSON round-trip, no JS-side geometry. The same page also shows the plain and rich SVG variants for comparison.
 
-The [geometry guide](https://dynnamitt.github.io/apicult-desigual-rs/guide.html) ([`docs/guide.html`](docs/guide.html)) explains the math functions, the hexx resolution functions, which triangles each cell owns, entangled cells and streaming chunks, with drawings.
+The [geometry guide](https://dynnamitt.github.io/apicult-desigual-rs/guide.html) ([`docs/guide.html`](docs/guide.html)) defines its terms (cell, face, gap quad, junction triangle) and explains the math functions, the hexx resolution functions, which triangles each cell owns, entangled cells and streaming chunks, with drawings.
 
 ## What it does
 
