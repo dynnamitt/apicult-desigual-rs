@@ -49,6 +49,8 @@ Four modules, exported flat from `lib.rs`, plus an optional `wasm` module gated 
   - `face_bridge_quads(entangled)` — per-hex face-edge bridge quads grouped `n_hexes * 78` floats (6 edge slots × 13 floats: `[flag, v0, n0, n1, v1]`). `flag` is `1.0` when the neighbor on that face edge exists in-grid, `0.0` for border edges (followed by 12 sentinel zeros). Same hex ordering as `face_tris`; corner layout matches `gap_quads` (`v0`/`v1` on source hex, `n0`/`n1` on neighbor). Lets the bridge band shader render a chosen face-edge's gap quad as a directional continuation of the source hex's ring overlay.
   - `borderline_cells(VertexDir)` returns `Vec<HexCellView>` for seam construction.
 
+  Chunks cross as `WasmChunkWorld::new(chunk_radius, height_seed, radius_seed)` → `chunk(q, r) -> WasmChunk`, whose `owned()` / `seam(i)` are flat `n_tris * 9` world-space buffers, `seam_owners()` is `[q0, r0, q1, r1, …]` and `center()` is the centre cell's world `[x, z]`.
+
   The renderable split keeps the boundary at the renderable level — clients never see `gap_quads` or the tessellation diagonal, sidestepping the "must NOT consume both `all_tris` + `gap_quads`" footgun. Inputs flow through `OverrideSpec { kind, q, r, value }` (pins per-hex height/radius post-noise; mapped to `Override`), `EntangleSpec { q, r }` (marks a hex as entangled; mapped to `Hex`), `NoiseChannel` (mirrors `NoiseType`), `VertexDir` (mirrors `hexx::VertexDirection` indices East..NorthEast). Outputs flow through `HexCellView { q, r, height, radius, entangled }` (Hex decomposed since foreign types can't carry `#[wasm_bindgen]`).
 
 ### Critical invariants

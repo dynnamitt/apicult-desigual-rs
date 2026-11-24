@@ -21,7 +21,7 @@
 //!    entangled ring: 1 chunk for an interior cell, 2 along a chunk edge, 3 at
 //!    a chunk corner.
 
-use glam::Vec3;
+use glam::{Vec2, Vec3};
 use hexx::{Hex, shapes};
 
 use crate::layout::{HGridLayout, HGridSettings, HexCell};
@@ -41,6 +41,8 @@ pub trait ChunkSource {
 #[derive(Clone, Debug, PartialEq)]
 pub struct Chunk {
     pub coord: Hex,
+    /// World `(x, z)` of the centre cell `coord.to_higher_res(chunk_radius)`.
+    pub center: Vec2,
     /// Own cells, in `shapes::hexagon(center, chunk_radius)` order.
     pub cells: Vec<HexCell>,
     /// Owned stream: `owned_tris_into(cell, false)` of every own cell, concatenated.
@@ -100,6 +102,7 @@ impl ChunkSource for NoiseWorld {
 
         Chunk {
             coord,
+            center: layout.hex_to_world_pos(center),
             cells,
             owned,
             owned_runs,
@@ -207,6 +210,19 @@ mod tests {
             assert_eq!(c.owned_runs.len(), n);
             assert_eq!(c.owned_runs.iter().sum::<usize>(), c.owned.len());
             assert!(c.cells.iter().all(|cell| !cell.entangled));
+        }
+    }
+
+    #[test]
+    fn chunk_center_matches_layout() {
+        for r in CHUNK_RADII {
+            for (q, s) in SEAM_COORDS {
+                let coord = Hex::new(q, s);
+                let src = world(r);
+                let layout = HGridLayout::for_chunk(&src.settings, coord, r);
+                let want = layout.hex_to_world_pos(coord.to_higher_res(r));
+                assert_eq!(src.chunk(coord).center, want, "r {r}, {coord:?}");
+            }
         }
     }
 

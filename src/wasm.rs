@@ -4,7 +4,7 @@
 //! Two renderable buffers cross the boundary, both filtered by an
 //! `entangled` bool so callers can drive separate materials/passes:
 //!   - `tris(entangled)` — the unified mesh stream (`all_tris`): hex faces
-//!     + tessellated gap quads matching the flag, plus 3-way junction tris
+//!     and tessellated gap quads matching the flag, plus 3-way junction tris
 //!     when `entangled = false` (junction tris are never entangled).
 //!   - `wire_edges(entangled)` — gap-quad perimeter segments matching the
 //!     flag, no internal tessellation diagonal. Drops straight into a
@@ -29,6 +29,7 @@ use glam::Vec3;
 use hexx::{Hex, VertexDirection};
 use wasm_bindgen::prelude::*;
 
+use crate::chunk::{Chunk, ChunkSource, NoiseWorld};
 use crate::layout::{GapQuad, HGridLayout, HGridSettings, NoiseType, Override};
 
 /// Mirror of `crate::NoiseType` exposed as a C-like enum for `wasm-bindgen`.
@@ -163,7 +164,7 @@ impl WasmLayout {
     /// gap quad tris + hex face fans matching `entangled`, plus junction tris
     /// when `entangled = false`.
     pub fn tris(&self, entangled: bool) -> Vec<f32> {
-        flatten_tris(self.inner.all_tris(entangled))
+        flatten_tris(&self.inner.all_tris(entangled))
     }
 
     /// Gap-quad perimeter segments matching `entangled`. Flat `n_edges * 6`
@@ -184,7 +185,7 @@ impl WasmLayout {
     /// like the y-axis band shader) without reconstructing the grouping
     /// from the flat `tris` stream.
     pub fn face_tris(&self, entangled: bool) -> Vec<f32> {
-        flatten_tris(self.inner.hex_face_tris(entangled))
+        flatten_tris(&self.inner.hex_face_tris(entangled))
     }
 
     /// Per-hex face-edge bridge quads matching `entangled`, flat
@@ -218,7 +219,78 @@ impl WasmLayout {
     }
 }
 
-fn flatten_tris(tris: Vec<[Vec3; 3]>) -> Vec<f32> {
+/// Chunk generator for one world: every chunk shares `chunk_radius` and both
+/// noise seeds (other settings are `HGridSettings::default()`).
+#[wasm_bindgen]
+pub struct WasmChunkWorld {
+    inner: NoiseWorld,
+}
+
+#[wasm_bindgen]
+impl WasmChunkWorld {
+    /// @param chunk_radius — rings of cells per chunk.
+    /// @param height_seed — height-noise seed, the same for every chunk.
+    /// @param radius_seed — radius-noise seed, the same for every chunk.
+    #[wasm_bindgen(constructor)]
+    pub fn new(chunk_radius: u32, height_seed: u32, radius_seed: u32) -> Self {
+        Self {
+            inner: NoiseWorld {
+                settings: HGridSettings {
+                    height_noise_seed: height_seed,
+                    radius_noise_seed: radius_seed,
+                    ..HGridSettings::default()
+                },
+                chunk_radius,
+            },
+        }
+    }
+
+    /// Builds chunk `(q, r)` on the chunk lattice. Same seeds and coord give the same output.
+    pub fn chunk(&self, q: i32, r: i32) -> WasmChunk {
+        WasmChunk {
+            inner: self.inner.chunk(Hex::new(q, r)),
+        }
+    }
+}
+
+/// One built chunk. All tri buffers are flat `n_tris * 9` floats in world space.
+#[wasm_bindgen]
+pub struct WasmChunk {
+    inner: Chunk,
+}
+
+#[wasm_bindgen]
+impl WasmChunk {
+    /// Owned stream — always drawn.
+    pub fn owned(&self) -> Vec<f32> {
+        flatten_tris(&self.inner.owned)
+    }
+
+    /// World `[x, z]` of the chunk's centre cell.
+    pub fn center(&self) -> Vec<f32> {
+        vec![self.inner.center.x, self.inner.center.y]
+    }
+
+    /// Owning neighbour chunk of each seam group, flat `[q0, r0, q1, r1, …]`.
+    pub fn seam_owners(&self) -> Vec<i32> {
+        self.inner
+            .seams
+            .iter()
+            .flat_map(|(owner, _)| [owner.x, owner.y])
+            .collect()
+    }
+
+    /// Seam group `i` — draw only while its owner chunk isn't loaded. Empty when out of range.
+    pub fn seam(&self, i: usize) -> Vec<f32> {
+        self.inner
+            .seams
+            .get(i)
+            .map(|(_, tris)| flatten_tris(tris))
+            .unwrap_or_default()
+    }
+}
+
+fn flatten_tris(tris: &[[Vec3; 3]]) -> Vec<f32> {
     let mut out = Vec::with_capacity(tris.len() * 9);
     for [a, b, c] in tris {
         out.extend_from_slice(&[a.x, a.y, a.z, b.x, b.y, b.z, c.x, c.y, c.z]);
@@ -257,4 +329,37 @@ fn flatten_wire_edges(quads: Vec<GapQuad>, entangled: bool) -> Vec<f32> {
         out.extend_from_slice(&[d.x, d.y, d.z, a.x, a.y, a.z]);
     }
     out
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::chunk::{ChunkSource, NoiseWorld};
+
+    const CHUNK_RADIUS: u32 = 2;
+    const HEIGHT_SEED: u32 = 43;
+    const RADIUS_SEED: u32 = 137;
+    const OUT_OF_RANGE_SEAM: usize = 99;
+
+    #[test]
+    fn wasm_chunk_flattens_streams() {
+        let world = WasmChunkWorld::new(CHUNK_RADIUS, HEIGHT_SEED, RADIUS_SEED);
+        let native = NoiseWorld {
+            settings: HGridSettings::default(),
+            chunk_radius: CHUNK_RADIUS,
+        };
+        for (q, r) in [(0, 0), (-3, 2)] {
+            let wc = world.chunk(q, r);
+            let c = native.chunk(Hex::new(q, r));
+            assert_eq!(wc.owned().len(), 9 * c.owned.len());
+            assert_eq!(wc.seam_owners().len(), 2 * c.seams.len());
+            for (i, (owner, tris)) in c.seams.iter().enumerate() {
+                assert_eq!(wc.seam(i).len(), 9 * tris.len());
+                assert_eq!(wc.seam_owners()[2 * i..2 * i + 2], [owner.x, owner.y]);
+            }
+            assert!(wc.seam(OUT_OF_RANGE_SEAM).is_empty());
+            assert_eq!(wc.center(), vec![c.center.x, c.center.y]);
+        }
+        assert_eq!(world.chunk(0, 0).center(), vec![0.0, 0.0]);
+    }
 }
