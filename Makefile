@@ -35,7 +35,7 @@ ENSURE = command -v $(1) >/dev/null 2>&1 || { echo ">> $(1) not found — instal
 
 # Front-end assets, split by which page needs them. Both pages share the
 # stylesheet, the sidebar binder and the pure helpers (welding, seeds).
-COMMON_WEB   = web/demo.css web/hex-controls.js web/weld.js web/seed.js
+COMMON_WEB   = web/demo.css web/hex-controls.js web/weld.js web/seed.js web/page-nav.js
 TERRAIN_WEB  = web/hex-terrain.js web/hex-terrain-scene.js web/hex-terrain-shader.js web/hex-seam.js
 UNITS_WEB    = web/hex-units-scene.js web/hex-units-grid.js
 # The crawler routes with the units page's graph, so it ships that module too.
@@ -75,6 +75,7 @@ wasm: prep
 
 preview-html: prep
 	$(call RENDER,web/svg-preview.html,$(OUT)/svg-preview.html)
+	cp web/page-nav.js $(OUT)/
 
 terrain-html: prep
 	$(call RENDER_TERRAIN,web/hex-terrain.html,$(OUT)/index.html)
