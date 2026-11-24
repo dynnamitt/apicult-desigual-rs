@@ -45,7 +45,6 @@ h1, h2, h3 { font-family: var(--display); text-wrap: balance; line-height: 1.2; 
 h1 { font-size: 2.2rem; margin: 0 0 8px; font-weight: 600; }
 h2 { font-size: 1.5rem; margin: 56px 0 8px; padding-top: 16px; border-top: 1px solid var(--rule); font-weight: 600; }
 h3 { font-size: 1.15rem; margin: 36px 0 4px; font-weight: 500; display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; }
-h2 .tag { font: 500 0.72rem var(--mono); color: var(--junc); border: 1px solid var(--junc); border-radius: 3px; padding: 1px 6px; vertical-align: middle; margin-left: 6px; }
 details.fn { border: 1px solid var(--rule); border-radius: 6px; background: var(--card); margin: 10px 0; }
 details.fn > summary { cursor: pointer; list-style: none; display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 12px; padding: 10px 14px; }
 details.fn > summary::-webkit-details-marker { display: none; }
@@ -64,10 +63,6 @@ h3 .lvl, .h3 .lvl { font: 500 0.72rem var(--mono); color: var(--muted); border: 
 .sub { color: var(--muted); margin: 0 0 24px; }
 code, .mono { font-family: var(--mono); font-size: 0.88em; }
 pre { font: 0.84rem/1.5 var(--mono); background: var(--card); border: 1px solid var(--rule); border-radius: 6px; padding: 12px 14px; overflow-x: auto; }
-.answer { background: var(--card); border-left: 4px solid var(--quad); padding: 14px 18px; border-radius: 0 6px 6px 0; }
-.answer p { margin: 6px 0; }
-.status { background: var(--card); border: 1px solid var(--rule); border-left: 4px solid var(--junc); border-radius: 0 6px 6px 0; padding: 10px 16px; font-size: 0.95rem; }
-.status a { color: inherit; }
 .toc { columns: 2; column-gap: 32px; padding-left: 20px; font-size: 0.95rem; }
 @media (max-width: 520px) { .toc { columns: 1; } }
 .toc a { color: inherit; }
@@ -112,20 +107,14 @@ th { font-family: var(--display); font-weight: 500; }
 .face.missing { fill: none; stroke: var(--muted); stroke-dasharray: 3 3; stroke-opacity: 0.7; }
 .quad { fill: var(--quad); fill-opacity: 0.55; stroke: var(--quad); stroke-width: 0.8; }
 .quad.soft { fill-opacity: 0.25; }
-.quad.seam { fill-opacity: 0.12; stroke-dasharray: 3 2; stroke-width: 1.2; }
-.junc.seam { fill-opacity: 0.18; stroke-dasharray: 3 2; stroke-width: 1.2; }
+.seam { stroke: var(--ink); stroke-width: 0.8; stroke-opacity: 0.7; stroke-dasharray: 3 2; }
+.face.entring.t1 { fill: var(--t1); fill-opacity: 0.35; } .face.entring.t2 { fill: var(--t2); fill-opacity: 0.35; }
 .quad.ghost { fill: none; stroke: var(--quad); stroke-opacity: 0.6; stroke-dasharray: 2 2; }
 .junc { fill: var(--junc); fill-opacity: 0.75; stroke: var(--junc); stroke-width: 0.8; }
 .diag { stroke: var(--ink); stroke-width: 1; stroke-dasharray: 3 2; stroke-opacity: 0.7; }
 .tile { stroke: var(--paper); stroke-width: 0.6; }
 .t0 { fill: var(--t0); } .t1 { fill: var(--t1); } .t2 { fill: var(--t2); }
 .tile.part { fill-opacity: 0.45; }
-.seg { stroke: var(--ink); stroke-width: 0.8; stroke-opacity: 0.6; }
-.seg.h { fill: var(--t1); } .seg.c { fill: var(--t2); } .seg.t { fill: var(--t0); } .seg.l { fill: var(--face); }
-.seg.f { fill: var(--face); } .seg.q { fill: var(--quad); fill-opacity: 0.55; } .seg.j { fill: var(--junc); fill-opacity: 0.75; }
-.brace { stroke: var(--muted); fill: none; }
-.box { fill: var(--paper); stroke: var(--ink); stroke-opacity: 0.6; }
-.box.acc { stroke: var(--quad); stroke-width: 2; stroke-opacity: 1; }
 a:focus-visible { outline: 2px solid var(--quad); outline-offset: 2px; }
 </style>
 </head>
@@ -133,16 +122,23 @@ a:focus-visible { outline: 2px solid var(--quad); outline-offset: 2px; }
 <main>
 <header class="masthead"><svg class="logo" viewBox="0 0 274 291" role="img" aria-label="apicult-desigual logo"><polygon class="face ghost" points="270.4,93.4 248.8,56.0 205.6,56.0 184.0,93.4 205.6,130.8 248.8,130.8"/><polygon class="face ghost" points="180.4,41.4 158.8,4.0 115.6,4.0 94.0,41.4 115.6,78.8 158.8,78.8"/><polygon class="face ghost" points="90.4,93.4 68.8,56.0 25.6,56.0 4.0,93.4 25.6,130.8 68.8,130.8"/><polygon class="face ghost" points="90.4,197.3 68.8,159.9 25.6,159.9 4.0,197.3 25.6,234.7 68.8,234.7"/><polygon class="face ghost" points="180.4,249.3 158.8,211.8 115.6,211.8 94.0,249.3 115.6,286.7 158.8,286.7"/><polygon class="face ghost" points="270.4,197.3 248.8,159.9 205.6,159.9 184.0,197.3 205.6,234.7 248.8,234.7"/><polygon class="quad ghost" points="115.6,78.8 115.6,107.9 158.8,107.9 158.8,78.8"/><polygon class="quad ghost" points="90.4,197.3 115.6,182.7 94.0,145.3 68.8,159.9"/><polygon class="quad ghost" points="205.6,159.9 180.4,145.3 158.8,182.7 184.0,197.3"/><polygon class="face fan" points="137.2,145.3 180.4,145.3 158.8,107.9"/><polygon class="face fan" points="137.2,145.3 158.8,107.9 115.6,107.9"/><polygon class="face fan" points="137.2,145.3 115.6,107.9 94.0,145.3"/><polygon class="face fan" points="137.2,145.3 94.0,145.3 115.6,182.7"/><polygon class="face fan" points="137.2,145.3 115.6,182.7 158.8,182.7"/><polygon class="face fan" points="137.2,145.3 158.8,182.7 180.4,145.3"/><polygon class="quad" points="180.4,145.3 205.6,130.8 184.0,93.4 158.8,107.9"/><line x1="180.4" y1="145.3" x2="184.0" y2="93.4" class="diag"/><polygon class="quad" points="115.6,107.9 90.4,93.4 68.8,130.8 94.0,145.3"/><line x1="115.6" y1="107.9" x2="68.8" y2="130.8" class="diag"/><polygon class="quad" points="115.6,182.7 115.6,211.8 158.8,211.8 158.8,182.7"/><line x1="115.6" y1="182.7" x2="158.8" y2="211.8" class="diag"/><polygon class="junc" points="180.4,145.3 205.6,159.9 205.6,130.8"/><polygon class="junc" points="158.8,107.9 184.0,93.4 158.8,78.8"/></svg><div class="name">apicult-<span>desigual</span></div></header>
 <h1>Geometry guide</h1>
-<p class="sub">How <code>src/math.rs</code>, the hexx resolution functions and <code>HGridLayout</code>'s per-cell ownership fit together. Function sections start collapsed; open one to read it.</p>
+<p class="sub">How <code>src/math.rs</code>, the hexx resolution functions, <code>HGridLayout</code>'s per-cell ownership and the <code>chunk</code> module fit together. Function sections start collapsed; open one to read it.</p>
 <ol class="toc">
 <li><a href="#math">The math functions, simplest first</a></li>
 <li><a href="#resolution">Resolution functions from hexx</a></li>
 <li><a href="#cell">What one cell owns</a></li>
 <li><a href="#entangled">Entangled cells</a></li>
+<li><a href="#chunks">Streaming chunks</a></li>
 </ol>
 <h2 id="math">1 · The math functions, simplest first</h2>
 <p><code>src/math.rs</code> holds pure functions over <code>glam</code> and <code>hexx</code> types. None of them know about <code>HGridLayout</code>. They're ordered here from plain arithmetic to the grid combinatorics the rest of the crate is built on.</p>
 <p>One convention to keep in mind: a hex's world position is a <code>Vec2(x, z)</code>. Height is <code>y</code>, so 3D points are <code>Vec3(x, height, z)</code>.</p>
+<p id="ownership">Two <strong>ownership rules</strong> keep every gap from being drawn twice. 1.5, 1.6 and sections 3 to 5 all rest on them:</p>
+<ul>
+<li><strong>Quads.</strong> Every interior edge is shared by two hexes. If one meets it as an even edge (0, 2, 4), the other meets it as odd (3, 5, 1), because <code>e+3</code> flips parity. So "the hex whose index is even owns it" picks exactly one owner.</li>
+<li><strong>Junction triangles.</strong> Every interior corner is shared by three hexes, and it is corner 0 or 1 of exactly one of them. That hex owns the triangle, so each hex owns the junctions at its corners 0 and 1.</li>
+</ul>
+<p>A gap is only emitted when every hex it touches exists.</p>
 
 <p class="tools"><button type="button" id="expand-all">Expand all</button></p>
 <details class="fn">
@@ -150,9 +146,9 @@ a:focus-visible { outline: 2px solid var(--quad); outline-offset: 2px; }
 <div class="fnbody">
 <p>Noise generators return values centred on zero, roughly in <code>[-1, 1]</code>. This is the straight line through <code>(-1, min)</code> and <code>(1, max)</code>:</p>
 <p class="formula">out = min + (n + 1) / 2 · (max − min)</p>
-<p>The layout calls it twice per cell. Once for height, into <code>[0, max_height]</code> (default 20). Once for the cell's corner radius, into <code>[nominal · min_ratio, nominal · max_ratio]</code> (default 0.2 to 3.6 for a nominal radius of 4). The radius is smaller than the spacing between hex centres, and that leftover space is the <em>gap</em> the rest of this page is about.</p>
+<p>The layout calls it twice per cell. Once for height, into <code>[0, max_height]</code> (default 20). Once for the cell's corner radius, into <code>[nominal · min_ratio, nominal · max_ratio]</code> (default 0.2 to 3.6 for a nominal radius of 4). Centres sit <code>√3 · nominal_hex_radius</code> apart (6.93 at the default), where hexes of corner radius <code>nominal_hex_radius</code> would just touch. A gap opens wherever <code>cell.radius &lt; nominal_hex_radius</code>, and with the default ratios that is every cell. That leftover space is the <em>gap</em> the rest of this page is about.</p>
 <figure><div class="svgwrap"><svg viewBox="0 0 620 210" role="img" aria-label="Noise values from -1 to 1 map linearly onto heights 0 to 20">
-<defs><marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="currentColor"/></marker></defs>
+<defs><marker id="arr1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="currentColor"/></marker></defs>
 <line class="axis" x1="60.0" y1="50.0" x2="560.0" y2="50.0"/>
 <line class="axis" x1="60.0" y1="150.0" x2="560.0" y2="150.0"/>
 <text class="lbl dim" x="48.0" y="54.0" text-anchor="end">noise</text>
@@ -191,8 +187,8 @@ a:focus-visible { outline: 2px solid var(--quad); outline-offset: 2px; }
 </ul>
 <p>Scale a unit cube by <code>length</code> on X, rotate, then translate.</p>
 <figure><div class="svgwrap"><svg viewBox="0 0 520 260" role="img" aria-label="A unit cuboid along X is rotated, stretched and moved onto an edge">
-<defs><marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="currentColor"/></marker></defs>
-<line class="axis" x1="70" y1="230" x2="160" y2="230" marker-end="url(#arr)"/>
+<defs><marker id="arr2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="currentColor"/></marker></defs>
+<line class="axis" x1="70" y1="230" x2="160" y2="230" marker-end="url(#arr2)"/>
 <text class="lbl dim" x="170.0" y="234.0" text-anchor="start">+X</text>
 <polygon class="quad soft" points="207.4,214.2 437.4,94.2 422.6,65.8 192.6,185.8"/>
 <line class="edge" x1="200.0" y1="200.0" x2="430.0" y2="80.0"/>
@@ -201,7 +197,7 @@ a:focus-visible { outline: 2px solid var(--quad); outline-offset: 2px; }
 <text class="lbl" x="440.0" y="66.0" text-anchor="start">to</text>
 <text class="lbl acc" x="333.0" y="170.0" text-anchor="start">midpoint</text>
 <text class="lbl mono" x="285.0" y="112.0" text-anchor="end">length = |to − from|</text>
-<path class="arc" d="M130,230 A60,60 0 0 0 123.2,202.2" marker-end="url(#arr)"/>
+<path class="arc" d="M130,230 A60,60 0 0 0 123.2,202.2" marker-end="url(#arr2)"/>
 <line class="axis dash" x1="70" y1="230" x2="176.4" y2="174.5"/>
 <text class="lbl acc" x="128.0" y="218.0" text-anchor="start">rotation</text></svg></div><figcaption><code>edge_cuboid_transform(from, to)</code> returns where to put a beam: its centre, its length, and the shortest rotation that turns +X onto the edge direction (<code>Quat::from_rotation_arc</code>). A zero-length edge gets no rotation.</figcaption></figure>
 </div>
@@ -210,10 +206,10 @@ a:focus-visible { outline: 2px solid var(--quad); outline-offset: 2px; }
 <summary><span class="h3">1.3 <code>gap_vertex_data</code><span class="lvl">translate + cross product</span></span><span class="gist">shift to origin, normal from a cross product</span></summary>
 <div class="fnbody">
 <p>This prepares a gap polygon for mesh upload. It moves the polygon so its first vertex is at the origin, and finds which way it faces.</p>
-<p>The face direction is the cross product of the first two edges out of <code>v0</code>. For these gaps the winding makes that cross product point down, so the function negates it.</p>
+<p>The face direction is the cross product of the vectors <code>v0→v1</code> and <code>v0→v2</code>. For these gaps the winding makes that cross product point down, so the function negates it.</p>
 <p>When <code>flat</code> is set it ignores the slope and returns straight up, so tilted gaps get the same lighting as the flat hex tops.</p>
 <figure><div class="svgwrap"><svg viewBox="0 0 640 260" role="img" aria-label="Gap vertices are shifted so the first is at the origin, and a normal is taken from a cross product">
-<defs><marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="currentColor"/></marker></defs>
+<defs><marker id="arr3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="currentColor"/></marker></defs>
 <polygon class="quad soft" points="100.0,114.0 220.0,138.0 270.4,123.6 150.4,99.6"/>
 <circle class="dot acc" cx="100.0" cy="114.0" r="5"/>
 <text class="lbl acc" x="92.0" y="132.0" text-anchor="end">v0 (origin)</text>
@@ -221,15 +217,15 @@ a:focus-visible { outline: 2px solid var(--quad); outline-offset: 2px; }
 <polygon class="quad" points="380.0,170.0 500.0,194.0 550.4,179.6 430.4,155.6"/>
 <circle class="dot acc" cx="380.0" cy="170.0" r="5"/>
 <text class="lbl mono" x="372.0" y="188.0" text-anchor="end">0,0,0</text>
-<line class="edge" x1="380.0" y1="170.0" x2="500.0" y2="194.0" marker-end="url(#arr)"/>
-<line class="edge" x1="380.0" y1="170.0" x2="550.4" y2="179.6" marker-end="url(#arr)"/>
+<line class="edge" x1="380.0" y1="170.0" x2="500.0" y2="194.0" marker-end="url(#arr3)"/>
+<line class="edge" x1="380.0" y1="170.0" x2="550.4" y2="179.6" marker-end="url(#arr3)"/>
 <text class="lbl mono" x="508.0" y="210.0" text-anchor="start">e1</text>
 <text class="lbl mono" x="558.4" y="179.6" text-anchor="start">e2</text>
-<line class="axis dash" x1="420.0" y1="158.0" x2="420.0" y2="218.0" marker-end="url(#arr)"/>
+<line class="axis dash" x1="420.0" y1="158.0" x2="420.0" y2="218.0" marker-end="url(#arr3)"/>
 <text class="lbl dim" x="428.0" y="224.0" text-anchor="start">e1 × e2 (down)</text>
-<line class="edge acc" x1="420.0" y1="158.0" x2="420.0" y2="78.0" marker-end="url(#arr)"/>
+<line class="edge acc" x1="420.0" y1="158.0" x2="420.0" y2="78.0" marker-end="url(#arr3)"/>
 <text class="lbl acc" x="428.0" y="78.0" text-anchor="start">normal = −(e1 × e2)</text>
-<line class="map" x1="260" y1="150" x2="330" y2="150" marker-end="url(#arr)"/>
+<line class="map" x1="260" y1="150" x2="330" y2="150" marker-end="url(#arr3)"/>
 <text class="lbl mono" x="295.0" y="140.0" text-anchor="middle">− v0</text>
 <text class="lbl dim" x="470.0" y="240.0" text-anchor="middle">origin-local</text></svg></div><figcaption><code>gap_vertex_data(verts, flat)</code>: subtract <code>v0</code> from every vertex, then take the normal from the first two edges. The winding makes the raw cross product point down, so it is negated. With <code>flat = true</code> it skips this and returns <code>+Y</code>, which matches the flat hex faces.</figcaption></figure>
 </div>
@@ -241,7 +237,7 @@ a:focus-visible { outline: 2px solid var(--quad); outline-offset: 2px; }
 <p class="formula">h(Q) = Σ hᵢ / dᵢ²  ⁄  Σ 1 / dᵢ²</p>
 <p>Near a corner its weight blows up, so the function simply snaps to that corner once <code>d² &lt; 0.001</code>. It returns <code>None</code> for an empty list and leaves the fallback to the caller.</p>
 <figure><div class="svgwrap"><svg viewBox="0 0 600 330" role="img" aria-label="Inverse distance weighting: nearer vertices pull the height harder">
-<defs><marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="currentColor"/></marker></defs>
+<defs><marker id="arr4" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="currentColor"/></marker></defs>
 <polygon class="face soft" points="370.0,170.0 335.0,109.4 265.0,109.4 230.0,170.0 265.0,230.6 335.0,230.6" />
 <line class="map" x1="324.5" y1="152.5" x2="370.0" y2="170.0" style="stroke-width:2.58"/>
 <circle class="dot" cx="370.0" cy="170.0" r="5"/>
@@ -282,9 +278,9 @@ a:focus-visible { outline: 2px solid var(--quad); outline-offset: 2px; }
 <tr><td>2</td><td class="mono">(−1, +1)</td><td class="mono">2, 3</td><td class="mono">0, 5</td></tr>
 <tr><td>4</td><td class="mono">(0, −1)</td><td class="mono">4, 5</td><td class="mono">2, 1</td></tr>
 </table></div>
-<p>It is only defined for even edges, because of the ownership rule below.</p>
+<p>Callers pass only 0, 2 and 4, because of the quad <a href="#ownership">ownership rule</a>.</p>
 <figure class="wide"><div class="svgwrap"><svg viewBox="0 0 760 450" role="img" aria-label="Hex corner and edge indices; each hex owns even edges and vertices 0 and 1">
-<defs><marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="currentColor"/></marker></defs>
+<defs><marker id="arr5" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="currentColor"/></marker></defs>
 <polygon class="face ghost" points="409.4,162.5 378.2,108.4 315.8,108.4 284.6,162.5 315.8,216.5 378.2,216.5" />
 <text class="lbl mono dim" x="347.0" y="166.5" text-anchor="middle">(1,0)</text>
 <polygon class="face ghost" points="292.4,94.9 261.2,40.9 198.8,40.9 167.6,94.9 198.8,148.9 261.2,148.9" />
@@ -337,20 +333,15 @@ a:focus-visible { outline: 2px solid var(--quad); outline-offset: 2px; }
 <text class="lbl mono" x="579.2" y="191.3" text-anchor="end">v1 = 1</text>
 <text class="lbl" x="560.0" y="254.0" text-anchor="middle">owner</text>
 <text class="lbl" x="677.0" y="186.5" text-anchor="middle">neighbour</text>
-<text class="lbl mono" x="560.0" y="430.0" text-anchor="middle">quad_corner_indices(0) = (0, 1, 4, 3)</text></svg></div><figcaption>Left: the flat-top hex at <code>(0,0)</code> with corner indices 0–5 (<code>VertexDirection</code>) and edge indices e0–e5 (<code>EdgeDirection</code>, labelled with the neighbour each edge faces). Thick edges e0, e2, e4 are the ones it owns. The two larger dots are its owned junction corners, 0 and 1. Right: <code>quad_corner_indices(0)</code> pairs owner corners 0 and 1 with neighbour corners 4 and 3. The dashed line is the <code>a–c</code> diagonal the quad is split along. Drawn with x to the right and z up.</figcaption></figure>
+<text class="lbl mono" x="560.0" y="430.0" text-anchor="middle">quad_corner_indices(0) = (0, 1, 4, 3)</text></svg></div><figcaption>Left: the flat-top hex at <code>(0,0)</code> with corner indices 0–5 (<code>VertexDirection</code>) and edge indices e0–e5 (<code>EdgeDirection</code>, labelled with the neighbour each edge faces). Thick edges e0, e2, e4 are the ones it owns. The two larger dots are its owned junction corners, 0 and 1. Right: <code>quad_corner_indices(0)</code> pairs owner corners 0 and 1 with neighbour corners 4 and 3. The dashed line is the <code>v0–n1</code> diagonal the quad is split along. Drawn with x to the right and z up.</figcaption></figure>
 </div>
 </details>
 <details class="fn">
-<summary><span class="h3">1.6 <code>gap_filler</code><span class="lvl">ownership counting</span></span><span class="gist">counts gaps under the ownership rules</span></summary>
+<summary><span class="h3">1.6 <code>gap_filler</code><span class="lvl">ownership counting</span></span><span class="gist">counts the gap quads and junction triangles a set of cells produces</span></summary>
 <div class="fnbody">
-<p>The two ownership rules that keep every gap from being drawn twice:</p>
-<ul>
-<li><strong>Quads.</strong> Every interior edge is shared by two hexes. If one meets it as an even edge (0, 2, 4), the other meets it as odd (3, 5, 1), because <code>e+3</code> flips parity. So "the hex whose index is even owns it" picks exactly one owner.</li>
-<li><strong>Junction triangles.</strong> Every interior corner is shared by three hexes. hexx's <code>GridVertex::coordinates()</code> lists those three hexes in a canonical order, and the first one owns the triangle. In practice that means each hex owns the triangles at its corners 0 and 1.</li>
-</ul>
-<p>A gap is only emitted when every hex it touches exists. <code>gap_filler</code> counts what these rules would produce for any set of cells. Its unit tests assert the count matches what <code>gap_quads</code> and <code>gap_tris</code> actually emit, so if the rules drift apart in one place the tests catch it.</p>
+<p><code>gap_filler</code> counts what the <a href="#ownership">ownership rules</a> produce for any set of cells: one quad per even edge whose neighbour exists, one junction per corner 0 or 1 whose two other hexes exist. A unit test (<code>quad_bridge_edges_count_matches_gap_filler</code>) checks its quad count against <code>quad_bridge_edges</code>.</p>
 <figure><div class="svgwrap"><svg viewBox="0 0 520 480" role="img" aria-label="A radius 2 grid: every interior gap is filled exactly once">
-<defs><marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="currentColor"/></marker></defs>
+<defs><marker id="arr6" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="currentColor"/></marker></defs>
 <polygon class="face missing" points="501.0,110.5 484.0,81.0 450.0,81.0 433.0,110.5 450.0,140.0 484.0,140.0" />
 <polygon class="face missing" points="501.0,190.2 484.0,160.7 450.0,160.7 433.0,190.2 450.0,219.6 484.0,219.6" />
 <polygon class="face missing" points="501.0,269.8 484.0,240.4 450.0,240.4 433.0,269.8 450.0,299.3 484.0,299.3" />
@@ -459,8 +450,7 @@ a:focus-visible { outline: 2px solid var(--quad); outline-offset: 2px; }
 </details>
 
 <h2 id="resolution">2 · Resolution functions from hexx</h2>
-<p>Splitting a hex grid into hexagonal chunks rests on four functions from the upstream <code>hexx</code> crate (0.24), in <code>hex/mod.rs</code>. hexx calls them <em>resolutions</em>. A radius-<code>r</code> hexagon of cells is treated as one cell of a coarser hex grid. They're listed in order of complexity. The algorithm is Sander Evers' "hexagon tiling of a hexagonal grid".</p>
-<p>They define what a chunk coordinate <em>means</em>: which cells a chunk holds, where its centre is, and where a cell sits inside it.</p>
+<p>hexx (0.24, <code>hex/mod.rs</code>) can treat a radius-<code>r</code> hexagon of cells as one cell of a coarser hex grid. It calls these <em>resolutions</em>, after Sander Evers' "hexagon tiling of a hexagonal grid". The <a href="#chunks"><code>chunk</code> module</a> builds on two of them: a chunk with coordinate <code>c</code> holds the cells with <code>hex.to_lower_res(r) == c</code>, and its centre cell is <code>c.to_higher_res(r)</code>. The other functions below are hexx background; the crate doesn't call them.</p>
 
 <details class="fn">
 <summary><span class="h3">R.1 <code>Hex::range_count</code></span><span class="gist">cells in a radius-r hexagon</span></summary>
@@ -478,7 +468,7 @@ a:focus-visible { outline: 2px solid var(--quad); outline-offset: 2px; }
 <p>Chunk <code>(1,0)</code> goes to <code>(2r+1, −r)</code>, which is <code>(5,−2)</code> for <code>r = 2</code>. Every chunk centre is an integer combination of two such basis vectors. The coarse lattice is the fine one scaled by <code>√range_count(r)</code> and rotated, so chunk rows never line up with cell rows.</p>
 <p>The function is <code>const</code> and exact integer arithmetic.</p>
 <figure><div class="svgwrap"><svg viewBox="0 0 660 600" role="img" aria-label="to_higher_res maps chunk coordinates onto the centres of chunk hexagons">
-<defs><marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="currentColor"/></marker></defs>
+<defs><marker id="arr9" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="currentColor"/></marker></defs>
 <polygon class="tile t0" points="119.5,433.4 109.2,415.6 88.8,415.6 78.5,433.4 88.8,451.1 109.2,451.1" />
 <polygon class="tile t0" points="119.5,395.3 109.2,377.5 88.8,377.5 78.5,395.3 88.8,413.0 109.2,413.0" />
 <polygon class="tile t2" points="119.5,357.2 109.2,339.4 88.8,339.4 78.5,357.2 88.8,374.9 109.2,374.9" />
@@ -648,13 +638,13 @@ a:focus-visible { outline: 2px solid var(--quad); outline-offset: 2px; }
 <polygon class="tile t1" points="581.5,242.8 571.2,225.1 550.8,225.1 540.5,242.8 550.8,260.6 571.2,260.6" />
 <polygon class="tile t0" points="581.5,204.7 571.2,187.0 550.8,187.0 540.5,204.7 550.8,222.5 571.2,222.5" />
 <polygon class="tile t0" points="581.5,166.6 571.2,148.9 550.8,148.9 540.5,166.6 550.8,184.4 571.2,184.4" />
-<line class="edge acc" x1="330.0" y1="300.0" x2="495.0" y2="280.9" marker-end="url(#arr)"/>
+<line class="edge acc" x1="330.0" y1="300.0" x2="495.0" y2="280.9" marker-end="url(#arr9)"/>
 <circle class="dot acc" cx="495.0" cy="280.9" r="4"/>
 <text class="lbl mono tiny" x="495.0" y="268.9" text-anchor="middle">(1,0) → (5,−2)</text>
-<line class="edge acc" x1="330.0" y1="300.0" x2="396.0" y2="147.6" marker-end="url(#arr)"/>
+<line class="edge acc" x1="330.0" y1="300.0" x2="396.0" y2="147.6" marker-end="url(#arr9)"/>
 <circle class="dot acc" cx="396.0" cy="147.6" r="4"/>
 <text class="lbl mono tiny" x="396.0" y="135.6" text-anchor="middle">(0,1) → (2,3)</text>
-<line class="edge acc" x1="330.0" y1="300.0" x2="231.0" y2="166.6" marker-end="url(#arr)"/>
+<line class="edge acc" x1="330.0" y1="300.0" x2="231.0" y2="166.6" marker-end="url(#arr9)"/>
 <circle class="dot acc" cx="231.0" cy="166.6" r="4"/>
 <text class="lbl mono tiny" x="231.0" y="154.6" text-anchor="middle">(−1,1) → (−3,5)</text>
 <circle class="dot" cx="330.0" cy="300.0" r="4"/></svg></div><figcaption><code>to_higher_res(chunk, 2)</code> for three neighbouring chunks of <code>(0,0)</code>. It is a linear map: chunk <code>(1,0)</code> lands on cell <code>(5,−2)</code> and chunk <code>(0,1)</code> on <code>(2,3)</code>, so every chunk centre is an integer mix of those two vectors. The coarse grid is the fine grid scaled by about √19 and rotated by about 23°, which is why chunk rows don't follow cell rows.</figcaption></figure>
@@ -665,14 +655,10 @@ a:focus-visible { outline: 2px solid var(--quad); outline-offset: 2px; }
 <summary><span class="h3">R.3 <code>Hex::to_local</code> and <code>wrap_in_range</code></span><span class="gist">offset inside the chunk; a wraparound world</span></summary>
 <div class="fnbody">
 <p class="formula">to_local(h, r) = h − to_higher_res(to_lower_res(h, r), r)</p>
-<p>This gives a cell's position relative to its chunk's centre, and it's always within distance <code>r</code>. It's useful when storing chunks in two ways:</p>
-<ul>
-<li>It's the same small set of values in every chunk, so a full chunk's 19 (or 127) cells can sit in fixed slots, ordered by local coordinate, no matter where the chunk is in the world.</li>
-<li>Together with the chunk coordinate it fully recovers <code>h</code>, so cell records could store a local <code>(i8, i8)</code> instead of a world <code>(i32, i32)</code>.</li>
-</ul>
-<p><code>wrap_in_range(r)</code> is literally <code>to_local(r)</code>. Read as "fold the plane onto one hexagon around the origin", it gives a seamless wraparound map. That's an alternative to "infinite": a finite world without edges, where every chunk past the rim is a copy.</p>
+<p>This gives a cell's position relative to its chunk's centre, and it's always within distance <code>r</code>. Together with the chunk coordinate it recovers <code>h</code>.</p>
+<p><code>wrap_in_range(r)</code> is literally <code>to_local(r)</code>, read as "fold the plane onto one hexagon around the origin".</p>
 <figure><div class="svgwrap"><svg viewBox="0 0 560 380" role="img" aria-label="to_local gives a cell's offset from its chunk centre; wrap_in_range is the same map">
-<defs><marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="currentColor"/></marker></defs>
+<defs><marker id="arr10" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="currentColor"/></marker></defs>
 <polygon class="tile t0" points="78.6,258.9 63.3,232.4 32.7,232.4 17.4,258.9 32.7,285.4 63.3,285.4" />
 <polygon class="tile t0" points="78.6,200.0 63.3,173.5 32.7,173.5 17.4,200.0 32.7,226.5 63.3,226.5" />
 <polygon class="tile t0" points="78.6,141.1 63.3,114.6 32.7,114.6 17.4,141.1 32.7,167.6 63.3,167.6" />
@@ -714,13 +700,13 @@ a:focus-visible { outline: 2px solid var(--quad); outline-offset: 2px; }
 <polygon class="quad" points="384.6,82.2 369.3,55.7 338.7,55.7 323.4,82.2 338.7,108.7 369.3,108.7" />
 <polygon class="junc" points="129.6,111.7 114.3,85.2 83.7,85.2 68.4,111.7 83.7,138.2 114.3,138.2" />
 <circle class="dot" cx="405.0" cy="170.6" r="4"/><circle class="dot" cx="150.0" cy="200.0" r="4"/>
-<line class="edge acc" x1="405.0" y1="170.6" x2="354.0" y2="82.2" marker-end="url(#arr)"/>
-<line class="edge" x1="150.0" y1="200.0" x2="99.0" y2="111.7" marker-end="url(#arr)"/>
+<line class="edge acc" x1="405.0" y1="170.6" x2="354.0" y2="82.2" marker-end="url(#arr10)"/>
+<line class="edge" x1="150.0" y1="200.0" x2="99.0" y2="111.7" marker-end="url(#arr10)"/>
 <line class="map dash" x1="354.0" y1="82.2" x2="99.0" y2="111.7"/>
 <text class="lbl mono" x="384.0" y="60.2" text-anchor="start">h = (4,0)</text>
 <text class="lbl mono tiny" x="417.0" y="186.6" text-anchor="start">centre (5,−2)</text>
 <text class="lbl mono" x="69.0" y="89.7" text-anchor="end">(−1,2)</text>
-<text class="lbl mono tiny" x="150.0" y="218.0" text-anchor="middle">(0,0)</text></svg></div><figcaption>Cell <code>h = (4,0)</code> (blue) is in chunk (1,0), whose centre is <code>(5,−2)</code>. <code>to_local(h, 2)</code> = <code>h − to_higher_res(to_lower_res(h, 2), 2)</code> = <code>(−1,2)</code>. That offset is the same for every chunk, so it can index a cell's slot in a fixed 19-cell layout. Read from the origin instead, the same offset is the amber cell. That is <code>wrap_in_range(2)</code>: it folds the whole plane onto one radius-2 hexagon, which gives a wraparound world.</figcaption></figure>
+<text class="lbl mono tiny" x="150.0" y="218.0" text-anchor="middle">(0,0)</text></svg></div><figcaption>Cell <code>h = (4,0)</code> (blue) is in chunk (1,0), whose centre is <code>(5,−2)</code>. <code>to_local(h, 2)</code> = <code>h − to_higher_res(to_lower_res(h, 2), 2)</code> = <code>(−1,2)</code>. Read from the origin instead, the same offset is the amber cell. That is <code>wrap_in_range(2)</code>: it folds the whole plane onto one radius-2 hexagon.</figcaption></figure>
 </div>
 </details>
 
@@ -741,9 +727,9 @@ a:focus-visible { outline: 2px solid var(--quad); outline-offset: 2px; }
 <tr><td><code>r = ⌊(1 + Y − Z) / 3⌋</code></td><td class="mono">⌊2/3⌋ = 0</td></tr>
 <tr><td>chunk</td><td class="mono">(1, 0) ✓ matches figure R.3</td></tr>
 </table></div>
-<p><strong>A limit for large coordinates:</strong> hexx computes <code>y + shift·x</code> in <code>i32</code>, then divides as <code>f32</code>. Integers are exact in <code>f32</code> only up to 2²⁴ = 16,777,216. Past about <code>16.7M / (3r + 2)</code> cells from the origin (roughly 840,000 cells for <code>r = 6</code>), the floor can land on the wrong side of a band edge, and a cell can be put in the wrong chunk. A grid that reaches that far needs an integer <code>div_euclid</code> version of this function.</p>
+<p><strong>A limit for large coordinates:</strong> hexx computes <code>y + shift·x</code> in <code>i32</code>, then divides as <code>f32</code>. Integers are exact in <code>f32</code> only up to 2²⁴ = 16,777,216. Past about <code>16.7M / (3r + 2)</code> cells from the origin (roughly 840,000 cells for <code>r = 6</code>), the floor can land on the wrong side of a band edge, and a cell can be put in the wrong chunk. <code>NoiseWorld::chunk</code> inherits this limit.</p>
 <figure><div class="svgwrap"><svg viewBox="0 0 660 600" role="img" aria-label="A radius 7 grid split into radius 2 chunks; outer chunks are partial">
-<defs><marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="currentColor"/></marker></defs>
+<defs><marker id="arr8" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="currentColor"/></marker></defs>
 <polygon class="tile t0 part" points="119.5,433.4 109.2,415.6 88.8,415.6 78.5,433.4 88.8,451.1 109.2,451.1" />
 <polygon class="tile t0 part" points="119.5,395.3 109.2,377.5 88.8,377.5 78.5,395.3 88.8,413.0 109.2,413.0" />
 <polygon class="tile t2" points="119.5,357.2 109.2,339.4 88.8,339.4 78.5,357.2 88.8,374.9 109.2,374.9" />
@@ -926,12 +912,12 @@ a:focus-visible { outline: 2px solid var(--quad); outline-offset: 2px; }
 <h2 id="cell">3 · What one cell owns</h2>
 <p><code>HGridLayout::new</code> builds a <code>HexagonalMap</code> of radius <code>settings.radius</code> around <code>Hex::ZERO</code>. Each cell gets its height and radius from <code>Fbm&lt;Perlin&gt;</code> sampled at its world centre divided by a scale (50 for height, 30 for radius).</p>
 <ul>
-<li>A cell's values depend only on its world position and the seeds. Its neighbours don't affect them, and neither does the size of the grid.</li>
-<li>Corners are <code>centre + unit_corner · cell.radius</code>, while centres sit on the fixed lattice spacing <code>nominal_hex_radius</code>. So a smaller cell widens the gaps around it, but never moves.</li>
+<li>A cell's height and radius come from noise at its world position, unless pinned through <code>overrides</code>. Its neighbours don't affect them, and neither does the size or centre of the grid. That is why a chunk can be built on its own (<a href="#chunks">section 5</a>).</li>
+<li>Corners are <code>centre + unit_corner · cell.radius</code>, while centres are <code>√3 · nominal_hex_radius</code> apart on a fixed lattice. So a smaller cell widens the gaps around it, but never moves.</li>
 </ul>
 <p><code>all_tris(entangled)</code> walks the grid once. For each cell it appends, in a fixed order, exactly what that cell owns under the rules in 1.6:</p>
 <figure><div class="svgwrap"><svg viewBox="0 0 600 500" role="img" aria-label="One cell owns six face triangles, three gap quads and two junction triangles">
-<defs><marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="currentColor"/></marker></defs>
+<defs><marker id="arr7" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="currentColor"/></marker></defs>
 <polygon class="face ghost" points="504.2,170.3 471.1,113.0 404.9,113.0 371.8,170.3 404.9,227.7 471.1,227.7" />
 <polygon class="face ghost" points="366.2,90.7 333.1,33.3 266.9,33.3 233.8,90.7 266.9,148.0 333.1,148.0" />
 <polygon class="face ghost" points="228.2,170.3 195.1,113.0 128.9,113.0 95.8,170.3 128.9,227.7 195.1,227.7" />
@@ -973,17 +959,17 @@ a:focus-visible { outline: 2px solid var(--quad); outline-offset: 2px; }
 <text class="lbl mono acc" x="412.9" y="243.7" text-anchor="start">b</text>
 <text class="lbl mono acc" x="379.8" y="164.3" text-anchor="start">c</text>
 <text class="lbl mono acc" x="327.1" y="186.6" text-anchor="end">d</text></svg></div><figcaption>For cell <code>(0,0)</code>, <code>all_tris(false)</code> appends 14 triangles, numbered here in append order. 0–5 are the face fan. 6–11 are the quads on e0, e2, e4, each split into <code>[a,b,c]</code> then <code>[a,c,d]</code>. 12 and 13 are the junctions at corners 0 and 1. The faint quads on e1, e3, e5 belong to the neighbours and get appended when those cells run. The other four junctions are owned by neighbours too.</figcaption></figure>
-<p>Because ownership is per cell, any way of splitting the cells into groups splits the triangle stream with no overlap and no holes.</p>
+<p>Because ownership is per cell, any way of splitting the cells into groups splits the triangle stream with no overlap and no holes. Chunks are one such split; <code>chunk::tests::owned_streams_partition_world</code> checks it bit for bit.</p>
 <h2 id="entangled">4 · Entangled cells</h2>
-<p>#8 added a per-cell <code>entangled</code> flag, set through the <code>entangle: &amp;[Hex]</code> argument of <code>HGridLayout::new</code>, and two rules for the gaps:</p>
+<p>Each cell carries an <code>entangled</code> flag (<a href="https://github.com/dynnamitt/apicult-desigual-rs/issues/8">#8</a>), set through the <code>entangle: &amp;[Hex]</code> argument of <code>HGridLayout::new</code>, and two rules for the gaps:</p>
 <ul>
-<li>A gap quad is entangled only if <em>both</em> its cells are. #8 calls this the bridging propagation rule.</li>
+<li>A gap quad is entangled only if <em>both</em> its cells are (the "bridging" rule).</li>
 <li>Junction triangles are never entangled. <code>all_tris(true)</code> skips them, and <code>all_tris(false)</code> always includes them.</li>
 </ul>
 <p><code>all_tris(entangled)</code>, <code>hex_face_tris(entangled)</code> and <code>gap_quad_tris(entangled)</code> return only the matching part, so a consumer can drive entangled and plain cells with two materials. <code>entangle_borderline(dir)</code> marks one outer side of the grid.</p>
-<p>Entangling a grid's whole outer ring has a useful effect. <code>all_tris(false)</code> skips the ring's faces and the gaps between two ring cells, but keeps every gap that reaches an inner cell, whoever owns it. The inner cells come out with a closed outline:</p>
+<p>Example: entangle the whole outer ring of a radius-3 grid. <code>all_tris(false)</code> skips the ring's faces and the gaps between two ring cells, but keeps every gap that reaches an inner cell, whoever owns it. The inner cells come out with a closed outline:</p>
 <figure><div class="svgwrap"><svg viewBox="0 0 500 490" role="img" aria-label="A radius 3 layout with its outer ring entangled: all_tris(false) closes the outline of the inner cells">
-<defs><marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="currentColor"/></marker></defs>
+<defs><marker id="arr11" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="currentColor"/></marker></defs>
 <polygon class="face entring" points="114.6,336.5 101.3,313.5 74.7,313.5 61.4,336.5 74.7,359.6 101.3,359.6" />
 <polygon class="face entring" points="114.6,274.2 101.3,251.1 74.7,251.1 61.4,274.2 74.7,297.2 101.3,297.2" />
 <polygon class="face entring" points="114.6,211.8 101.3,188.8 74.7,188.8 61.4,211.8 74.7,234.9 101.3,234.9" />
@@ -1146,8 +1132,195 @@ a:focus-visible { outline: 2px solid var(--quad); outline-offset: 2px; }
 <polygon class="quad" points="344.7,141.4 344.7,157.6 371.3,157.6 371.3,141.4" />
 <polygon class="quad" points="398.7,313.5 384.6,305.4 371.3,328.4 385.4,336.5" />
 <polygon class="quad" points="398.7,251.1 384.6,243.0 371.3,266.1 385.4,274.2" />
-<polygon class="quad" points="398.7,188.8 384.6,180.6 371.3,203.7 385.4,211.8" /></svg></div><figcaption><code>HGridLayout::new</code> with <code>radius: 3</code> and every cell of ring 3 in <code>entangle</code>. <code>all_tris(false)</code> draws the 19 inner faces (solid) and every gap touching an inner cell, whichever cell owns it. It skips the entangled cells' faces (dashed) and the gaps between two entangled cells. Ownership doesn't matter for the outline: it is closed on all six sides. Counted on <code>main</code>: 312 triangles, the same as 19 faces plus every gap touching them.</figcaption></figure>
-<p>#9 builds the terrain page's flower from this. Each petal entangles its ring of cells facing a neighbour and copies the neighbour's border values into it with overrides. "The earlier-placed layout owns every shared seam", so the seams are drawn once, with no z-fighting and no doubled triangles.</p>
+<polygon class="quad" points="398.7,188.8 384.6,180.6 371.3,203.7 385.4,211.8" /></svg></div><figcaption><code>HGridLayout::new</code> with <code>radius: 3</code> and every cell of ring 3 in <code>entangle</code>. <code>all_tris(false)</code> draws the 19 inner faces (solid) and every gap touching an inner cell, whichever cell owns it. It skips the entangled cells' faces (dashed) and the gaps between two entangled cells. Ownership doesn't matter for the outline: it is closed on all six sides. That makes 312 triangles in total, the same as 19 faces plus every gap touching them. <code>HGridLayout::for_chunk(g, (0,0), 2)</code> builds exactly this layout, and <code>for_chunk_all_tris_counts</code> pins the 312.</figcaption></figure>
+<p>The terrain page's flower (<a href="https://github.com/dynnamitt/apicult-desigual-rs/issues/9">#9</a>) uses this per petal. Each petal entangles its ring of cells facing a neighbour and copies the neighbour's border values into it with overrides. The earlier-placed layout owns every shared seam, so the seams are drawn once, with no z-fighting and no doubled triangles.</p>
+<p><code>HGridLayout::for_chunk</code> builds exactly the layout in the figure above, for one chunk.</p>
+
+<h2 id="chunks">5 · Streaming chunks</h2>
+<p><code>src/chunk.rs</code> builds any chunk of an unbounded world on demand from its coordinate. <code>NoiseWorld { settings, chunk_radius }</code> implements <code>ChunkSource::chunk(coord) -&gt; Chunk</code>. One <code>NoiseWorld</code>, and so one set of seeds, serves the whole world.</p>
+<p>A chunk is the radius-<code>r</code> hexagon of cells with <code>hex.to_lower_res(r) == coord</code> (<a href="#resolution">section 2</a>). <code>HGridLayout::for_chunk(g, coord, r)</code> builds it with one extra <em>entangled ring</em> of neighbour cells at distance <code>r + 1</code>. It samples noise at world positions and ignores <code>g.radius</code>, so a chunk built alone matches its neighbours exactly. The layout is then cut into two streams:</p>
+<ul>
+<li><strong>owned</strong>: <code>owned_tris_into(cell, false)</code> for each of the chunk's own cells, concatenated (<code>owned_runs</code> gives each cell's count). Across all chunks the owned streams cover the world with no overlap and no holes.</li>
+<li><strong>seams</strong>: the gaps that ring cells own and that touch the chunk, grouped by the neighbour chunk that owns them (at most 6 groups). Each group is a copy of triangles in that neighbour's owned stream.</li>
+</ul>
+<figure><div class="svgwrap"><svg viewBox="0 0 500 490" role="img" aria-label="Chunk (0,0) of radius 2: its owned stream, and seam groups tinted by the neighbour chunk that owns them">
+<defs><marker id="arr12" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="currentColor"/></marker></defs>
+<polygon class="face entring t2" points="114.6,336.5 101.3,313.5 74.7,313.5 61.4,336.5 74.7,359.6 101.3,359.6" />
+<polygon class="face entring t2" points="114.6,274.2 101.3,251.1 74.7,251.1 61.4,274.2 74.7,297.2 101.3,297.2" />
+<polygon class="face entring t2" points="114.6,211.8 101.3,188.8 74.7,188.8 61.4,211.8 74.7,234.9 101.3,234.9" />
+<polygon class="face entring t1" points="114.6,149.5 101.3,126.4 74.7,126.4 61.4,149.5 74.7,172.5 101.3,172.5" />
+<polygon class="face entring t1" points="168.6,367.7 155.3,344.6 128.7,344.6 115.4,367.7 128.7,390.8 155.3,390.8" />
+<polygon class="face entring t1" points="168.6,118.3 155.3,95.2 128.7,95.2 115.4,118.3 128.7,141.4 155.3,141.4" />
+<polygon class="face entring t1" points="222.6,398.9 209.3,375.8 182.7,375.8 169.4,398.9 182.7,422.0 209.3,422.0" />
+<polygon class="face entring t1" points="222.6,87.1 209.3,64.0 182.7,64.0 169.4,87.1 182.7,110.2 209.3,110.2" />
+<polygon class="face entring t1" points="276.6,430.1 263.3,407.0 236.7,407.0 223.4,430.1 236.7,453.1 263.3,453.1" />
+<polygon class="face entring t2" points="276.6,55.9 263.3,32.9 236.7,32.9 223.4,55.9 236.7,79.0 263.3,79.0" />
+<polygon class="face entring t2" points="330.6,398.9 317.3,375.8 290.7,375.8 277.4,398.9 290.7,422.0 317.3,422.0" />
+<polygon class="face entring t2" points="330.6,87.1 317.3,64.0 290.7,64.0 277.4,87.1 290.7,110.2 317.3,110.2" />
+<polygon class="face entring t2" points="384.6,367.7 371.3,344.6 344.7,344.6 331.4,367.7 344.7,390.8 371.3,390.8" />
+<polygon class="face entring t2" points="384.6,118.3 371.3,95.2 344.7,95.2 331.4,118.3 344.7,141.4 371.3,141.4" />
+<polygon class="face entring t2" points="438.6,336.5 425.3,313.5 398.7,313.5 385.4,336.5 398.7,359.6 425.3,359.6" />
+<polygon class="face entring t1" points="438.6,274.2 425.3,251.1 398.7,251.1 385.4,274.2 398.7,297.2 425.3,297.2" />
+<polygon class="face entring t1" points="438.6,211.8 425.3,188.8 398.7,188.8 385.4,211.8 398.7,234.9 425.3,234.9" />
+<polygon class="face entring t1" points="438.6,149.5 425.3,126.4 398.7,126.4 385.4,149.5 398.7,172.5 425.3,172.5" />
+<polygon class="face" points="168.6,305.4 155.3,282.3 128.7,282.3 115.4,305.4 128.7,328.4 155.3,328.4" />
+<polygon class="face" points="168.6,243.0 155.3,219.9 128.7,219.9 115.4,243.0 128.7,266.1 155.3,266.1" />
+<polygon class="face" points="168.6,180.6 155.3,157.6 128.7,157.6 115.4,180.6 128.7,203.7 155.3,203.7" />
+<polygon class="face" points="222.6,336.5 209.3,313.5 182.7,313.5 169.4,336.5 182.7,359.6 209.3,359.6" />
+<polygon class="face" points="222.6,274.2 209.3,251.1 182.7,251.1 169.4,274.2 182.7,297.2 209.3,297.2" />
+<polygon class="face" points="222.6,211.8 209.3,188.8 182.7,188.8 169.4,211.8 182.7,234.9 209.3,234.9" />
+<polygon class="face" points="222.6,149.5 209.3,126.4 182.7,126.4 169.4,149.5 182.7,172.5 209.3,172.5" />
+<polygon class="face" points="276.6,367.7 263.3,344.6 236.7,344.6 223.4,367.7 236.7,390.8 263.3,390.8" />
+<polygon class="face" points="276.6,305.4 263.3,282.3 236.7,282.3 223.4,305.4 236.7,328.4 263.3,328.4" />
+<polygon class="face" points="276.6,243.0 263.3,219.9 236.7,219.9 223.4,243.0 236.7,266.1 263.3,266.1" />
+<polygon class="face" points="276.6,180.6 263.3,157.6 236.7,157.6 223.4,180.6 236.7,203.7 263.3,203.7" />
+<polygon class="face" points="276.6,118.3 263.3,95.2 236.7,95.2 223.4,118.3 236.7,141.4 263.3,141.4" />
+<polygon class="face" points="330.6,336.5 317.3,313.5 290.7,313.5 277.4,336.5 290.7,359.6 317.3,359.6" />
+<polygon class="face" points="330.6,274.2 317.3,251.1 290.7,251.1 277.4,274.2 290.7,297.2 317.3,297.2" />
+<polygon class="face" points="330.6,211.8 317.3,188.8 290.7,188.8 277.4,211.8 290.7,234.9 317.3,234.9" />
+<polygon class="face" points="330.6,149.5 317.3,126.4 290.7,126.4 277.4,149.5 290.7,172.5 317.3,172.5" />
+<polygon class="face" points="384.6,305.4 371.3,282.3 344.7,282.3 331.4,305.4 344.7,328.4 371.3,328.4" />
+<polygon class="face" points="384.6,243.0 371.3,219.9 344.7,219.9 331.4,243.0 344.7,266.1 371.3,266.1" />
+<polygon class="face" points="384.6,180.6 371.3,157.6 344.7,157.6 331.4,180.6 344.7,203.7 371.3,203.7" />
+<polygon class="quad" points="168.6,305.4 182.7,297.2 169.4,274.2 155.3,282.3" />
+<polygon class="quad" points="128.7,282.3 114.6,274.2 101.3,297.2 115.4,305.4" />
+<polygon class="quad" points="128.7,328.4 128.7,344.6 155.3,344.6 155.3,328.4" />
+<polygon class="junc" points="168.6,305.4 182.7,313.5 182.7,297.2" />
+<polygon class="junc" points="155.3,282.3 169.4,274.2 155.3,266.1" />
+<polygon class="quad" points="168.6,243.0 182.7,234.9 169.4,211.8 155.3,219.9" />
+<polygon class="quad" points="128.7,219.9 114.6,211.8 101.3,234.9 115.4,243.0" />
+<polygon class="quad" points="128.7,266.1 128.7,282.3 155.3,282.3 155.3,266.1" />
+<polygon class="junc" points="168.6,243.0 182.7,251.1 182.7,234.9" />
+<polygon class="junc" points="155.3,219.9 169.4,211.8 155.3,203.7" />
+<polygon class="quad" points="168.6,180.6 182.7,172.5 169.4,149.5 155.3,157.6" />
+<polygon class="quad" points="128.7,157.6 114.6,149.5 101.3,172.5 115.4,180.6" />
+<polygon class="quad" points="128.7,203.7 128.7,219.9 155.3,219.9 155.3,203.7" />
+<polygon class="junc" points="168.6,180.6 182.7,188.8 182.7,172.5" />
+<polygon class="junc" points="155.3,157.6 169.4,149.5 155.3,141.4" />
+<polygon class="quad" points="222.6,336.5 236.7,328.4 223.4,305.4 209.3,313.5" />
+<polygon class="quad" points="182.7,313.5 168.6,305.4 155.3,328.4 169.4,336.5" />
+<polygon class="quad" points="182.7,359.6 182.7,375.8 209.3,375.8 209.3,359.6" />
+<polygon class="junc" points="222.6,336.5 236.7,344.6 236.7,328.4" />
+<polygon class="junc" points="209.3,313.5 223.4,305.4 209.3,297.2" />
+<polygon class="quad" points="222.6,274.2 236.7,266.1 223.4,243.0 209.3,251.1" />
+<polygon class="quad" points="182.7,251.1 168.6,243.0 155.3,266.1 169.4,274.2" />
+<polygon class="quad" points="182.7,297.2 182.7,313.5 209.3,313.5 209.3,297.2" />
+<polygon class="junc" points="222.6,274.2 236.7,282.3 236.7,266.1" />
+<polygon class="junc" points="209.3,251.1 223.4,243.0 209.3,234.9" />
+<polygon class="quad" points="222.6,211.8 236.7,203.7 223.4,180.6 209.3,188.8" />
+<polygon class="quad" points="182.7,188.8 168.6,180.6 155.3,203.7 169.4,211.8" />
+<polygon class="quad" points="182.7,234.9 182.7,251.1 209.3,251.1 209.3,234.9" />
+<polygon class="junc" points="222.6,211.8 236.7,219.9 236.7,203.7" />
+<polygon class="junc" points="209.3,188.8 223.4,180.6 209.3,172.5" />
+<polygon class="quad" points="222.6,149.5 236.7,141.4 223.4,118.3 209.3,126.4" />
+<polygon class="quad" points="182.7,126.4 168.6,118.3 155.3,141.4 169.4,149.5" />
+<polygon class="quad" points="182.7,172.5 182.7,188.8 209.3,188.8 209.3,172.5" />
+<polygon class="junc" points="222.6,149.5 236.7,157.6 236.7,141.4" />
+<polygon class="junc" points="209.3,126.4 223.4,118.3 209.3,110.2" />
+<polygon class="quad" points="276.6,367.7 290.7,359.6 277.4,336.5 263.3,344.6" />
+<polygon class="quad" points="236.7,344.6 222.6,336.5 209.3,359.6 223.4,367.7" />
+<polygon class="quad" points="236.7,390.8 236.7,407.0 263.3,407.0 263.3,390.8" />
+<polygon class="junc" points="276.6,367.7 290.7,375.8 290.7,359.6" />
+<polygon class="junc" points="263.3,344.6 277.4,336.5 263.3,328.4" />
+<polygon class="quad" points="276.6,305.4 290.7,297.2 277.4,274.2 263.3,282.3" />
+<polygon class="quad" points="236.7,282.3 222.6,274.2 209.3,297.2 223.4,305.4" />
+<polygon class="quad" points="236.7,328.4 236.7,344.6 263.3,344.6 263.3,328.4" />
+<polygon class="junc" points="276.6,305.4 290.7,313.5 290.7,297.2" />
+<polygon class="junc" points="263.3,282.3 277.4,274.2 263.3,266.1" />
+<polygon class="quad" points="276.6,243.0 290.7,234.9 277.4,211.8 263.3,219.9" />
+<polygon class="quad" points="236.7,219.9 222.6,211.8 209.3,234.9 223.4,243.0" />
+<polygon class="quad" points="236.7,266.1 236.7,282.3 263.3,282.3 263.3,266.1" />
+<polygon class="junc" points="276.6,243.0 290.7,251.1 290.7,234.9" />
+<polygon class="junc" points="263.3,219.9 277.4,211.8 263.3,203.7" />
+<polygon class="quad" points="276.6,180.6 290.7,172.5 277.4,149.5 263.3,157.6" />
+<polygon class="quad" points="236.7,157.6 222.6,149.5 209.3,172.5 223.4,180.6" />
+<polygon class="quad" points="236.7,203.7 236.7,219.9 263.3,219.9 263.3,203.7" />
+<polygon class="junc" points="276.6,180.6 290.7,188.8 290.7,172.5" />
+<polygon class="junc" points="263.3,157.6 277.4,149.5 263.3,141.4" />
+<polygon class="quad" points="276.6,118.3 290.7,110.2 277.4,87.1 263.3,95.2" />
+<polygon class="quad" points="236.7,95.2 222.6,87.1 209.3,110.2 223.4,118.3" />
+<polygon class="quad" points="236.7,141.4 236.7,157.6 263.3,157.6 263.3,141.4" />
+<polygon class="junc" points="276.6,118.3 290.7,126.4 290.7,110.2" />
+<polygon class="junc" points="263.3,95.2 277.4,87.1 263.3,79.0" />
+<polygon class="quad" points="330.6,336.5 344.7,328.4 331.4,305.4 317.3,313.5" />
+<polygon class="quad" points="290.7,313.5 276.6,305.4 263.3,328.4 277.4,336.5" />
+<polygon class="quad" points="290.7,359.6 290.7,375.8 317.3,375.8 317.3,359.6" />
+<polygon class="junc" points="330.6,336.5 344.7,344.6 344.7,328.4" />
+<polygon class="junc" points="317.3,313.5 331.4,305.4 317.3,297.2" />
+<polygon class="quad" points="330.6,274.2 344.7,266.1 331.4,243.0 317.3,251.1" />
+<polygon class="quad" points="290.7,251.1 276.6,243.0 263.3,266.1 277.4,274.2" />
+<polygon class="quad" points="290.7,297.2 290.7,313.5 317.3,313.5 317.3,297.2" />
+<polygon class="junc" points="330.6,274.2 344.7,282.3 344.7,266.1" />
+<polygon class="junc" points="317.3,251.1 331.4,243.0 317.3,234.9" />
+<polygon class="quad" points="330.6,211.8 344.7,203.7 331.4,180.6 317.3,188.8" />
+<polygon class="quad" points="290.7,188.8 276.6,180.6 263.3,203.7 277.4,211.8" />
+<polygon class="quad" points="290.7,234.9 290.7,251.1 317.3,251.1 317.3,234.9" />
+<polygon class="junc" points="330.6,211.8 344.7,219.9 344.7,203.7" />
+<polygon class="junc" points="317.3,188.8 331.4,180.6 317.3,172.5" />
+<polygon class="quad" points="330.6,149.5 344.7,141.4 331.4,118.3 317.3,126.4" />
+<polygon class="quad" points="290.7,126.4 276.6,118.3 263.3,141.4 277.4,149.5" />
+<polygon class="quad" points="290.7,172.5 290.7,188.8 317.3,188.8 317.3,172.5" />
+<polygon class="junc" points="330.6,149.5 344.7,157.6 344.7,141.4" />
+<polygon class="junc" points="317.3,126.4 331.4,118.3 317.3,110.2" />
+<polygon class="quad" points="384.6,305.4 398.7,297.2 385.4,274.2 371.3,282.3" />
+<polygon class="quad" points="344.7,282.3 330.6,274.2 317.3,297.2 331.4,305.4" />
+<polygon class="quad" points="344.7,328.4 344.7,344.6 371.3,344.6 371.3,328.4" />
+<polygon class="junc" points="384.6,305.4 398.7,313.5 398.7,297.2" />
+<polygon class="junc" points="371.3,282.3 385.4,274.2 371.3,266.1" />
+<polygon class="quad" points="384.6,243.0 398.7,234.9 385.4,211.8 371.3,219.9" />
+<polygon class="quad" points="344.7,219.9 330.6,211.8 317.3,234.9 331.4,243.0" />
+<polygon class="quad" points="344.7,266.1 344.7,282.3 371.3,282.3 371.3,266.1" />
+<polygon class="junc" points="384.6,243.0 398.7,251.1 398.7,234.9" />
+<polygon class="junc" points="371.3,219.9 385.4,211.8 371.3,203.7" />
+<polygon class="quad" points="384.6,180.6 398.7,172.5 385.4,149.5 371.3,157.6" />
+<polygon class="quad" points="344.7,157.6 330.6,149.5 317.3,172.5 331.4,180.6" />
+<polygon class="quad" points="344.7,203.7 344.7,219.9 371.3,219.9 371.3,203.7" />
+<polygon class="junc" points="384.6,180.6 398.7,188.8 398.7,172.5" />
+<polygon class="junc" points="371.3,157.6 385.4,149.5 371.3,141.4" />
+<polygon class="seam t2" points="114.6,336.5 128.7,328.4 115.4,305.4 101.3,313.5" />
+<polygon class="seam t2" points="114.6,336.5 128.7,344.6 128.7,328.4" />
+<polygon class="seam t2" points="101.3,313.5 115.4,305.4 101.3,297.2" />
+<polygon class="seam t2" points="114.6,274.2 128.7,266.1 115.4,243.0 101.3,251.1" />
+<polygon class="seam t2" points="114.6,274.2 128.7,282.3 128.7,266.1" />
+<polygon class="seam t2" points="101.3,251.1 115.4,243.0 101.3,234.9" />
+<polygon class="seam t2" points="114.6,211.8 128.7,203.7 115.4,180.6 101.3,188.8" />
+<polygon class="seam t2" points="114.6,211.8 128.7,219.9 128.7,203.7" />
+<polygon class="seam t2" points="101.3,188.8 115.4,180.6 101.3,172.5" />
+<polygon class="seam t1" points="114.6,149.5 128.7,157.6 128.7,141.4" />
+<polygon class="seam t1" points="168.6,367.7 182.7,359.6 169.4,336.5 155.3,344.6" />
+<polygon class="seam t1" points="168.6,367.7 182.7,375.8 182.7,359.6" />
+<polygon class="seam t1" points="155.3,344.6 169.4,336.5 155.3,328.4" />
+<polygon class="seam t1" points="128.7,141.4 128.7,157.6 155.3,157.6 155.3,141.4" />
+<polygon class="seam t1" points="168.6,118.3 182.7,126.4 182.7,110.2" />
+<polygon class="seam t1" points="222.6,398.9 236.7,390.8 223.4,367.7 209.3,375.8" />
+<polygon class="seam t1" points="222.6,398.9 236.7,407.0 236.7,390.8" />
+<polygon class="seam t1" points="209.3,375.8 223.4,367.7 209.3,359.6" />
+<polygon class="seam t1" points="182.7,110.2 182.7,126.4 209.3,126.4 209.3,110.2" />
+<polygon class="seam t1" points="222.6,87.1 236.7,95.2 236.7,79.0" />
+<polygon class="seam t1" points="263.3,407.0 277.4,398.9 263.3,390.8" />
+<polygon class="seam t2" points="236.7,79.0 236.7,95.2 263.3,95.2 263.3,79.0" />
+<polygon class="seam t2" points="290.7,375.8 276.6,367.7 263.3,390.8 277.4,398.9" />
+<polygon class="seam t2" points="317.3,375.8 331.4,367.7 317.3,359.6" />
+<polygon class="seam t2" points="290.7,110.2 290.7,126.4 317.3,126.4 317.3,110.2" />
+<polygon class="seam t2" points="344.7,344.6 330.6,336.5 317.3,359.6 331.4,367.7" />
+<polygon class="seam t2" points="371.3,344.6 385.4,336.5 371.3,328.4" />
+<polygon class="seam t2" points="344.7,141.4 344.7,157.6 371.3,157.6 371.3,141.4" />
+<polygon class="seam t2" points="398.7,313.5 384.6,305.4 371.3,328.4 385.4,336.5" />
+<polygon class="seam t1" points="398.7,251.1 384.6,243.0 371.3,266.1 385.4,274.2" />
+<polygon class="seam t1" points="398.7,188.8 384.6,180.6 371.3,203.7 385.4,211.8" />
+<text class="lbl mono" x="36.2" y="288.2" text-anchor="middle">(−1,0)</text>
+<text class="lbl mono" x="107.4" y="82.4" text-anchor="middle">(−1,1)</text>
+<text class="lbl mono" x="178.7" y="452.8" text-anchor="middle">(0,−1)</text>
+<text class="lbl mono" x="321.3" y="41.2" text-anchor="middle">(0,1)</text>
+<text class="lbl mono" x="392.6" y="411.6" text-anchor="middle">(1,−1)</text>
+<text class="lbl mono" x="463.8" y="205.8" text-anchor="middle">(1,0)</text></svg></div><figcaption>Chunk <code>(0,0)</code> with <code>chunk_radius = 2</code>. <code>for_chunk</code> adds ring 3 (dashed), tinted by the neighbour chunk each ring cell belongs to, labelled outside. <strong>Owned</strong>, solid: the 19 faces and every gap an own cell owns, 266 triangles. <strong>Seams</strong>, dashed and tinted: the gaps ring cells own that touch the chunk, 46 triangles in 6 groups, one per neighbour chunk. Together they make the same 312 triangles as the figure in section 4. Once a neighbour is loaded, its owned stream draws the same triangles, so its seam group is hidden.</figcaption></figure>
+<p>Rules for consumers, from the module docs:</p>
+<ol>
+<li>Always draw the owned stream. Draw seam group <em>k</em> only while neighbour chunk <em>k</em> isn't loaded, so the two copies are never visible together.</li>
+<li>Entangled cells are never state. A change to a cell goes to its owning chunk only.</li>
+<li>A changed cell rebuilds its own chunk and every chunk that has it in its entangled ring: 1 chunk for an interior cell, 2 along a chunk edge, 3 at a chunk corner.</li>
+</ol>
+<p>In the browser, <code>WasmChunkWorld::new(chunk_radius, height_seed, radius_seed)</code> hands out <code>chunk(q, r)</code> with flat <code>owned()</code> / <code>seam(i)</code> buffers and <code>seam_owners()</code>. The <a href="hex-stream.html">chunk treadmill</a> keeps seven chunks loaded around a moving camera and follows rule 1 on every step.</p>
 </main>
 <script>
 (function () {
@@ -1156,8 +1329,6 @@ a:focus-visible { outline: 2px solid var(--quad); outline-offset: 2px; }
   var sync = function () { var open = [].every.call(all(), function (d) { return d.open; }); btn.textContent = open ? "Collapse all" : "Expand all"; };
   btn.addEventListener("click", function () { var open = btn.textContent === "Expand all"; all().forEach(function (d) { d.open = open; }); sync(); });
   all().forEach(function (d) { d.addEventListener("toggle", sync); });
-  var openFromHash = function () { var el = location.hash && document.getElementById(location.hash.slice(1)); if (el && el.tagName === "DETAILS") el.open = true; };
-  openFromHash(); window.addEventListener("hashchange", openFromHash);
 })();
 </script>
 </body>

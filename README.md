@@ -21,7 +21,7 @@ Zero game-engine dependencies — `glam` for vectors, `hexx` for hex coordinates
 
 The [live demo](https://dynnamitt.github.io/apicult-desigual-rs/) constructs the layout entirely inside the wasm module on page load and pulls flat `Float32Array` buffers (welded mesh + wireframe edges) straight into a thin three.js viewer — no JSON round-trip, no JS-side geometry. The same page also shows the plain and rich SVG variants for comparison.
 
-The [geometry guide](https://dynnamitt.github.io/apicult-desigual-rs/guide.html) ([`docs/guide.html`](docs/guide.html)) explains the math functions, the hexx resolution functions, which triangles each cell owns, and entangled cells, with drawings.
+The [geometry guide](https://dynnamitt.github.io/apicult-desigual-rs/guide.html) ([`docs/guide.html`](docs/guide.html)) explains the math functions, the hexx resolution functions, which triangles each cell owns, entangled cells and streaming chunks, with drawings.
 
 ## What it does
 
@@ -68,7 +68,7 @@ rustup target add wasm32-unknown-unknown      # one-time setup
 wasm-pack build --target web --features wasm  # writes web/pkg/{apicult_desigual.js, _bg.wasm, .d.ts}
 ```
 
-The bundle contains three interactive pages over the same geometry: `index.html`, a three.js viewer of the welded 7-mesh cluster; `hex-units.html`, a Babylon.js demo where units pathfind across the grid (`web/hex-units.md`); and `hex-crawler.html`, a Phaser board where a character with no sprite *is* the fill, creeping hex to hex and lighting the gap quads as it crosses (`web/hex-crawler.md`).
+The bundle contains four interactive pages over the same geometry, plus the static `guide.html`: `index.html`, a three.js viewer of the welded 7-mesh cluster; `hex-units.html`, a Babylon.js demo where units pathfind across the grid (`web/hex-units.md`); `hex-crawler.html`, a Phaser board where a character with no sprite *is* the fill, creeping hex to hex and lighting the gap quads as it crosses (`web/hex-crawler.md`); and `hex-stream.html`, a three.js treadmill of seven streaming chunks around a moving camera.
 
 To build the whole preview page (SVGs + v1 JSON + wasm pkg + HTML) locally, use the root Makefile target:
 

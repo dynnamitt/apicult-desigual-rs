@@ -2,7 +2,8 @@
 """Generates docs/guide.html: fills the {{name}} slots of guide.tmpl.html with
 inline SVG figures computed from the same rules as the Rust crate (hexx 0.24's
 flat-top layout and direction tables, quad_corner_indices, the even-edge and
-canonical-vertex ownership rules, the entangled bridging rule).
+corner-0/1 junction ownership rules, the entangled bridging rule, and
+HGridLayout::for_chunk's owned/seam split).
 
     python3 docs/guide/gen.py                       # writes docs/guide.html
     python3 docs/guide/gen.py --logo docs/logo.svg  # also writes the stand-alone logo
@@ -54,10 +55,13 @@ def poly(v, l, cls, extra=""): return f'<polygon class="{cls}" points="{v.pts(l)
 def hexpoly(v, q, r, ratio, cls): return poly(v, [corner(q, r, i, ratio) for i in range(6)], cls)
 def text(x, y, t, cls="lbl", anchor="middle"): return f'<text class="{cls}" x="{x:.1f}" y="{y:.1f}" text-anchor="{anchor}">{t}</text>'
 def line(a, b, cls): return f'<line class="{cls}" x1="{a[0]:.1f}" y1="{a[1]:.1f}" x2="{b[0]:.1f}" y2="{b[1]:.1f}"/>'
+FIG_IDS = iter(range(1, 100))
 def fig(svg_body, w, h, label, cap, wide=False):
+    # One arrow marker per figure: a shared id would resolve to the copy inside a collapsed <details> and not draw.
+    mid = f"arr{next(FIG_IDS)}"
     return f'''<figure{' class="wide"' if wide else ''}><div class="svgwrap"><svg viewBox="0 0 {w} {h}" role="img" aria-label="{label}">
-<defs><marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="currentColor"/></marker></defs>
-{svg_body}</svg></div><figcaption>{cap}</figcaption></figure>'''
+<defs><marker id="{mid}" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="currentColor"/></marker></defs>
+{svg_body.replace("url(#arr)", f"url(#{mid})")}</svg></div><figcaption>{cap}</figcaption></figure>'''
 
 def quad_pts(q, r, e, ratio):
     v0, v1, n0, n1 = QCI[e]; dq, dr = EDGE[e]
@@ -177,7 +181,7 @@ sp = v2.p(center(0, 0)); b.append(text(sp[0], sp[1]+4, "owner", "lbl"))
 sp = v2.p(center(1, 0)); b.append(text(sp[0], sp[1]+4, "neighbour", "lbl"))
 b.append(text(560, 430, "quad_corner_indices(0) = (0, 1, 4, 3)", "lbl mono"))
 figs["f5"] = fig("\n".join(b), 760, 450, "Hex corner and edge indices; each hex owns even edges and vertices 0 and 1",
-  "Left: the flat-top hex at <code>(0,0)</code> with corner indices 0–5 (<code>VertexDirection</code>) and edge indices e0–e5 (<code>EdgeDirection</code>, labelled with the neighbour each edge faces). Thick edges e0, e2, e4 are the ones it owns. The two larger dots are its owned junction corners, 0 and 1. Right: <code>quad_corner_indices(0)</code> pairs owner corners 0 and 1 with neighbour corners 4 and 3. The dashed line is the <code>a–c</code> diagonal the quad is split along. Drawn with x to the right and z up.", wide=True)
+  "Left: the flat-top hex at <code>(0,0)</code> with corner indices 0–5 (<code>VertexDirection</code>) and edge indices e0–e5 (<code>EdgeDirection</code>, labelled with the neighbour each edge faces). Thick edges e0, e2, e4 are the ones it owns. The two larger dots are its owned junction corners, 0 and 1. Right: <code>quad_corner_indices(0)</code> pairs owner corners 0 and 1 with neighbour corners 4 and 3. The dashed line is the <code>v0–n1</code> diagonal the quad is split along. Drawn with x to the right and z up.", wide=True)
 
 # ---- F6 gap_filler r=2 grid
 def ownership_svg(v, cells, ratio, cls_face="face"):
@@ -290,7 +294,7 @@ b.append(text(pc[0]+12, pc[1]+16, "centre (5,−2)", "lbl mono tiny", "start"))
 b.append(text(pl[0]-30, pl[1]-22, "(−1,2)", "lbl mono", "end"))
 b.append(text(p0[0], p0[1]+18, "(0,0)", "lbl mono tiny"))
 figs["f13"] = fig("\n".join(b), 560, 380, "to_local gives a cell's offset from its chunk centre; wrap_in_range is the same map",
-  "Cell <code>h = (4,0)</code> (blue) is in chunk (1,0), whose centre is <code>(5,−2)</code>. <code>to_local(h, 2)</code> = <code>h − to_higher_res(to_lower_res(h, 2), 2)</code> = <code>(−1,2)</code>. That offset is the same for every chunk, so it can index a cell's slot in a fixed 19-cell layout. Read from the origin instead, the same offset is the amber cell. That is <code>wrap_in_range(2)</code>: it folds the whole plane onto one radius-2 hexagon, which gives a wraparound world.")
+  "Cell <code>h = (4,0)</code> (blue) is in chunk (1,0), whose centre is <code>(5,−2)</code>. <code>to_local(h, 2)</code> = <code>h − to_higher_res(to_lower_res(h, 2), 2)</code> = <code>(−1,2)</code>. Read from the origin instead, the same offset is the amber cell. That is <code>wrap_in_range(2)</code>: it folds the whole plane onto one radius-2 hexagon.")
 
 # ---- F10g: one layout with its outer ring entangled (guide)
 b = []
@@ -316,7 +320,53 @@ for q, r in ring:
         pts, co = junc_pts(q, r, vi, R)
         if all(c in full for c in co) and any(c in so for c in co): b.append(poly(v, pts, "junc"))
 figs["f10g"] = fig("\n".join(b), 500, 490, "A radius 3 layout with its outer ring entangled: all_tris(false) closes the outline of the inner cells",
-  "<code>HGridLayout::new</code> with <code>radius: 3</code> and every cell of ring 3 in <code>entangle</code>. <code>all_tris(false)</code> draws the 19 inner faces (solid) and every gap touching an inner cell, whichever cell owns it. It skips the entangled cells' faces (dashed) and the gaps between two entangled cells. Ownership doesn't matter for the outline: it is closed on all six sides. Counted on <code>main</code>: 312 triangles, the same as 19 faces plus every gap touching them.")
+  "<code>HGridLayout::new</code> with <code>radius: 3</code> and every cell of ring 3 in <code>entangle</code>. <code>all_tris(false)</code> draws the 19 inner faces (solid) and every gap touching an inner cell, whichever cell owns it. It skips the entangled cells' faces (dashed) and the gaps between two entangled cells. Ownership doesn't matter for the outline: it is closed on all six sides. That makes 312 triangles in total, the same as 19 faces plus every gap touching them. <code>HGridLayout::for_chunk(g, (0,0), 2)</code> builds exactly this layout, and <code>for_chunk_all_tris_counts</code> pins the 312.")
+
+# ---- F14: one chunk's owned stream and seam groups (HGridLayout::for_chunk + NoiseWorld::chunk)
+b = []
+v = View(36, 250, 243)
+R = 0.74; CR = 2
+own = [(q, r) for q in range(-CR, CR+1) for r in range(-CR, CR+1) if dist(q, r) <= CR]
+ring = [(q, r) for q in range(-CR-1, CR+2) for r in range(-CR-1, CR+2) if dist(q, r) == CR+1]
+so, full = set(own), set(own) | set(ring)
+owner = {h: to_lower_res(*h, CR) for h in ring}
+tint = {h: (cq - cr) % 3 for h, (cq, cr) in owner.items()}
+assert all(to_lower_res(*h, CR) == (0, 0) for h in own) and 0 not in tint.values()
+for h in ring: b.append(hexpoly(v, *h, R, f"face entring t{tint[h]}"))
+for h in own: b.append(hexpoly(v, *h, R, "face"))
+n_owned = 6 * len(own)
+for q, r in own:  # owned_tris_into(cell, false) for own cells: neighbours may be ring cells
+    for e in (0, 2, 4):
+        dq, dr = EDGE[e]
+        if (q+dq, r+dr) in full: b.append(poly(v, quad_pts(q, r, e, R), "quad")); n_owned += 2
+    for vi in (0, 1):
+        pts, co = junc_pts(q, r, vi, R)
+        if all(c in full for c in co): b.append(poly(v, pts, "junc")); n_owned += 1
+groups = {}
+for h in ring:  # seams: ring cells' owned_tris_into(cell, false); faces and ring–ring quads are entangled
+    q, r = h
+    for e in (0, 2, 4):
+        dq, dr = EDGE[e]
+        if (q+dq, r+dr) in so:
+            b.append(poly(v, quad_pts(q, r, e, R), f"seam t{tint[h]}")); groups[owner[h]] = groups.get(owner[h], 0) + 2
+    for vi in (0, 1):
+        pts, co = junc_pts(q, r, vi, R)
+        if all(c in full for c in co):
+            assert any(c in so for c in co)
+            b.append(poly(v, pts, f"seam t{tint[h]}")); groups[owner[h]] = groups.get(owner[h], 0) + 1
+n_seam = sum(groups.values())
+# layout::tests::CHUNK_TRI_COUNTS pins for_chunk(_, _, 2).all_tris(false) at 312 = owned + every seam group.
+# Per-group counts as NoiseWorld::chunk(Hex::ZERO) returns them (checked through WasmChunkWorld(2, …).chunk(0, 0)).
+assert n_owned + n_seam == 312 and n_owned == 266 and groups == {(0, 1): 6, (-1, 1): 7, (-1, 0): 12, (0, -1): 9, (1, -1): 8, (1, 0): 4}, (n_owned, groups)
+for o in groups:
+    cells_o = [center(*h) for h in ring if owner[h] == o]
+    mx, mz = (sum(c[0] for c in cells_o) / len(cells_o) * 1.32, sum(c[1] for c in cells_o) / len(cells_o) * 1.32)
+    sp = v.p((mx, mz)); b.append(text(sp[0], sp[1]+4, f"({o[0]},{o[1]})".replace("-", "−"), "lbl mono"))
+figs["f14"] = fig("\n".join(b), 500, 490, "Chunk (0,0) of radius 2: its owned stream, and seam groups tinted by the neighbour chunk that owns them",
+  f"Chunk <code>(0,0)</code> with <code>chunk_radius = 2</code>. <code>for_chunk</code> adds ring 3 (dashed), tinted by the neighbour chunk each ring cell belongs to, labelled outside. "
+  f"<strong>Owned</strong>, solid: the 19 faces and every gap an own cell owns, {n_owned} triangles. "
+  f"<strong>Seams</strong>, dashed and tinted: the gaps ring cells own that touch the chunk, {n_seam} triangles in {len(groups)} groups, one per neighbour chunk. "
+  f"Together they make the same 312 triangles as the figure in section 4. Once a neighbour is loaded, its owned stream draws the same triangles, so its seam group is hidden.")
 
 tmpl = args.template.read_text()
 for k, svg in figs.items(): tmpl = tmpl.replace("{{" + k + "}}", svg)
