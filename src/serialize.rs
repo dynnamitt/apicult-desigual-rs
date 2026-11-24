@@ -49,7 +49,7 @@ struct SvgFrame {
 }
 
 fn collect_frame(layout: &HGridLayout, pad: f32) -> SvgFrame {
-    let hexes: Vec<Hex> = shapes::hexagon(Hex::ZERO, layout.grid_radius()).collect();
+    let hexes: Vec<Hex> = shapes::hexagon(layout.center(), layout.grid_radius()).collect();
     let mut min_x = f32::MAX;
     let mut max_x = f32::MIN;
     let mut min_z = f32::MAX;

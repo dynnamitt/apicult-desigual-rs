@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>chunk treadmill — apicult-desigual</title>
+<link rel="stylesheet" href="demo.css">
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+  }
+}
+</script>
+</head>
+<body>
+  <header class="topbar">
+    <h1><span class="accent">apicult-desigual</span> &middot; chunk treadmill</h1>
+    <p class="meta">
+      <a href="https://github.com/dynnamitt/apicult-desigual-rs">dynnamitt/apicult-desigual-rs</a>
+      <span class="sep">/</span>
+      <span id="sha">__SHA__</span>
+      <span class="sep">/</span>
+      <a href="index.html">welded terrain</a>
+      <span class="sep">/</span>
+      <a href="hex-units.html">hex units</a>
+      <span class="sep">/</span>
+      <a href="hex-crawler.html">hex crawler</a>
+      <span class="sep">/</span>
+      <a href="svg-preview.html">grid preview</a>
+    </p>
+  </header>
+
+  <main>
+    <div class="stage-wrap">
+      <canvas id="stage"></canvas>
+      <p class="stats" id="stats">loading…</p>
+    </div>
+
+    <aside class="controls" aria-label="treadmill controls">
+      <fieldset>
+        <legend>world</legend>
+        <label class="row"><span>chunk radius</span>
+          <input id="ctl-chunk-radius" type="number" min="0" max="6" step="1" value="__STREAM_CHUNK_RADIUS__">
+        </label>
+        <label class="row"><span>seed</span>
+          <input id="ctl-seed" type="text" inputmode="numeric" placeholder="random">
+        </label>
+        <div class="button-row">
+          <button id="btn-apply" type="button" class="primary">apply</button>
+          <button id="btn-regen" type="button">re-roll</button>
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>motion</legend>
+        <label class="row"><span>speed</span>
+          <input id="ctl-speed" type="number" min="0" max="60" step="1" value="10">
+        </label>
+        <label class="row"><span>direction</span>
+          <select id="ctl-direction">
+            <option value="0">+q</option>
+            <option value="1">+q −r</option>
+            <option value="2">−r</option>
+            <option value="3">−q</option>
+            <option value="4">−q +r</option>
+            <option value="5">+r</option>
+          </select>
+        </label>
+      </fieldset>
+
+      <fieldset>
+        <legend>view</legend>
+        <div class="toggle-grid">
+          <button id="btn-tint" type="button" class="on">tint chunks</button>
+          <button id="btn-seams" type="button">highlight seams</button>
+        </div>
+      </fieldset>
+    </aside>
+  </main>
+
+  <p class="hint">
+    drag to orbit
+    <span class="sep">·</span>
+    scroll to zoom
+    <span class="sep">·</span>
+    speed 0 pauses
+  </p>
+
+<script type="module">
+import init, { WasmChunkWorld } from './pkg/apicult_desigual.js';
+import { mount } from './hex-stream-scene.js';
+import { bindControls, readSettingsFromDOM, STREAM_SCHEMA } from './hex-controls.js';
+
+await init();
+
+const stageEl    = document.getElementById('stage');
+const statsEl    = document.getElementById('stats');
+const controlsEl = document.querySelector('.controls');
+
+const initialSettings = readSettingsFromDOM(controlsEl, STREAM_SCHEMA);
+const api = mount(stageEl, statsEl, { initialSettings, WasmChunkWorld });
+
+bindControls(controlsEl, {
+  initialSettings,
+  schema:   STREAM_SCHEMA,
+  onApply:  (s) => api.regenerate(s),
+  onLive:   (s) => api.updateLive(s),
+  onToggle: (k, on) => api.setToggle(k, on),
+});
+</script>
+</body>
+</html>

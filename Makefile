@@ -6,6 +6,8 @@ UNITS_RADIUS ?= 4
 # The crawler animates one cell at a time, so a smaller board reads better and
 # keeps each hex big enough to see the fan step.
 CRAWLER_RADIUS ?= 3
+# Rings of cells per chunk on the chunk treadmill page.
+STREAM_CHUNK_RADIUS ?= 3
 PAD ?= 0.6
 SHORT_SHA ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo local)
 
@@ -24,6 +26,8 @@ RENDER_TERRAIN = sed -e "s|__SHA__|$(SHORT_SHA)|g" -e "s|__RADIUS__|$(RADIUS)|g"
 RENDER_UNITS = sed -e "s|__SHA__|$(SHORT_SHA)|g" -e "s|__UNITS_RADIUS__|$(UNITS_RADIUS)|g" $(1) > $(2)
 # $(call RENDER_CRAWLER,<src>,<dst>) — same, with the crawler's own radius
 RENDER_CRAWLER = sed -e "s|__SHA__|$(SHORT_SHA)|g" -e "s|__CRAWLER_RADIUS__|$(CRAWLER_RADIUS)|g" $(1) > $(2)
+# $(call RENDER_STREAM,<src>,<dst>) — same, with the treadmill's chunk radius
+RENDER_STREAM = sed -e "s|__SHA__|$(SHORT_SHA)|g" -e "s|__STREAM_CHUNK_RADIUS__|$(STREAM_CHUNK_RADIUS)|g" $(1) > $(2)
 # $(call ENSURE,<cmd>,<install-recipe>) — short-circuit if <cmd> is on PATH;
 # otherwise print a notice and run <install-recipe> to install it. Use as the
 # first `@`-prefixed line of a recipe (each recipe line runs in its own shell).
@@ -36,6 +40,8 @@ TERRAIN_WEB  = web/hex-terrain.js web/hex-terrain-scene.js web/hex-terrain-shade
 UNITS_WEB    = web/hex-units-scene.js web/hex-units-grid.js
 # The crawler routes with the units page's graph, so it ships that module too.
 CRAWLER_WEB  = web/hex-crawler-scene.js web/hex-crawler-board.js web/hex-crawler-walk.js web/hex-units-grid.js
+# The treadmill welds meshes with the terrain page's `weldedMesh`, so it ships that module too.
+STREAM_WEB   = web/hex-stream-scene.js web/hex-stream.js web/hex-terrain.js
 
 build:
 	cargo build
@@ -82,10 +88,14 @@ crawler-html: prep
 	$(call RENDER_CRAWLER,web/hex-crawler.html,$(OUT)/hex-crawler.html)
 	cp $(COMMON_WEB) $(CRAWLER_WEB) $(OUT)/
 
+stream-html: prep
+	$(call RENDER_STREAM,web/hex-stream.html,$(OUT)/hex-stream.html)
+	cp $(COMMON_WEB) $(STREAM_WEB) $(OUT)/
+
 serve: preview
 	cd $(OUT); python3 -m http.server
 
-preview: svg-plain svg-rich json-v1 wasm preview-html terrain-html units-html crawler-html
-	@echo "preview built in $(OUT)/ (seed=$(HSEED), radius=$(RADIUS), units_radius=$(UNITS_RADIUS), crawler_radius=$(CRAWLER_RADIUS))"
+preview: svg-plain svg-rich json-v1 wasm preview-html terrain-html units-html crawler-html stream-html
+	@echo "preview built in $(OUT)/ (seed=$(HSEED), radius=$(RADIUS), units_radius=$(UNITS_RADIUS), crawler_radius=$(CRAWLER_RADIUS), stream_chunk_radius=$(STREAM_CHUNK_RADIUS))"
 
-.PHONY: build test test-js prep svg-plain svg-rich json-v1 wasm preview-html terrain-html units-html crawler-html preview serve
+.PHONY: build test test-js prep svg-plain svg-rich json-v1 wasm preview-html terrain-html units-html crawler-html stream-html preview serve

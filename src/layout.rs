@@ -83,6 +83,7 @@ pub struct GapQuad {
 pub struct HGridLayout {
     layout: HexLayout,
     unit_corners: [Vec2; 6],
+    center: Hex,
     grid_radius: u32,
     cells: HexagonalMap<HexCell>,
 }
@@ -103,6 +104,38 @@ impl HGridLayout {
     /// `overrides` replaces noise-derived values at specific hexes (post-sample).
     /// `entangle` marks the listed hexes as entangled (out-of-grid hexes ignored).
     pub fn new(g: &HGridSettings, overrides: &[Override], entangle: &[Hex]) -> Self {
+        Self::build(g, Hex::ZERO, g.radius, overrides, entangle)
+    }
+
+    /// Builds chunk `coord`: the radius-`chunk_radius` hexagon of cells with
+    /// `hex.to_lower_res(chunk_radius) == coord`, centred on
+    /// `coord.to_higher_res(chunk_radius)`, plus one entangled ring at
+    /// `chunk_radius + 1`. The ring cells belong to neighbour chunks: they are
+    /// read-only, so their faces are never drawn, and they only exist so every
+    /// gap touching a chunk cell can be built. Noise is sampled at world
+    /// positions, so a chunk built alone matches its neighbours exactly.
+    ///
+    /// `to_lower_res` divides in `f32`, so cells past roughly
+    /// `16.7M / (3·chunk_radius + 2)` cells from the origin can land in the
+    /// wrong chunk.
+    ///
+    /// @param g — seeds and noise parameters; `g.radius` is ignored.
+    /// @param coord — the chunk's coordinate on the chunk lattice.
+    /// @param chunk_radius — rings of cells per chunk; the same for every chunk of a world.
+    /// @returns a layout of radius `chunk_radius + 1` around the chunk centre.
+    pub fn for_chunk(g: &HGridSettings, coord: Hex, chunk_radius: u32) -> Self {
+        let center = coord.to_higher_res(chunk_radius);
+        let ring: Vec<Hex> = center.ring(chunk_radius + 1).collect();
+        Self::build(g, center, chunk_radius + 1, &[], &ring)
+    }
+
+    fn build(
+        g: &HGridSettings,
+        center: Hex,
+        radius: u32,
+        overrides: &[Override],
+        entangle: &[Hex],
+    ) -> Self {
         let layout = HexLayout {
             scale: Vec2::splat(g.nominal_hex_radius),
             ..HexLayout::default()
@@ -122,7 +155,7 @@ impl HGridLayout {
         let radius_lo = g.nominal_hex_radius * g.min_radius_ratio;
         let radius_hi = g.nominal_hex_radius * g.max_radius_ratio;
 
-        let mut cells = HexagonalMap::new(Hex::ZERO, g.radius, |hex| {
+        let mut cells = HexagonalMap::new(center, radius, |hex| {
             let pos = layout.hex_to_world_pos(hex);
             let h_noise = height_fbm.get([
                 pos.x as f64 / g.height_noise_scale,
@@ -158,7 +191,8 @@ impl HGridLayout {
         Self {
             layout,
             unit_corners,
-            grid_radius: g.radius,
+            center,
+            grid_radius: radius,
             cells,
         }
     }
@@ -186,7 +220,7 @@ impl HGridLayout {
     /// cells, same iteration as [`borderline_cells`]). Idempotent; calling
     /// for adjacent sides simply re-marks the shared corner cells.
     pub fn entangle_borderline(&mut self, direction: VertexDirection) {
-        for hex in Hex::ZERO.ring_edge(self.grid_radius, direction) {
+        for hex in self.center.ring_edge(self.grid_radius, direction) {
             if let Some(cell) = self.cells.get_mut(hex) {
                 cell.entangled = true;
             }
@@ -202,7 +236,7 @@ impl HGridLayout {
         &self,
         direction: VertexDirection,
     ) -> impl ExactSizeIterator<Item = &HexCell> + '_ {
-        Hex::ZERO
+        self.center
             .ring_edge(self.grid_radius, direction)
             .map(move |h| {
                 self.cells
@@ -237,7 +271,7 @@ impl HGridLayout {
     /// when the hex radius is much larger than the gap padding.
     pub fn quad_bridge_edges(&self) -> Vec<(Vec3, Vec3)> {
         let mut edges = Vec::new();
-        for hex in shapes::hexagon(Hex::ZERO, self.grid_radius) {
+        for hex in shapes::hexagon(self.center, self.grid_radius) {
             for edge_index in [0u8, 2, 4] {
                 let dir = EdgeDirection::ALL_DIRECTIONS[edge_index as usize];
                 let neighbor = hex.neighbor(dir);
@@ -265,7 +299,7 @@ impl HGridLayout {
     /// [`quad_bridge_edges`].
     pub fn gap_quads(&self) -> Vec<GapQuad> {
         let mut quads = Vec::new();
-        for hex in shapes::hexagon(Hex::ZERO, self.grid_radius) {
+        for hex in shapes::hexagon(self.center, self.grid_radius) {
             for edge_index in [0u8, 2, 4] {
                 let dir = EdgeDirection::ALL_DIRECTIONS[edge_index as usize];
                 let neighbor = hex.neighbor(dir);
@@ -298,7 +332,7 @@ impl HGridLayout {
     /// earcut needed for the flat-top case.
     pub fn hex_face_tris(&self, entangled: bool) -> Vec<[Vec3; 3]> {
         let mut tris = Vec::new();
-        for hex in shapes::hexagon(Hex::ZERO, self.grid_radius) {
+        for hex in shapes::hexagon(self.center, self.grid_radius) {
             let Some(cell) = self.cells.get(hex) else {
                 continue;
             };
@@ -339,7 +373,7 @@ impl HGridLayout {
     /// always recover its bridge geometry.
     pub fn hex_face_bridge_quads(&self, entangled: bool) -> Vec<[Option<[Vec3; 4]>; 6]> {
         let mut out = Vec::new();
-        for hex in shapes::hexagon(Hex::ZERO, self.grid_radius) {
+        for hex in shapes::hexagon(self.center, self.grid_radius) {
             let Some(cell) = self.cells.get(hex) else {
                 continue;
             };
@@ -390,92 +424,121 @@ impl HGridLayout {
     /// rule). All tessellation decisions owned here so clients consume one
     /// flat list with no per-source branching.
     ///
-    /// Single-pass: per hex we prefetch `(cell, world_center, six_world_corners)`
-    /// once, then emit face fan + gap quads + junction tris from the cached data.
-    /// Gap quads are split along the canonical `[v0, v2]` diagonal (`[a,b,c]`
-    /// then `[a,c,d]`), winding identical to `gap_quad_tris`.
+    /// The concatenation of [`HGridLayout::owned_tris_into`] over every cell
+    /// in `shapes::hexagon` order. Gap quads are split along the canonical
+    /// `[v0, v2]` diagonal (`[a,b,c]` then `[a,c,d]`), winding identical to
+    /// `gap_quad_tris`.
     pub fn all_tris(&self, entangled: bool) -> Vec<[Vec3; 3]> {
-        let mut out: Vec<[Vec3; 3]> = Vec::new();
-        for hex in shapes::hexagon(Hex::ZERO, self.grid_radius) {
-            let Some(&cell) = self.cells.get(hex) else {
+        shapes::hexagon(self.center, self.grid_radius).fold(Vec::new(), |mut out, hex| {
+            self.owned_tris_into(hex, entangled, &mut out);
+            out
+        })
+    }
+
+    /// Appends the triangles `hex` owns to `out` — the per-cell body of
+    /// [`HGridLayout::all_tris`], with the same `entangled` filter.
+    ///
+    /// A cell owns its face fan (when `cell.entangled == entangled`), the gap
+    /// quads on its even edges `[0, 2, 4]` whose neighbor is in-grid and whose
+    /// entanglement (both cells entangled) matches, and — only when
+    /// `entangled = false` — the junction tris at its corners `[0, 1]` where it
+    /// is `GridVertex::coordinates()[0]` and all three cells are in-grid.
+    ///
+    /// @param hex — the owning cell; an off-grid hex appends nothing.
+    /// @param entangled — which half of the stream to emit (see `all_tris`).
+    /// @param out — triangles are appended here.
+    /// @returns `(face_tris, quad_tris, junction_tris)` appended.
+    pub fn owned_tris_into(
+        &self,
+        hex: Hex,
+        entangled: bool,
+        out: &mut Vec<[Vec3; 3]>,
+    ) -> (usize, usize, usize) {
+        let Some(&cell) = self.cells.get(hex) else {
+            return (0, 0, 0);
+        };
+        let start = out.len();
+        let center2 = self.layout.hex_to_world_pos(hex);
+        let height = cell.height;
+        let radius = cell.radius;
+        let corners: [Vec3; 6] = std::array::from_fn(|i| {
+            let off = self.unit_corners[i] * radius;
+            Vec3::new(center2.x + off.x, height, center2.y + off.y)
+        });
+
+        if cell.entangled == entangled {
+            let center = Vec3::new(center2.x, height, center2.y);
+            for i in 0..6usize {
+                let j = (i + 1) % 6;
+                out.push([center, corners[i], corners[j]]);
+            }
+        }
+        let after_faces = out.len();
+
+        for edge_index in [0u8, 2, 4] {
+            let dir = EdgeDirection::ALL_DIRECTIONS[edge_index as usize];
+            let neighbor = hex.neighbor(dir);
+            let Some(&nb_cell) = self.cells.get(neighbor) else {
                 continue;
             };
-            let center2 = self.layout.hex_to_world_pos(hex);
-            let height = cell.height;
-            let radius = cell.radius;
-            let corners: [Vec3; 6] = std::array::from_fn(|i| {
-                let off = self.unit_corners[i] * radius;
-                Vec3::new(center2.x + off.x, height, center2.y + off.y)
-            });
-
-            if cell.entangled == entangled {
-                let center = Vec3::new(center2.x, height, center2.y);
-                for i in 0..6usize {
-                    let j = (i + 1) % 6;
-                    out.push([center, corners[i], corners[j]]);
-                }
+            if (cell.entangled && nb_cell.entangled) != entangled {
+                continue;
             }
+            let (v0_idx, v1_idx, n0_idx, n1_idx) = math::quad_corner_indices(edge_index);
+            let nb_center2 = self.layout.hex_to_world_pos(neighbor);
+            let nb_height = nb_cell.height;
+            let nb_radius = nb_cell.radius;
+            let nb_corner = |i: u8| {
+                let off = self.unit_corners[i as usize] * nb_radius;
+                Vec3::new(nb_center2.x + off.x, nb_height, nb_center2.y + off.y)
+            };
+            let a = corners[v0_idx as usize];
+            let b = nb_corner(n0_idx);
+            let c = nb_corner(n1_idx);
+            let d = corners[v1_idx as usize];
+            out.push([a, b, c]);
+            out.push([a, c, d]);
+        }
+        let after_quads = out.len();
 
-            for edge_index in [0u8, 2, 4] {
-                let dir = EdgeDirection::ALL_DIRECTIONS[edge_index as usize];
-                let neighbor = hex.neighbor(dir);
-                let Some(&nb_cell) = self.cells.get(neighbor) else {
-                    continue;
+        if !entangled {
+            for v_idx in [0u8, 1] {
+                let dir = VertexDirection::ALL_DIRECTIONS[v_idx as usize];
+                let gv = GridVertex {
+                    origin: hex,
+                    direction: dir,
                 };
-                if (cell.entangled && nb_cell.entangled) != entangled {
+                let coords = gv.coordinates();
+                if coords[0] != hex {
                     continue;
                 }
-                let (v0_idx, v1_idx, n0_idx, n1_idx) = math::quad_corner_indices(edge_index);
-                let nb_center2 = self.layout.hex_to_world_pos(neighbor);
-                let nb_height = nb_cell.height;
-                let nb_radius = nb_cell.radius;
-                let nb_corner = |i: u8| {
-                    let off = self.unit_corners[i as usize] * nb_radius;
-                    Vec3::new(nb_center2.x + off.x, nb_height, nb_center2.y + off.y)
-                };
-                let a = corners[v0_idx as usize];
-                let b = nb_corner(n0_idx);
-                let c = nb_corner(n1_idx);
-                let d = corners[v1_idx as usize];
-                out.push([a, b, c]);
-                out.push([a, c, d]);
-            }
-
-            if !entangled {
-                for v_idx in [0u8, 1] {
-                    let dir = VertexDirection::ALL_DIRECTIONS[v_idx as usize];
-                    let gv = GridVertex {
-                        origin: hex,
-                        direction: dir,
-                    };
-                    let coords = gv.coordinates();
-                    if coords[0] != hex {
-                        continue;
-                    }
-                    if !coords.iter().all(|c| self.cells.get(*c).is_some()) {
-                        continue;
-                    }
-                    if let (Some(i1), Some(i2)) = (
-                        corner_index_for_vertex(coords[1], &gv),
-                        corner_index_for_vertex(coords[2], &gv),
-                    ) && let (Some(v1), Some(v2)) = (
-                        self.vertex(coords[1], i1),
-                        self.vertex(coords[2], i2),
-                    ) {
-                        let v0 = corners[v_idx as usize];
-                        out.push([v0, v1, v2]);
-                    }
+                if !coords.iter().all(|c| self.cells.get(*c).is_some()) {
+                    continue;
+                }
+                if let (Some(i1), Some(i2)) = (
+                    corner_index_for_vertex(coords[1], &gv),
+                    corner_index_for_vertex(coords[2], &gv),
+                ) && let (Some(v1), Some(v2)) =
+                    (self.vertex(coords[1], i1), self.vertex(coords[2], i2))
+                {
+                    let v0 = corners[v_idx as usize];
+                    out.push([v0, v1, v2]);
                 }
             }
         }
-        out
+
+        (
+            after_faces - start,
+            after_quads - after_faces,
+            out.len() - after_quads,
+        )
     }
 
     /// Returns the three world-space corners of every 3-hex junction gap tri.
     /// Canonical ownership: tri emitted only when the origin hex is `coordinates()[0]`.
     pub fn gap_tris(&self) -> Vec<[Vec3; 3]> {
         let mut tris = Vec::new();
-        for hex in shapes::hexagon(Hex::ZERO, self.grid_radius) {
+        for hex in shapes::hexagon(self.center, self.grid_radius) {
             for v_idx in [0u8, 1] {
                 let dir = VertexDirection::ALL_DIRECTIONS[v_idx as usize];
                 let gv = GridVertex {
@@ -505,7 +568,13 @@ impl HGridLayout {
         tris
     }
 
-    /// Grid radius (number of hex rings around the origin).
+    /// Centre hex of the grid — `Hex::ZERO` for [`HGridLayout::new`], the chunk
+    /// centre for [`HGridLayout::for_chunk`].
+    pub fn center(&self) -> Hex {
+        self.center
+    }
+
+    /// Grid radius (number of hex rings around the centre).
     pub fn grid_radius(&self) -> u32 {
         self.grid_radius
     }
@@ -541,8 +610,121 @@ fn corner_index_for_vertex(hex: Hex, target: &GridVertex) -> Option<u8> {
 mod tests {
     use super::*;
 
+    const GOLDEN_RADIUS: u32 = 4;
+    const ALL_TRIS_GOLDEN: u64 = 2_807_960_220_995_250_556;
+    const FNV_OFFSET: u64 = 0xcbf2_9ce4_8422_2325;
+    const FNV_PRIME: u64 = 0x0100_0000_01b3;
+
     fn default_settings() -> HGridSettings {
         HGridSettings::default()
+    }
+
+    /// 64-bit FNV-1a over the `f32` bit patterns of every vertex coordinate.
+    fn fnv1a_tris(tris: &[[Vec3; 3]]) -> u64 {
+        tris.iter()
+            .flat_map(|t| t.iter().flat_map(|v| [v.x, v.y, v.z]))
+            .fold(FNV_OFFSET, |h, f| {
+                (h ^ u64::from(f.to_bits())).wrapping_mul(FNV_PRIME)
+            })
+    }
+
+    #[test]
+    fn all_tris_golden_checksum() {
+        // Pins all_tris byte-for-byte. Update the constant only on an intentional geometry change.
+        let g = HGridSettings {
+            radius: GOLDEN_RADIUS,
+            ..default_settings()
+        };
+        let layout = HGridLayout::new(&g, &[], &[Hex::ZERO, Hex::new(1, 0), Hex::new(2, 0)]);
+        let tris: Vec<_> = layout
+            .all_tris(false)
+            .into_iter()
+            .chain(layout.all_tris(true))
+            .collect();
+        assert_eq!(fnv1a_tris(&tris), ALL_TRIS_GOLDEN);
+    }
+
+    const CHUNK_COORDS: [(i32, i32); 5] = [(0, 0), (1, 0), (0, -1), (-3, 2), (4, -7)];
+    const CHUNK_TRI_COUNTS: [(u32, usize); 3] = [(1, 126), (2, 312), (3, 582)];
+
+    #[test]
+    fn chunk_cells_map_back_to_coord() {
+        for r in 0..=3u32 {
+            for (q, s) in CHUNK_COORDS {
+                let coord = Hex::new(q, s);
+                let layout = HGridLayout::for_chunk(&default_settings(), coord, r);
+                let center = layout.center();
+                assert_eq!(center, coord.to_higher_res(r), "r {r}, {coord:?}");
+                assert_eq!(layout.grid_radius(), r + 1);
+                for h in shapes::hexagon(center, r) {
+                    assert_eq!(h.to_lower_res(r), coord, "r {r}: {h:?} outside {coord:?}");
+                    assert!(!layout.cell(&h).unwrap().entangled, "r {r}: {h:?} entangled");
+                }
+                for h in center.ring(r + 1) {
+                    assert!(layout.cell(&h).unwrap().entangled, "r {r}: ring {h:?} not entangled");
+                    assert_ne!(h.to_lower_res(r), coord, "r {r}: ring {h:?} inside {coord:?}");
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn for_chunk_all_tris_counts() {
+        for coord in [Hex::ZERO, Hex::new(-3, 2)] {
+            for (r, n) in CHUNK_TRI_COUNTS {
+                let layout = HGridLayout::for_chunk(&default_settings(), coord, r);
+                assert_eq!(layout.all_tris(false).len(), n, "r {r}, {coord:?}");
+            }
+        }
+    }
+
+    #[test]
+    fn for_chunk_ignores_settings_radius() {
+        let at = |radius| {
+            let g = HGridSettings {
+                radius,
+                ..default_settings()
+            };
+            HGridLayout::for_chunk(&g, Hex::new(1, 0), 2).all_tris(false)
+        };
+        assert_eq!(fnv1a_tris(&at(0)), fnv1a_tris(&at(20)));
+    }
+
+    #[test]
+    fn all_tris_is_concat_of_owned_tris_into() {
+        let g = HGridSettings {
+            radius: 2,
+            ..default_settings()
+        };
+        let layout = HGridLayout::new(&g, &[], &[Hex::ZERO, Hex::new(1, 0)]);
+        for entangled in [false, true] {
+            let concat = shapes::hexagon(Hex::ZERO, 2).fold(Vec::new(), |mut out, hex| {
+                layout.owned_tris_into(hex, entangled, &mut out);
+                out
+            });
+            assert_eq!(concat, layout.all_tris(entangled), "entangled = {entangled}");
+        }
+    }
+
+    #[test]
+    fn owned_tris_into_counts_match_appended() {
+        let g = HGridSettings {
+            radius: 2,
+            ..default_settings()
+        };
+        let layout = HGridLayout::new(&g, &[], &[]);
+        let mut out = Vec::new();
+        for hex in shapes::hexagon(Hex::ZERO, 2) {
+            let before = out.len();
+            let (f, q, j) = layout.owned_tris_into(hex, false, &mut out);
+            assert_eq!(out.len() - before, f + q + j, "{hex:?}");
+            assert!(f == 0 || f == 6, "{hex:?}: face tris {f}");
+            assert!(q % 2 == 0 && q <= 6, "{hex:?}: quad tris {q}");
+            assert!(j <= 2, "{hex:?}: junction tris {j}");
+        }
+        let before = out.len();
+        assert_eq!(layout.owned_tris_into(Hex::new(999, 999), false, &mut out), (0, 0, 0));
+        assert_eq!(out.len(), before);
     }
 
     #[test]
@@ -866,8 +1048,7 @@ mod tests {
         let touching_c: Vec<_> = quads
             .iter()
             .filter(|q| {
-                let any_unentangled = !q.entangled;
-                any_unentangled
+                !q.entangled
             })
             .collect();
         assert!(
