@@ -41,10 +41,9 @@
 * { box-sizing: border-box; }
 body { margin: 0; background: var(--paper); color: var(--ink); font: 16px/1.6 var(--body); }
 main { max-width: 68ch; margin: 0 auto; padding: 48px 20px 96px; }
-h1, h2, h3 { font-family: var(--display); text-wrap: balance; line-height: 1.2; }
+h1, h2 { font-family: var(--display); text-wrap: balance; line-height: 1.2; }
 h1 { font-size: 2.2rem; margin: 0 0 8px; font-weight: 600; }
 h2 { font-size: 1.5rem; margin: 56px 0 8px; padding-top: 16px; border-top: 1px solid var(--rule); font-weight: 600; }
-h3 { font-size: 1.15rem; margin: 36px 0 4px; font-weight: 500; display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; }
 details.fn { border: 1px solid var(--rule); border-radius: 6px; background: var(--card); margin: 10px 0; }
 details.fn > summary { cursor: pointer; list-style: none; display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 12px; padding: 10px 14px; }
 details.fn > summary::-webkit-details-marker { display: none; }
@@ -54,12 +53,11 @@ details.fn > summary:focus-visible { outline: 2px solid var(--quad); outline-off
 details.fn .h3 { font: 500 1.05rem var(--display); display: inline-flex; gap: 10px; align-items: baseline; flex-wrap: wrap; }
 details.fn .gist { color: var(--muted); font-size: 0.9rem; }
 details.fn .fnbody { padding: 0 14px 6px; border-top: 1px solid var(--rule); }
-details.fn .fnbody figure.wide { width: min(calc(100vw - 40px), 880px); }
 .tools { margin: 8px 0; }
 .tools button { font: 500 0.85rem var(--body); color: var(--ink); background: var(--card); border: 1px solid var(--rule); border-radius: 4px; padding: 4px 10px; cursor: pointer; }
 .tools button:focus-visible { outline: 2px solid var(--quad); outline-offset: 2px; }
 @media (prefers-reduced-motion: reduce) { details.fn > summary::before { transition: none; } }
-h3 .lvl, .h3 .lvl { font: 500 0.72rem var(--mono); color: var(--muted); border: 1px solid var(--rule); border-radius: 3px; padding: 1px 6px; }
+.h3 .lvl { font: 500 0.72rem var(--mono); color: var(--muted); border: 1px solid var(--rule); border-radius: 3px; padding: 1px 6px; }
 .sub { color: var(--muted); margin: 0 0 24px; }
 code, .mono { font-family: var(--mono); font-size: 0.88em; }
 pre { font: 0.84rem/1.5 var(--mono); background: var(--card); border: 1px solid var(--rule); border-radius: 6px; padding: 12px 14px; overflow-x: auto; }
@@ -89,7 +87,7 @@ th { font-family: var(--display); font-weight: 500; }
 .lbl.acc { fill: var(--quad); font-weight: 500; }
 .lbl.acc2 { fill: var(--junc); font-weight: 500; }
 .axis { stroke: currentColor; stroke-width: 1.2; fill: none; }
-.axis.dash, .dash { stroke-dasharray: 4 4; }
+.dash { stroke-dasharray: 4 4; }
 .map { stroke: var(--muted); stroke-width: 1; fill: none; }
 .arc { stroke: var(--quad); stroke-width: 1.5; fill: none; color: var(--quad); }
 .edge { stroke: currentColor; stroke-width: 2; fill: none; }

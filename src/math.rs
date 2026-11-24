@@ -44,7 +44,7 @@ pub fn gap_vertex_data(world_verts: &[Vec3], flat: bool) -> (Vec<[f32; 3]>, [f32
 
 /// Count total (quads, tris) for a grid using the same ownership rules
 /// as apicult-desigual generation: quads on even edges \[0,2,4\] where neighbor exists,
-/// tris on vertices \[0,1\] with canonical ownership and all 3 coords in grid.
+/// tris on vertices \[0,1\] with all 3 coords in grid (every lattice vertex is corner 0 or 1 of exactly one of its three hexes).
 pub fn gap_filler(grid: &[Hex]) -> (usize, usize) {
     let set: HashSet<Hex> = grid.iter().copied().collect();
 

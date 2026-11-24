@@ -45,6 +45,9 @@ jobs:
       - name: Test
         run: make test   # cargo tests + the pure-JS node tests
 
+      - name: Guide is up to date
+        run: make guide && git diff --exit-code docs/guide.html   # gen.py is stdlib-only and deterministic
+
       - name: Build preview
         run: make preview SHORT_SHA="${GITHUB_SHA::7}" OUT=deploy
 

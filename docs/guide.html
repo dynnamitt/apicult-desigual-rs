@@ -41,10 +41,9 @@
 * { box-sizing: border-box; }
 body { margin: 0; background: var(--paper); color: var(--ink); font: 16px/1.6 var(--body); }
 main { max-width: 68ch; margin: 0 auto; padding: 48px 20px 96px; }
-h1, h2, h3 { font-family: var(--display); text-wrap: balance; line-height: 1.2; }
+h1, h2 { font-family: var(--display); text-wrap: balance; line-height: 1.2; }
 h1 { font-size: 2.2rem; margin: 0 0 8px; font-weight: 600; }
 h2 { font-size: 1.5rem; margin: 56px 0 8px; padding-top: 16px; border-top: 1px solid var(--rule); font-weight: 600; }
-h3 { font-size: 1.15rem; margin: 36px 0 4px; font-weight: 500; display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; }
 details.fn { border: 1px solid var(--rule); border-radius: 6px; background: var(--card); margin: 10px 0; }
 details.fn > summary { cursor: pointer; list-style: none; display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 12px; padding: 10px 14px; }
 details.fn > summary::-webkit-details-marker { display: none; }
@@ -54,12 +53,11 @@ details.fn > summary:focus-visible { outline: 2px solid var(--quad); outline-off
 details.fn .h3 { font: 500 1.05rem var(--display); display: inline-flex; gap: 10px; align-items: baseline; flex-wrap: wrap; }
 details.fn .gist { color: var(--muted); font-size: 0.9rem; }
 details.fn .fnbody { padding: 0 14px 6px; border-top: 1px solid var(--rule); }
-details.fn .fnbody figure.wide { width: min(calc(100vw - 40px), 880px); }
 .tools { margin: 8px 0; }
 .tools button { font: 500 0.85rem var(--body); color: var(--ink); background: var(--card); border: 1px solid var(--rule); border-radius: 4px; padding: 4px 10px; cursor: pointer; }
 .tools button:focus-visible { outline: 2px solid var(--quad); outline-offset: 2px; }
 @media (prefers-reduced-motion: reduce) { details.fn > summary::before { transition: none; } }
-h3 .lvl, .h3 .lvl { font: 500 0.72rem var(--mono); color: var(--muted); border: 1px solid var(--rule); border-radius: 3px; padding: 1px 6px; }
+.h3 .lvl { font: 500 0.72rem var(--mono); color: var(--muted); border: 1px solid var(--rule); border-radius: 3px; padding: 1px 6px; }
 .sub { color: var(--muted); margin: 0 0 24px; }
 code, .mono { font-family: var(--mono); font-size: 0.88em; }
 pre { font: 0.84rem/1.5 var(--mono); background: var(--card); border: 1px solid var(--rule); border-radius: 6px; padding: 12px 14px; overflow-x: auto; }
@@ -89,7 +87,7 @@ th { font-family: var(--display); font-weight: 500; }
 .lbl.acc { fill: var(--quad); font-weight: 500; }
 .lbl.acc2 { fill: var(--junc); font-weight: 500; }
 .axis { stroke: currentColor; stroke-width: 1.2; fill: none; }
-.axis.dash, .dash { stroke-dasharray: 4 4; }
+.dash { stroke-dasharray: 4 4; }
 .map { stroke: var(--muted); stroke-width: 1; fill: none; }
 .arc { stroke: var(--quad); stroke-width: 1.5; fill: none; color: var(--quad); }
 .edge { stroke: currentColor; stroke-width: 2; fill: none; }
@@ -188,7 +186,7 @@ a:focus-visible { outline: 2px solid var(--quad); outline-offset: 2px; }
 <p>Scale a unit cube by <code>length</code> on X, rotate, then translate.</p>
 <figure><div class="svgwrap"><svg viewBox="0 0 520 260" role="img" aria-label="A unit cuboid along X is rotated, stretched and moved onto an edge">
 <defs><marker id="arr2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="currentColor"/></marker></defs>
-<line class="axis" x1="70" y1="230" x2="160" y2="230" marker-end="url(#arr2)"/>
+<line class="axis" x1="70.0" y1="230.0" x2="160.0" y2="230.0" marker-end="url(#arr2)"/>
 <text class="lbl dim" x="170.0" y="234.0" text-anchor="start">+X</text>
 <polygon class="quad soft" points="207.4,214.2 437.4,94.2 422.6,65.8 192.6,185.8"/>
 <line class="edge" x1="200.0" y1="200.0" x2="430.0" y2="80.0"/>
@@ -225,7 +223,7 @@ a:focus-visible { outline: 2px solid var(--quad); outline-offset: 2px; }
 <text class="lbl dim" x="428.0" y="224.0" text-anchor="start">e1 × e2 (down)</text>
 <line class="edge acc" x1="420.0" y1="158.0" x2="420.0" y2="78.0" marker-end="url(#arr3)"/>
 <text class="lbl acc" x="428.0" y="78.0" text-anchor="start">normal = −(e1 × e2)</text>
-<line class="map" x1="260" y1="150" x2="330" y2="150" marker-end="url(#arr3)"/>
+<line class="map" x1="260.0" y1="150.0" x2="330.0" y2="150.0" marker-end="url(#arr3)"/>
 <text class="lbl mono" x="295.0" y="140.0" text-anchor="middle">− v0</text>
 <text class="lbl dim" x="470.0" y="240.0" text-anchor="middle">origin-local</text></svg></div><figcaption><code>gap_vertex_data(verts, flat)</code>: subtract <code>v0</code> from every vertex, then take the normal from the first two edges. The winding makes the raw cross product point down, so it is negated. With <code>flat = true</code> it skips this and returns <code>+Y</code>, which matches the flat hex faces.</figcaption></figure>
 </div>
@@ -918,42 +916,42 @@ a:focus-visible { outline: 2px solid var(--quad); outline-offset: 2px; }
 <p><code>all_tris(entangled)</code> walks the grid once. For each cell it appends, in a fixed order, exactly what that cell owns under the rules in 1.6:</p>
 <figure><div class="svgwrap"><svg viewBox="0 0 600 500" role="img" aria-label="One cell owns six face triangles, three gap quads and two junction triangles">
 <defs><marker id="arr7" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="currentColor"/></marker></defs>
-<polygon class="face ghost" points="504.2,170.3 471.1,113.0 404.9,113.0 371.8,170.3 404.9,227.7 471.1,227.7" />
-<polygon class="face ghost" points="366.2,90.7 333.1,33.3 266.9,33.3 233.8,90.7 266.9,148.0 333.1,148.0" />
-<polygon class="face ghost" points="228.2,170.3 195.1,113.0 128.9,113.0 95.8,170.3 128.9,227.7 195.1,227.7" />
-<polygon class="face ghost" points="228.2,329.7 195.1,272.3 128.9,272.3 95.8,329.7 128.9,387.0 195.1,387.0" />
-<polygon class="face ghost" points="366.2,409.3 333.1,352.0 266.9,352.0 233.8,409.3 266.9,466.7 333.1,466.7" />
-<polygon class="face ghost" points="504.2,329.7 471.1,272.3 404.9,272.3 371.8,329.7 404.9,387.0 471.1,387.0" />
-<polygon class="quad ghost" points="266.9,148.0 266.9,192.6 333.1,192.6 333.1,148.0" />
-<polygon class="quad ghost" points="228.2,329.7 266.9,307.4 233.8,250.0 195.1,272.3" />
-<polygon class="quad ghost" points="404.9,272.3 366.2,250.0 333.1,307.4 371.8,329.7" />
-<polygon class="face fan" points="300.0,250.0 366.2,250.0 333.1,192.6" />
+<polygon class="face ghost" points="504.2,170.3 471.1,113.0 404.9,113.0 371.8,170.3 404.9,227.7 471.1,227.7"/>
+<polygon class="face ghost" points="366.2,90.7 333.1,33.3 266.9,33.3 233.8,90.7 266.9,148.0 333.1,148.0"/>
+<polygon class="face ghost" points="228.2,170.3 195.1,113.0 128.9,113.0 95.8,170.3 128.9,227.7 195.1,227.7"/>
+<polygon class="face ghost" points="228.2,329.7 195.1,272.3 128.9,272.3 95.8,329.7 128.9,387.0 195.1,387.0"/>
+<polygon class="face ghost" points="366.2,409.3 333.1,352.0 266.9,352.0 233.8,409.3 266.9,466.7 333.1,466.7"/>
+<polygon class="face ghost" points="504.2,329.7 471.1,272.3 404.9,272.3 371.8,329.7 404.9,387.0 471.1,387.0"/>
+<polygon class="quad ghost" points="266.9,148.0 266.9,192.6 333.1,192.6 333.1,148.0"/>
+<polygon class="quad ghost" points="228.2,329.7 266.9,307.4 233.8,250.0 195.1,272.3"/>
+<polygon class="quad ghost" points="404.9,272.3 366.2,250.0 333.1,307.4 371.8,329.7"/>
+<polygon class="face fan" points="300.0,250.0 366.2,250.0 333.1,192.6"/>
+<polygon class="face fan" points="300.0,250.0 333.1,192.6 266.9,192.6"/>
+<polygon class="face fan" points="300.0,250.0 266.9,192.6 233.8,250.0"/>
+<polygon class="face fan" points="300.0,250.0 233.8,250.0 266.9,307.4"/>
+<polygon class="face fan" points="300.0,250.0 266.9,307.4 333.1,307.4"/>
+<polygon class="face fan" points="300.0,250.0 333.1,307.4 366.2,250.0"/>
+<polygon class="quad" points="366.2,250.0 404.9,227.7 371.8,170.3 333.1,192.6"/>
+<line x1="366.2" y1="250.0" x2="371.8" y2="170.3" class="diag"/>
+<polygon class="quad" points="266.9,192.6 228.2,170.3 195.1,227.7 233.8,250.0"/>
+<line x1="266.9" y1="192.6" x2="195.1" y2="227.7" class="diag"/>
+<polygon class="quad" points="266.9,307.4 266.9,352.0 333.1,352.0 333.1,307.4"/>
+<line x1="266.9" y1="307.4" x2="333.1" y2="352.0" class="diag"/>
+<polygon class="junc" points="366.2,250.0 404.9,272.3 404.9,227.7"/>
+<polygon class="junc" points="333.1,192.6 371.8,170.3 333.1,148.0"/>
 <text class="lbl mono" x="333.1" y="234.9" text-anchor="middle">0</text>
-<polygon class="face fan" points="300.0,250.0 333.1,192.6 266.9,192.6" />
 <text class="lbl mono" x="300.0" y="215.8" text-anchor="middle">1</text>
-<polygon class="face fan" points="300.0,250.0 266.9,192.6 233.8,250.0" />
 <text class="lbl mono" x="266.9" y="234.9" text-anchor="middle">2</text>
-<polygon class="face fan" points="300.0,250.0 233.8,250.0 266.9,307.4" />
 <text class="lbl mono" x="266.9" y="273.1" text-anchor="middle">3</text>
-<polygon class="face fan" points="300.0,250.0 266.9,307.4 333.1,307.4" />
 <text class="lbl mono" x="300.0" y="292.2" text-anchor="middle">4</text>
-<polygon class="face fan" points="300.0,250.0 333.1,307.4 366.2,250.0" />
 <text class="lbl mono" x="333.1" y="273.1" text-anchor="middle">5</text>
-<polygon class="quad" points="366.2,250.0 404.9,227.7 371.8,170.3 333.1,192.6" />
-<line class="diag" x1="366.2" y1="250.0" x2="371.8" y2="170.3"/>
 <text class="lbl mono" x="381.0" y="220.0" text-anchor="middle">6</text>
 <text class="lbl mono" x="357.0" y="208.3" text-anchor="middle">7</text>
-<polygon class="quad" points="266.9,192.6 228.2,170.3 195.1,227.7 233.8,250.0" />
-<line class="diag" x1="266.9" y1="192.6" x2="195.1" y2="227.7"/>
 <text class="lbl mono" x="230.1" y="200.9" text-anchor="middle">8</text>
 <text class="lbl mono" x="231.9" y="227.4" text-anchor="middle">9</text>
-<polygon class="quad" points="266.9,307.4 266.9,352.0 333.1,352.0 333.1,307.4" />
-<line class="diag" x1="266.9" y1="307.4" x2="333.1" y2="352.0"/>
 <text class="lbl mono" x="289.0" y="341.1" text-anchor="middle">10</text>
 <text class="lbl mono" x="311.0" y="326.2" text-anchor="middle">11</text>
-<polygon class="junc" points="366.2,250.0 404.9,272.3 404.9,227.7" />
 <text class="lbl mono acc2" x="420.0" y="254.0" text-anchor="middle">12</text>
-<polygon class="junc" points="333.1,192.6 371.8,170.3 333.1,148.0" />
 <text class="lbl mono acc2" x="360.0" y="156.3" text-anchor="middle">13</text>
 <text class="lbl mono acc" x="360.2" y="266.0" text-anchor="end">a</text>
 <text class="lbl mono acc" x="412.9" y="243.7" text-anchor="start">b</text>

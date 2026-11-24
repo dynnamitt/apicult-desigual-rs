@@ -126,6 +126,16 @@ mod tests {
     const SEAM_COORDS: [(i32, i32); 3] = [(0, 0), (1, 0), (-3, 2)];
     const MIN_FITTING_CHUNKS: usize = 7;
     const MAX_SEAM_GROUPS: usize = 6;
+    // The chunk drawn in the geometry guide (docs/guide/gen.py asserts the same numbers).
+    const GUIDE_OWNED: usize = 266;
+    const GUIDE_SEAMS: [((i32, i32), usize); 6] = [
+        ((0, 1), 6),
+        ((-1, 1), 7),
+        ((-1, 0), 12),
+        ((0, -1), 9),
+        ((1, -1), 8),
+        ((1, 0), 4),
+    ];
 
     fn world(chunk_radius: u32) -> NoiseWorld {
         NoiseWorld {
@@ -224,6 +234,18 @@ mod tests {
                 assert_eq!(src.chunk(coord).center, want, "r {r}, {coord:?}");
             }
         }
+    }
+
+    #[test]
+    fn chunk_zero_radius_2_counts() {
+        let c = world(2).chunk(Hex::ZERO);
+        assert_eq!(c.owned.len(), GUIDE_OWNED);
+        let seams: Vec<((i32, i32), usize)> = c
+            .seams
+            .iter()
+            .map(|(o, tris)| ((o.x, o.y), tris.len()))
+            .collect();
+        assert_eq!(seams, GUIDE_SEAMS);
     }
 
     #[test]

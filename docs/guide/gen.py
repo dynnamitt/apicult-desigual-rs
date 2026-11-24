@@ -70,6 +70,48 @@ def junc_pts(q, r, vi, ratio):
     if vi == 0: return [corner(q, r, 0, ratio), corner(q+1, r-1, 2, ratio), corner(q+1, r, 4, ratio)], [(q,r),(q+1,r-1),(q+1,r)]
     return [corner(q, r, 1, ratio), corner(q+1, r, 3, ratio), corner(q, r+1, 5, ratio)], [(q,r),(q+1,r),(q,r+1)]
 
+def hexagon(R): return [(q, r) for q in range(-R, R+1) for r in range(-R, R+1) if dist(q, r) <= R]
+def ring(R): return [(q, r) for q in range(-R, R+1) for r in range(-R, R+1) if dist(q, r) == R]
+def owned_gaps(q, r, cells, ratio, entangled=frozenset()):
+    """The gaps cell (q, r) appends in owned_tris_into(cell, false): quads on its even edges whose
+    neighbour exists (and isn't entangled together with it), junctions at its corners 0 and 1 whose
+    three hexes exist. Yields ("quad" | "junc", points)."""
+    for e in (0, 2, 4):
+        dq, dr = EDGE[e]; nb = (q+dq, r+dr)
+        if nb in cells and not ((q, r) in entangled and nb in entangled): yield "quad", quad_pts(q, r, e, ratio)
+    for vi in (0, 1):
+        pts, co = junc_pts(q, r, vi, ratio)
+        if all(c in cells for c in co): yield "junc", pts
+def arrow(a, c, cls="edge acc"):
+    return f'<line class="{cls}" x1="{a[0]:.1f}" y1="{a[1]:.1f}" x2="{c[0]:.1f}" y2="{c[1]:.1f}" marker-end="url(#arr)"/>'
+
+# ---- logo: the owned-cell picture without labels
+def logo_shapes(v, R=0.72, fixed=False):
+    C = dict(face='fill="#c3cad3" stroke="#4a5360" stroke-width="1" stroke-opacity="0.55"',
+             ghost='fill="none" stroke="#7d8794" stroke-width="1.2" stroke-opacity="0.7"',
+             quad='fill="#3b63c9" fill-opacity="0.6" stroke="#3b63c9" stroke-width="1"',
+             qghost='fill="none" stroke="#3b63c9" stroke-opacity="0.6" stroke-dasharray="2 2" stroke-width="1"',
+             junc='fill="#d08a1e" fill-opacity="0.85" stroke="#d08a1e" stroke-width="1"',
+             diag='stroke="#2a3038" stroke-width="1" stroke-dasharray="3 2" stroke-opacity="0.6"')
+    def P(pts, kind):
+        if fixed: return f'<polygon points="{v.pts(pts)}" {C[kind]}/>'
+        cls = {"face": "face fan", "ghost": "face ghost", "quad": "quad", "qghost": "quad ghost", "junc": "junc"}[kind]
+        return f'<polygon class="{cls}" points="{v.pts(pts)}"/>'
+    def Ln(a, c):
+        a, c = v.p(a), v.p(c)
+        attrs = C["diag"] if fixed else 'class="diag"'
+        return f'<line x1="{a[0]:.1f}" y1="{a[1]:.1f}" x2="{c[0]:.1f}" y2="{c[1]:.1f}" {attrs}/>'
+    out = []
+    for e in range(6):
+        dq, dr = EDGE[e]; out.append(P([corner(dq, dr, i, R) for i in range(6)], "ghost"))
+    for e in (1, 3, 5):
+        dq, dr = EDGE[e]; out.append(P(quad_pts(dq, dr, (e+3) % 6, R), "qghost"))
+    c0 = center(0, 0)
+    for i in range(6): out.append(P([c0, corner(0, 0, i, R), corner(0, 0, (i+1) % 6, R)], "face"))
+    for e in (0, 2, 4):
+        q_ = quad_pts(0, 0, e, R); out.append(P(q_, "quad")); out.append(Ln(q_[0], q_[2]))
+    for vi in (0, 1): out.append(P(junc_pts(0, 0, vi, R)[0], "junc"))
+    return out
 figs = {}
 
 # ---- F1 map_noise_to_range
@@ -89,7 +131,7 @@ figs["f1"] = fig("\n".join(b), 620, 210, "Noise values from -1 to 1 map linearly
 # ---- F2 edge_cuboid_transform
 b = []
 O = (70, 230); F = (200, 200); T = (430, 80)
-b.append(f'<line class="axis" x1="{O[0]}" y1="{O[1]}" x2="{O[0]+90}" y2="{O[1]}" marker-end="url(#arr)"/>'); b.append(text(O[0]+100, O[1]+4, "+X", "lbl dim", "start"))
+b.append(arrow(O, (O[0]+90, O[1]), "axis")); b.append(text(O[0]+100, O[1]+4, "+X", "lbl dim", "start"))
 ang = math.atan2(T[1]-F[1], T[0]-F[0]); L = math.dist(F, T); M = ((F[0]+T[0])/2, (F[1]+T[1])/2)
 ux, uy = math.cos(ang), math.sin(ang); nx, ny = -uy, ux; hw = 16
 box = [(F[0]+nx*hw, F[1]+ny*hw), (T[0]+nx*hw, T[1]+ny*hw), (T[0]-nx*hw, T[1]-ny*hw), (F[0]-nx*hw, F[1]-ny*hw)]
@@ -98,8 +140,8 @@ b.append(line(F, T, "edge"))
 b.append(f'<circle class="dot" cx="{F[0]}" cy="{F[1]}" r="5"/><circle class="dot" cx="{T[0]}" cy="{T[1]}" r="5"/><circle class="dot acc" cx="{M[0]:.1f}" cy="{M[1]:.1f}" r="6"/>')
 b.append(text(F[0]-6, F[1]+24, "from")); b.append(text(T[0]+10, T[1]-14, "to", "lbl", "start")); b.append(text(M[0]+18, M[1]+30, "midpoint", "lbl acc", "start"))
 b.append(text((F[0]+T[0])/2-30, (F[1]+T[1])/2-28, "length = |to − from|", "lbl mono", "end"))
-r_ = 60; a_end = ang
-b.append(f'<path class="arc" d="M{O[0]+r_},{O[1]} A{r_},{r_} 0 0 0 {O[0]+r_*math.cos(a_end):.1f},{O[1]+r_*math.sin(a_end):.1f}" marker-end="url(#arr)"/>')
+r_ = 60
+b.append(f'<path class="arc" d="M{O[0]+r_},{O[1]} A{r_},{r_} 0 0 0 {O[0]+r_*math.cos(ang):.1f},{O[1]+r_*math.sin(ang):.1f}" marker-end="url(#arr)"/>')
 b.append(f'<line class="axis dash" x1="{O[0]}" y1="{O[1]}" x2="{O[0]+120*ux:.1f}" y2="{O[1]+120*uy:.1f}"/>')
 b.append(text(O[0]+58, O[1]-12, "rotation", "lbl acc", "start"))
 figs["f2"] = fig("\n".join(b), 520, 260, "A unit cuboid along X is rotated, stretched and moved onto an edge",
@@ -119,13 +161,13 @@ b.append(text(140, 240, "world space", "lbl dim"))
 o0 = quadw[0]; loc = [(p[0]-o0[0], p[1]-o0[1], p[2]-o0[2]) for p in quadw]
 pq, s2 = draw_quad(loc, 380, 170, "quad"); b.append(pq)
 b.append(f'<circle class="dot acc" cx="{s2[0][0]:.1f}" cy="{s2[0][1]:.1f}" r="5"/>'); b.append(text(s2[0][0]-8, s2[0][1]+18, "0,0,0", "lbl mono", "end"))
-for i, nm in [(1, "e1 = v1 − v0"), (2, "e2 = v2 − v0")]:
-    b.append(f'<line class="edge" x1="{s2[0][0]:.1f}" y1="{s2[0][1]:.1f}" x2="{s2[i][0]:.1f}" y2="{s2[i][1]:.1f}" marker-end="url(#arr)"/>')
+for i in (1, 2):
+    b.append(arrow(s2[0], s2[i], "edge"))
 b.append(text(s2[1][0]+8, s2[1][1]+16, "e1", "lbl mono", "start")); b.append(text(s2[2][0]+8, s2[2][1], "e2", "lbl mono", "start"))
 cx_, cy_ = s2[0][0]+40, s2[0][1]-12
-b.append(f'<line class="axis dash" x1="{cx_}" y1="{cy_}" x2="{cx_}" y2="{cy_+60}" marker-end="url(#arr)"/>'); b.append(text(cx_+8, cy_+66, "e1 × e2 (down)", "lbl dim", "start"))
-b.append(f'<line class="edge acc" x1="{cx_}" y1="{cy_}" x2="{cx_}" y2="{cy_-80}" marker-end="url(#arr)"/>'); b.append(text(cx_+8, cy_-80, "normal = −(e1 × e2)", "lbl acc", "start"))
-b.append(f'<line class="map" x1="260" y1="150" x2="330" y2="150" marker-end="url(#arr)"/>'); b.append(text(295, 140, "− v0", "lbl mono"))
+b.append(arrow((cx_, cy_), (cx_, cy_+60), "axis dash")); b.append(text(cx_+8, cy_+66, "e1 × e2 (down)", "lbl dim", "start"))
+b.append(arrow((cx_, cy_), (cx_, cy_-80))); b.append(text(cx_+8, cy_-80, "normal = −(e1 × e2)", "lbl acc", "start"))
+b.append(arrow((260, 150), (330, 150), "map")); b.append(text(295, 140, "− v0", "lbl mono"))
 b.append(text(470, 240, "origin-local", "lbl dim"))
 figs["f3"] = fig("\n".join(b), 640, 260, "Gap vertices are shifted so the first is at the origin, and a normal is taken from a cross product",
   "<code>gap_vertex_data(verts, flat)</code>: subtract <code>v0</code> from every vertex, then take the normal from the first two edges. The winding makes the raw cross product point down, so it is negated. With <code>flat = true</code> it skips this and returns <code>+Y</code>, which matches the flat hex faces.")
@@ -184,52 +226,30 @@ figs["f5"] = fig("\n".join(b), 760, 450, "Hex corner and edge indices; each hex 
   "Left: the flat-top hex at <code>(0,0)</code> with corner indices 0–5 (<code>VertexDirection</code>) and edge indices e0–e5 (<code>EdgeDirection</code>, labelled with the neighbour each edge faces). Thick edges e0, e2, e4 are the ones it owns. The two larger dots are its owned junction corners, 0 and 1. Right: <code>quad_corner_indices(0)</code> pairs owner corners 0 and 1 with neighbour corners 4 and 3. The dashed line is the <code>v0–n1</code> diagonal the quad is split along. Drawn with x to the right and z up.", wide=True)
 
 # ---- F6 gap_filler r=2 grid
-def ownership_svg(v, cells, ratio, cls_face="face"):
-    s = set(cells); out = []
-    for q, r in cells: out.append(hexpoly(v, q, r, ratio, cls_face))
-    nq = nj = 0
-    for q, r in cells:
-        for e in (0, 2, 4):
-            dq, dr = EDGE[e]
-            if (q+dq, r+dr) in s: out.append(poly(v, quad_pts(q, r, e, ratio), "quad")); nq += 1
-        for vi in (0, 1):
-            pts, co = junc_pts(q, r, vi, ratio)
-            if all(c in s for c in co): out.append(poly(v, pts, "junc")); nj += 1
-    return out, nq, nj
-cells2 = [(q, r) for q in range(-2, 3) for r in range(-2, 3) if dist(q, r) <= 2]
 v = View(46, 260, 230)
-body, nq, nj = ownership_svg(v, cells2, 0.74)
-for q in range(-3, 4):
-    for r in range(-3, 4):
-        if dist(q, r) == 3: body.insert(0, hexpoly(v, q, r, 0.74, "face missing"))
+gaps = [g for h in hexagon(2) for g in owned_gaps(*h, set(hexagon(2)), 0.74)]
+nq, nj = sum(k == "quad" for k, _ in gaps), sum(k == "junc" for k, _ in gaps)
+body = ([hexpoly(v, *h, 0.74, "face missing") for h in reversed(ring(3))]
+        + [hexpoly(v, *h, 0.74, "face") for h in hexagon(2)] + [poly(v, pts, k) for k, pts in gaps])
 body.append(text(260, 460, f"19 cells → {nq} quads, {nj} junction tris", "lbl mono"))
 figs["f6"] = fig("\n".join(body), 520, 480, "A radius 2 grid: every interior gap is filled exactly once",
   f"<code>gap_filler</code> on the 19 cells of a radius-2 grid returns <code>({nq}, {nj})</code>. Blue are the gap quads, amber the 3-hex junction triangles. Each is drawn once, by its owner. The dashed ring would be radius 3: those cells don't exist, so the outer cells' gaps toward them are simply skipped. This is the rim the real map has too.")
 
 # ---- F7 one cell's owned stream
-b = []
 v = View(92, 300, 250)
 R = 0.72
-for e in range(6):
-    dq, dr = EDGE[e]; b.append(hexpoly(v, dq, dr, R, "face ghost"))
-for e in (1, 3, 5):
-    dq, dr = EDGE[e]
-    # quad on odd edge belongs to neighbour on its even edge (e+3)%6
-    b.append(poly(v, quad_pts(dq, dr, (e+3) % 6, R), "quad ghost"))
-for vi in range(2, 6):
-    pass
+b = logo_shapes(v, R)  # the logo is this figure without its labels
 c0 = center(0, 0)
 for i in range(6):
     a = corner(0, 0, i, R); c = corner(0, 0, (i+1) % 6, R)
-    b.append(poly(v, [c0, a, c], "face fan"))
     m = ((c0[0]+a[0]+c[0])/3, (c0[1]+a[1]+c[1])/3); sp = v.p(m); b.append(text(sp[0], sp[1]+4, str(i), "lbl mono"))
 for k, e in enumerate((0, 2, 4)):
-    qp_ = quad_pts(0, 0, e, R); b.append(poly(v, qp_, "quad")); b.append(line(v.p(qp_[0]), v.p(qp_[2]), "diag"))
+    qp_ = quad_pts(0, 0, e, R)
     t1 = [qp_[0], qp_[1], qp_[2]]; t2 = [qp_[0], qp_[2], qp_[3]]
     for j, t in enumerate((t1, t2)):
         m = (sum(p[0] for p in t)/3, sum(p[1] for p in t)/3); sp = v.p(m); b.append(text(sp[0], sp[1]+4, str(6+2*k+j), "lbl mono"))
 for k, vi in enumerate((0, 1)):
-    pts, _ = junc_pts(0, 0, vi, R); b.append(poly(v, pts, "junc"))
+    pts, _ = junc_pts(0, 0, vi, R)
     m = (sum(p[0] for p in pts)/3, sum(p[1] for p in pts)/3); sp = v.p(m)
     b.append(text(sp[0]+(28 if vi == 0 else 14), sp[1]+(4 if vi == 0 else -14), str(12+k), "lbl mono acc2"))
 qp_ = quad_pts(0, 0, 0, R)
@@ -247,23 +267,17 @@ for q, r, cq, cr in TILES:
     col = (cq - cr) % 3; part = counts[(cq, cr)] < 19
     b.append(hexpoly(v, q, r, 0.93, f"tile t{col}{' part' if part else ''}"))
 for (cq, cr), n in counts.items():
-    hq, hr = 5*cq + 2*cr, -2*cq + 3*cr
+    hq, hr = to_higher_res(cq, cr, 2)
     if dist(hq, hr) <= 7:
         sp = v.p(center(hq, hr)); b.append(text(sp[0], sp[1]+4, f"{cq},{cr}", "lbl mono tiny"))
-outline = [corner(0, 0, i, 1) for i in range(6)]
 figs["f8"] = fig("\n".join(b), 660, 600, "A radius 7 grid split into radius 2 chunks; outer chunks are partial",
   f"A radius-7 grid (169 cells) grouped by <code>hex.to_lower_res(2)</code>. That makes {len(counts)} chunks, each labelled with its chunk coordinate at its centre cell. A full chunk holds 19 cells. The paler ones are cut off by the grid's hexagonal rim, because the chunk hexagons don't line up with it. Three colours are enough to keep neighbouring chunks apart.")
 
 # ---- resolution figures
-def arrow(a, c, cls="edge acc"):
-    return f'<line class="{cls}" x1="{a[0]:.1f}" y1="{a[1]:.1f}" x2="{c[0]:.1f}" y2="{c[1]:.1f}" marker-end="url(#arr)"/>'
-
 # F12: to_higher_res basis
 b = []
 v = View(22, 330, 300)
-cells = [(q, r) for q in range(-8, 9) for r in range(-8, 9) if dist(q, r) <= 7]
-for q, r in cells:
-    cq, cr = to_lower_res(q, r, 2)
+for q, r, cq, cr in TILES:
     b.append(hexpoly(v, q, r, 0.93, f"tile t{(cq-cr) % 3}"))
 for (cq, cr), lab in [((1, 0), "(1,0) → (5,−2)"), ((0, 1), "(0,1) → (2,3)"), ((-1, 1), "(−1,1) → (−3,5)")]:
     hq, hr = to_higher_res(cq, cr, 2)
@@ -297,69 +311,33 @@ figs["f13"] = fig("\n".join(b), 560, 380, "to_local gives a cell's offset from i
   "Cell <code>h = (4,0)</code> (blue) is in chunk (1,0), whose centre is <code>(5,−2)</code>. <code>to_local(h, 2)</code> = <code>h − to_higher_res(to_lower_res(h, 2), 2)</code> = <code>(−1,2)</code>. Read from the origin instead, the same offset is the amber cell. That is <code>wrap_in_range(2)</code>: it folds the whole plane onto one radius-2 hexagon.")
 
 # ---- F10g: one layout with its outer ring entangled (guide)
-b = []
+# HGridLayout::for_chunk(g, (0,0), CR): own cells plus an entangled ring; F14 draws the same layout.
 v = View(36, 250, 243)
-R = 0.74
-own = [(q, r) for q in range(-2, 3) for r in range(-2, 3) if dist(q, r) <= 2]
-ring = [(q, r) for q in range(-3, 4) for r in range(-3, 4) if dist(q, r) == 3]
-for q, r in ring: b.append(hexpoly(v, q, r, R, "face entring"))
-for q, r in own: b.append(hexpoly(v, q, r, R, "face"))
-so = set(own); full = so | set(ring)
-for q, r in own:
-    for e in (0, 2, 4):
-        dq, dr = EDGE[e]
-        if (q+dq, r+dr) in full: b.append(poly(v, quad_pts(q, r, e, R), "quad"))
-    for vi in (0, 1):
-        pts, co = junc_pts(q, r, vi, R)
-        if all(c in full for c in co): b.append(poly(v, pts, "junc"))
-for q, r in ring:
-    for e in (0, 2, 4):
-        dq, dr = EDGE[e]
-        if (q+dq, r+dr) in so: b.append(poly(v, quad_pts(q, r, e, R), "quad"))
-    for vi in (0, 1):
-        pts, co = junc_pts(q, r, vi, R)
-        if all(c in full for c in co) and any(c in so for c in co): b.append(poly(v, pts, "junc"))
+R = 0.74; CR = 2
+own, rim = hexagon(CR), ring(CR+1)
+layout_gaps = [(h, k, pts) for h in own + rim for k, pts in owned_gaps(*h, set(own) | set(rim), R, set(rim))]
+b = ([hexpoly(v, *h, R, "face entring") for h in rim] + [hexpoly(v, *h, R, "face") for h in own]
+     + [poly(v, pts, k) for _, k, pts in layout_gaps])
 figs["f10g"] = fig("\n".join(b), 500, 490, "A radius 3 layout with its outer ring entangled: all_tris(false) closes the outline of the inner cells",
   "<code>HGridLayout::new</code> with <code>radius: 3</code> and every cell of ring 3 in <code>entangle</code>. <code>all_tris(false)</code> draws the 19 inner faces (solid) and every gap touching an inner cell, whichever cell owns it. It skips the entangled cells' faces (dashed) and the gaps between two entangled cells. Ownership doesn't matter for the outline: it is closed on all six sides. That makes 312 triangles in total, the same as 19 faces plus every gap touching them. <code>HGridLayout::for_chunk(g, (0,0), 2)</code> builds exactly this layout, and <code>for_chunk_all_tris_counts</code> pins the 312.")
 
 # ---- F14: one chunk's owned stream and seam groups (HGridLayout::for_chunk + NoiseWorld::chunk)
-b = []
-v = View(36, 250, 243)
-R = 0.74; CR = 2
-own = [(q, r) for q in range(-CR, CR+1) for r in range(-CR, CR+1) if dist(q, r) <= CR]
-ring = [(q, r) for q in range(-CR-1, CR+2) for r in range(-CR-1, CR+2) if dist(q, r) == CR+1]
-so, full = set(own), set(own) | set(ring)
-owner = {h: to_lower_res(*h, CR) for h in ring}
+owner = {h: to_lower_res(*h, CR) for h in rim}
 tint = {h: (cq - cr) % 3 for h, (cq, cr) in owner.items()}
 assert all(to_lower_res(*h, CR) == (0, 0) for h in own) and 0 not in tint.values()
-for h in ring: b.append(hexpoly(v, *h, R, f"face entring t{tint[h]}"))
-for h in own: b.append(hexpoly(v, *h, R, "face"))
-n_owned = 6 * len(own)
-for q, r in own:  # owned_tris_into(cell, false) for own cells: neighbours may be ring cells
-    for e in (0, 2, 4):
-        dq, dr = EDGE[e]
-        if (q+dq, r+dr) in full: b.append(poly(v, quad_pts(q, r, e, R), "quad")); n_owned += 2
-    for vi in (0, 1):
-        pts, co = junc_pts(q, r, vi, R)
-        if all(c in full for c in co): b.append(poly(v, pts, "junc")); n_owned += 1
-groups = {}
-for h in ring:  # seams: ring cells' owned_tris_into(cell, false); faces and ring–ring quads are entangled
-    q, r = h
-    for e in (0, 2, 4):
-        dq, dr = EDGE[e]
-        if (q+dq, r+dr) in so:
-            b.append(poly(v, quad_pts(q, r, e, R), f"seam t{tint[h]}")); groups[owner[h]] = groups.get(owner[h], 0) + 2
-    for vi in (0, 1):
-        pts, co = junc_pts(q, r, vi, R)
-        if all(c in full for c in co):
-            assert any(c in so for c in co)
-            b.append(poly(v, pts, f"seam t{tint[h]}")); groups[owner[h]] = groups.get(owner[h], 0) + 1
+tris = lambda k: 2 if k == "quad" else 1
+own_set = set(own)
+n_owned = 6 * len(own) + sum(tris(k) for h, k, _ in layout_gaps if h in own_set)
+groups = {}  # seams: the ring cells' gaps, grouped by the chunk that owns each ring cell
+for h, k, _ in layout_gaps:
+    if h in owner: groups[owner[h]] = groups.get(owner[h], 0) + tris(k)
 n_seam = sum(groups.values())
-# layout::tests::CHUNK_TRI_COUNTS pins for_chunk(_, _, 2).all_tris(false) at 312 = owned + every seam group.
-# Per-group counts as NoiseWorld::chunk(Hex::ZERO) returns them (checked through WasmChunkWorld(2, …).chunk(0, 0)).
+b = ([hexpoly(v, *h, R, f"face entring t{tint[h]}") for h in rim] + [hexpoly(v, *h, R, "face") for h in own]
+     + [poly(v, pts, k if h in own_set else f"seam t{tint[h]}") for h, k, pts in layout_gaps])
+# Pinned in Rust by chunk::tests::chunk_zero_radius_2_counts and layout::tests::CHUNK_TRI_COUNTS (312).
 assert n_owned + n_seam == 312 and n_owned == 266 and groups == {(0, 1): 6, (-1, 1): 7, (-1, 0): 12, (0, -1): 9, (1, -1): 8, (1, 0): 4}, (n_owned, groups)
 for o in groups:
-    cells_o = [center(*h) for h in ring if owner[h] == o]
+    cells_o = [center(*h) for h in rim if owner[h] == o]
     mx, mz = (sum(c[0] for c in cells_o) / len(cells_o) * 1.32, sum(c[1] for c in cells_o) / len(cells_o) * 1.32)
     sp = v.p((mx, mz)); b.append(text(sp[0], sp[1]+4, f"({o[0]},{o[1]})".replace("-", "−"), "lbl mono"))
 figs["f14"] = fig("\n".join(b), 500, 490, "Chunk (0,0) of radius 2: its owned stream, and seam groups tinted by the neighbour chunk that owns them",
@@ -371,33 +349,6 @@ figs["f14"] = fig("\n".join(b), 500, 490, "Chunk (0,0) of radius 2: its owned st
 tmpl = args.template.read_text()
 for k, svg in figs.items(): tmpl = tmpl.replace("{{" + k + "}}", svg)
 
-# ---- logo: the owned-cell picture without labels
-def logo_shapes(v, R=0.72, fixed=False):
-    C = dict(face='fill="#c3cad3" stroke="#4a5360" stroke-width="1" stroke-opacity="0.55"',
-             ghost='fill="none" stroke="#7d8794" stroke-width="1.2" stroke-opacity="0.7"',
-             quad='fill="#3b63c9" fill-opacity="0.6" stroke="#3b63c9" stroke-width="1"',
-             qghost='fill="none" stroke="#3b63c9" stroke-opacity="0.6" stroke-dasharray="2 2" stroke-width="1"',
-             junc='fill="#d08a1e" fill-opacity="0.85" stroke="#d08a1e" stroke-width="1"',
-             diag='stroke="#2a3038" stroke-width="1" stroke-dasharray="3 2" stroke-opacity="0.6"')
-    def P(pts, kind):
-        if fixed: return f'<polygon points="{v.pts(pts)}" {C[kind]}/>'
-        cls = {"face": "face fan", "ghost": "face ghost", "quad": "quad", "qghost": "quad ghost", "junc": "junc"}[kind]
-        return f'<polygon class="{cls}" points="{v.pts(pts)}"/>'
-    def Ln(a, c):
-        a, c = v.p(a), v.p(c)
-        attrs = C["diag"] if fixed else 'class="diag"'
-        return f'<line x1="{a[0]:.1f}" y1="{a[1]:.1f}" x2="{c[0]:.1f}" y2="{c[1]:.1f}" {attrs}/>'
-    out = []
-    for e in range(6):
-        dq, dr = EDGE[e]; out.append(P([corner(dq, dr, i, R) for i in range(6)], "ghost"))
-    for e in (1, 3, 5):
-        dq, dr = EDGE[e]; out.append(P(quad_pts(dq, dr, (e+3) % 6, R), "qghost"))
-    c0 = center(0, 0)
-    for i in range(6): out.append(P([c0, corner(0, 0, i, R), corner(0, 0, (i+1) % 6, R)], "face"))
-    for e in (0, 2, 4):
-        q_ = quad_pts(0, 0, e, R); out.append(P(q_, "quad")); out.append(Ln(q_[0], q_[2]))
-    for vi in (0, 1): out.append(P(junc_pts(0, 0, vi, R)[0], "junc"))
-    return out
 # extent: x ±(1.5+R), z ±(sqrt3 + R*sqrt3/2)
 LS = 60; LW = 2*(1.5+0.72)*LS + 8; LH = 2*(SQ3+0.72*SQ3/2)*LS + 8
 lv = View(LS, LW/2, LH/2)

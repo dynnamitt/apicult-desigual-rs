@@ -441,8 +441,8 @@ impl HGridLayout {
     /// A cell owns its face fan (when `cell.entangled == entangled`), the gap
     /// quads on its even edges `[0, 2, 4]` whose neighbor is in-grid and whose
     /// entanglement (both cells entangled) matches, and — only when
-    /// `entangled = false` — the junction tris at its corners `[0, 1]` where it
-    /// is `GridVertex::coordinates()[0]` and all three cells are in-grid.
+    /// `entangled = false` — the junction tris at its corners `[0, 1]` where all
+    /// three cells are in-grid (every lattice vertex is corner 0 or 1 of exactly one of its three hexes).
     ///
     /// @param hex — the owning cell; an off-grid hex appends nothing.
     /// @param entangled — which half of the stream to emit (see `all_tris`).
@@ -535,7 +535,8 @@ impl HGridLayout {
     }
 
     /// Returns the three world-space corners of every 3-hex junction gap tri.
-    /// Canonical ownership: tri emitted only when the origin hex is `coordinates()[0]`.
+    /// Ownership: each tri is emitted by the hex whose corner 0 or 1 it sits on;
+    /// every lattice vertex is corner 0 or 1 of exactly one of its three hexes.
     pub fn gap_tris(&self) -> Vec<[Vec3; 3]> {
         let mut tris = Vec::new();
         for hex in shapes::hexagon(self.center, self.grid_radius) {
