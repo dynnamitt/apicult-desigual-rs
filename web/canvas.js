@@ -7,13 +7,14 @@
  * Show `msg` as an `.error-msg` paragraph right after `canvas`.
  * @param {HTMLCanvasElement} canvas
  * @param {string} msg
- * @returns {void}
+ * @returns {HTMLParagraphElement} the inserted paragraph, so a caller can remove it.
  */
 export const showError = (canvas, msg) => {
   const p = document.createElement("p");
   p.className = "error-msg";
   p.textContent = msg;
   canvas.insertAdjacentElement("afterend", p);
+  return p;
 };
 
 /**
@@ -29,21 +30,26 @@ export const needsResize = (canvas, pixelRatio) =>
   || canvas.height !== Math.floor(canvas.clientHeight * pixelRatio);
 
 /**
- * Call `frame` on every animation frame. A throw stops the loop and shows
- * `label: message` after `canvas`, instead of repeating every frame unseen.
+ * Call `frame` on every animation frame. While frames throw, `label: message`
+ * shows after `canvas` (logged once, not every frame); the next good frame
+ * removes it, so a rebuild (Apply) can recover the page.
  * @param {HTMLCanvasElement} canvas
  * @param {string} label e.g. `"stream frame failed"`
  * @param {(now: number|undefined) => void} frame
  * @returns {void}
  */
 export const runFrames = (canvas, label, frame) => {
+  let shown = null;
   const tick = (now) => {
+    requestAnimationFrame(tick);
     try {
       frame(now);
-      requestAnimationFrame(tick);
+      shown?.remove();
+      shown = null;
     } catch (e) {
+      if (shown) return;
       console.error(e);
-      showError(canvas, `${label}: ${e.message}`);
+      shown = showError(canvas, `${label}: ${e.message}`);
     }
   };
   tick();

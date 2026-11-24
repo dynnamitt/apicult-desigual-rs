@@ -1,7 +1,7 @@
 /** `node --test web/hex-controls.test.mjs` */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readSettingsFromDOM, STREAM_SCHEMA } from "./hex-controls.js";
+import { readSettingsFromDOM, STREAM_SCHEMA, TERRAIN_SCHEMA } from "./hex-controls.js";
 
 // Just enough of the DOM for readSettingsFromDOM: inputs by id, with HTML's "" for a missing attribute.
 const fakeRoot = (inputs) => ({
@@ -22,6 +22,11 @@ test("readSettingsFromDOM clamps typed numbers to the input's own min/max", () =
   assert.equal(read("100000").speed, 60);
   assert.equal(read("-5").speed, 0);
   assert.equal(read("12.5").speed, 12.5);
+});
+
+test("readSettingsFromDOM leaves rebuild fields unclamped, so Makefile overrides past `max` survive", () => {
+  const s = readSettingsFromDOM(fakeRoot({ "ctl-radius": { value: "12", min: "1", max: "8" } }), TERRAIN_SCHEMA);
+  assert.equal(s.radius, 12);
 });
 
 test("readSettingsFromDOM leaves inputs without limits, and non-numbers, alone", () => {
