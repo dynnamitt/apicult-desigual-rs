@@ -9,6 +9,7 @@
   h1 { margin: 1.5rem 0 0.5rem; font-size: 1.2rem; font-weight: normal; }
   .meta { font-size: 0.8rem; color: #666; margin-bottom: 1rem; }
   .meta a { color: #6a8; }
+  .meta select { background: #0a0e1a; color: #aaa; border: 1px solid #334; font: inherit; }
   .terrain-wrap { width: min(95vw, 1000px); margin-bottom: 1.5rem; }
   #terrain { display: block; width: 100%; height: min(55vh, 520px); background: #0a0e1a; border-radius: 4px; }
   .hint { font-size: 0.75rem; color: #556; margin-top: 0.4rem; text-align: center; }
@@ -27,10 +28,11 @@
   }
 }
 </script>
+<script type="module" src="page-nav.js"></script>
 </head>
 <body>
   <h1>apicult-desigual terrain preview</h1>
-  <p class="meta">generated from <a href="https://github.com/dynnamitt/apicult-desigual-rs">dynnamitt/apicult-desigual-rs</a> &mdash; <span id="sha">__SHA__</span> &middot; <a href="index.html">welded terrain</a> &middot; <a href="hex-units.html">hex units</a> &middot; <a href="hex-crawler.html">hex crawler</a></p>
+  <p class="meta">generated from <a href="https://github.com/dynnamitt/apicult-desigual-rs">dynnamitt/apicult-desigual-rs</a> &mdash; <span id="sha">__SHA__</span> &middot; <span data-page-nav></span></p>
   <div class="terrain-wrap">
     <canvas id="terrain"></canvas>
     <p class="hint">drag to orbit &middot; scroll to zoom &middot; right-drag to pan</p>
@@ -49,6 +51,7 @@
 <script type="module">
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { needsResize } from './canvas.js';
 
 const canvas = document.getElementById('terrain');
 
@@ -131,9 +134,8 @@ try {
 
   function animate() {
     requestAnimationFrame(animate);
-    const w = canvas.clientWidth;
-    const h = canvas.clientHeight;
-    if (canvas.width !== w || canvas.height !== h) {
+    if (needsResize(canvas, renderer.getPixelRatio())) {
+      const w = canvas.clientWidth, h = canvas.clientHeight;
       renderer.setSize(w, h, false);
       camera.aspect = w / h;
       camera.updateProjectionMatrix();

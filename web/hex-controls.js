@@ -68,6 +68,26 @@ export const UNITS_SCHEMA = {
   live: new Set(["unitCount", "speed", "maxClimb"]),
 };
 
+/** Sidebar of `hex-stream.html` (the three.js chunk treadmill). */
+export const STREAM_SCHEMA = {
+  inputs: [
+    { id: "ctl-chunk-radius", field: "chunkRadius", parse: parseInt   },
+    { id: "ctl-seed",         field: "seed",        parse: parseSeed  },
+    { id: "ctl-speed",        field: "speed",       parse: parseFloat },
+    { id: "ctl-direction",    field: "direction",   parse: parseInt   },
+  ],
+  toggles: ["tint", "seams"],
+  // One world per chunk radius + seed; motion is read every frame.
+  rebuild: new Set(["chunkRadius", "seed"]),
+  live: new Set(["speed", "direction"]),
+};
+
+// An input's `min`/`max` don't stop typing; past `max` a speed of 100000 froze the treadmill.
+// Live fields only: rebuild fields start from Makefile values (`make RADIUS=12`) that may exceed `max`.
+const clampToInput = (v, el) => (typeof v === "number" && Number.isFinite(v)
+  ? Math.min(Number(el?.max || Infinity), Math.max(Number(el?.min || -Infinity), v))
+  : v);
+
 function parseSeed(raw) {
   const trimmed = String(raw ?? "").trim();
   if (trimmed === "") return null;
@@ -85,7 +105,8 @@ export function readSettingsFromDOM(rootEl, schema = TERRAIN_SCHEMA) {
   const out = {};
   for (const spec of schema.inputs) {
     const el = rootEl.querySelector(`#${spec.id}`);
-    out[spec.field] = spec.parse(el?.value ?? "");
+    const v = spec.parse(el?.value ?? "");
+    out[spec.field] = schema.live.has(spec.field) ? clampToInput(v, el) : v;
   }
   // Display flags reflect the current button .on state.
   for (const k of schema.toggles) {
@@ -127,8 +148,14 @@ export function bindControls(
     if (!el) continue;
 
     if (schema.live.has(spec.field)) {
-      // Number inputs respond to both arrow-stepping (input event) and typing.
+      // `input` covers typing, arrow-stepping and <select> picks.
       el.addEventListener("input", liveDispatch);
+      // Once the edit is committed, show the clamped number the scene is using
+      // (doing it on `input` would fight the user mid-typing).
+      el.addEventListener("change", () => {
+        const v = spec.parse(el.value), c = clampToInput(v, el);
+        if (!Object.is(c, v)) el.value = String(c);
+      });
     }
     if (schema.rebuild.has(spec.field)) {
       // Pressing Enter inside a rebuild input triggers Apply, mirroring the

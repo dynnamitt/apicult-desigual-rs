@@ -1,0 +1,112 @@
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import {
+  CHUNK_DIRS, chunkKey, footprint, stepFootprint, chunkCenter, nearestStep,
+  visibleSeamGroups, advancePos, clampChunkRadius, MAX_FRAME_DT, MAX_CHUNK_RADIUS,
+  advanceFade, FADE_IN_S, FADE_OUT_S, chunkHash,
+} from "./hex-stream.js";
+
+const ANCHOR = [2, -1];
+// Any non-degenerate lattice basis; the real one comes from WasmChunk.center().
+const U = [17.3, -6.0], V = [3.0, 15.5];
+const PART_WAY = 0.6;
+const keys = (coords) => new Set(coords.map(([q, r]) => chunkKey(q, r)));
+
+test("footprint is the anchor plus 6 distinct neighbours", () => {
+  const fp = footprint(ANCHOR);
+  assert.equal(fp.length, 7);
+  assert.deepEqual(fp[0], ANCHOR);
+  assert.equal(keys(fp).size, 7);
+});
+
+test("stepping one chunk spawns 3, despawns 3 and keeps 4 in every direction", () => {
+  const old = keys(footprint(ANCHOR));
+  CHUNK_DIRS.forEach((_, d) => {
+    const { anchor, spawn, despawn, keep } = stepFootprint(ANCHOR, d);
+    assert.equal(spawn.length, 3, `dir ${d}`);
+    assert.equal(despawn.length, 3, `dir ${d}`);
+    assert.equal(keep.length, 4, `dir ${d}`);
+    assert.deepEqual(keys([...keep, ...spawn]), keys(footprint(anchor)), `dir ${d}`);
+    assert.deepEqual(keys([...keep, ...despawn]), old, `dir ${d}`);
+  });
+});
+
+test("stepping back the opposite way restores the anchor", () => {
+  CHUNK_DIRS.forEach((_, d) => {
+    const there = stepFootprint(ANCHOR, d).anchor;
+    assert.deepEqual(stepFootprint(there, (d + 3) % 6).anchor, ANCHOR, `dir ${d}`);
+  });
+});
+
+test("nearestStep stays put at the anchor centre and steps towards a nearer neighbour", () => {
+  const c = chunkCenter(ANCHOR, U, V);
+  assert.equal(nearestStep(c, ANCHOR, U, V), -1);
+  CHUNK_DIRS.forEach(([dq, dr], d) => {
+    const n = chunkCenter([ANCHOR[0] + dq, ANCHOR[1] + dr], U, V);
+    const pos = [c[0] + PART_WAY * (n[0] - c[0]), c[1] + PART_WAY * (n[1] - c[1])];
+    assert.equal(nearestStep(pos, ANCHOR, U, V), d, `dir ${d}`);
+  });
+});
+
+test("visibleSeamGroups hides groups whose owner is loaded", () => {
+  const owners = Int32Array.from([1, 0, 5, 5, -2, 3]);
+  const loaded = new Set([chunkKey(1, 0), chunkKey(-2, 3)]);
+  assert.deepEqual(visibleSeamGroups(owners, loaded), [1]);
+  assert.deepEqual(visibleSeamGroups(owners, new Set()), [0, 1, 2]);
+});
+
+test("advancePos caps a long frame so a backgrounded tab doesn't replay hours of steps", () => {
+  const speed = 10;
+  const [x, z] = advancePos([0, 0], [3, 4], speed, 3600);
+  assert.ok(Math.abs(Math.hypot(x, z) - speed * MAX_FRAME_DT) < 1e-9);
+  const [x1, z1] = advancePos([1, 1], [0, 2], speed, 0.05);
+  assert.ok(Math.abs(x1 - 1) < 1e-9 && Math.abs(z1 - 1.5) < 1e-9);
+});
+
+test("advancePos settles onto the rail, so a direction change doesn't zig-zag the anchor", () => {
+  // Off the row of centres by 0.4 chunk spacings (inside the zig-zag band) heading +q.
+  const dir = chunkCenter(CHUNK_DIRS[0], U, V);
+  const side = chunkCenter(CHUNK_DIRS[1], U, V);
+  let pos = side.map((s) => s * 0.4), anchor = [0, 0];
+  const taken = [];
+  for (let i = 0; i < 2000; i += 1) {
+    pos = advancePos(pos, dir, 20, 1 / 60, chunkCenter(anchor, U, V));
+    for (let d = nearestStep(pos, anchor, U, V); d !== -1; d = nearestStep(pos, anchor, U, V)) {
+      anchor = [anchor[0] + CHUNK_DIRS[d][0], anchor[1] + CHUNK_DIRS[d][1]];
+      taken.push(d);
+    }
+  }
+  assert.ok(taken.length > 10);
+  assert.ok(taken.slice(-10).every((d) => d === 0), `tail of steps: ${taken.slice(-10)}`);
+});
+
+test("advanceFade: spawns fade in first, despawns wait for them then fade out faster", () => {
+  const run = (f, secs) => {
+    const n = Math.round(secs / 0.01);
+    return Array.from({ length: n }).reduce((g) => advanceFade(g, 0.01), f);
+  };
+  const spawn = { alpha: 0, target: 1, delay: 0 }, despawn = { alpha: 1, target: 0, delay: FADE_IN_S };
+  assert.ok(FADE_OUT_S < FADE_IN_S);
+  assert.ok(Math.abs(run(spawn, FADE_IN_S / 2).alpha - 0.5) < 1e-6);
+  assert.equal(run(spawn, FADE_IN_S).alpha, 1);
+  assert.ok(run(despawn, FADE_IN_S).alpha > 1 - 1e-9, "despawn still solid while spawns fade in");
+  assert.equal(run(despawn, FADE_IN_S + FADE_OUT_S).alpha, 0);
+  // One long frame spends the rest of the delay, then fades with what is left.
+  assert.ok(Math.abs(advanceFade({ alpha: 1, target: 0, delay: 0.1 }, 0.1 + FADE_OUT_S / 2).alpha - 0.5) < 1e-9);
+});
+
+test("chunkHash is stable, u32, and differs across a chunk's neighbours", () => {
+  assert.equal(chunkHash(...ANCHOR), chunkHash(...ANCHOR));
+  const hashes = footprint(ANCHOR).map(([q, r]) => chunkHash(q, r));
+  assert.equal(new Set(hashes).size, 7);
+  assert.ok(hashes.every((h) => Number.isInteger(h) && h >= 0 && h < 2 ** 32));
+  assert.notEqual(chunkHash(1, -1), chunkHash(-1, 1));
+  assert.notEqual(chunkHash(2, 3), chunkHash(3, 2));
+});
+
+test("clampChunkRadius keeps typed values inside 0..MAX_CHUNK_RADIUS", () => {
+  assert.equal(clampChunkRadius(-1), 0);
+  assert.equal(clampChunkRadius(NaN), 0);
+  assert.equal(clampChunkRadius(99), MAX_CHUNK_RADIUS);
+  assert.equal(clampChunkRadius(3), 3);
+});

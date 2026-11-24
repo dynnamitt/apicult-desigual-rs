@@ -64,6 +64,14 @@ body {
 
 .topbar .meta a { color: var(--link); }
 .topbar .meta .sep { padding: 0 0.4rem; color: var(--line); }
+.topbar .meta select {
+  background: var(--panel-2);
+  color: var(--link);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  font: inherit;
+  padding: 0.1rem 0.3rem;
+}
 
 /* ── main grid: canvas + sidebar ───────────────────────────────────── */
 
@@ -141,7 +149,8 @@ main {
   text-overflow: ellipsis;
 }
 
-.row input {
+.row input,
+.row select {
   background: var(--panel-2);
   color: var(--text-bright);
   border: 1px solid var(--line);
@@ -153,7 +162,8 @@ main {
   min-width: 0;
 }
 
-.row input:focus {
+.row input:focus,
+.row select:focus {
   outline: none;
   border-color: var(--line-2);
   background: var(--panel-3);

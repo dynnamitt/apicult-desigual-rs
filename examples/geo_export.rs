@@ -6,6 +6,7 @@
 //! cargo run --example geo_export -- 5 2.0 --format svg-rich     # rich SVG
 //! cargo run --example geo_export -- 5 2.0 --format json-v1      # gen1 JSON
 //! cargo run --example geo_export -- --seed 7                    # override height-noise seed
+//! cargo run --example geo_export -- --radius-seed 9             # override radius-noise seed
 //! ```
 
 use std::io::{self, Write};
@@ -16,16 +17,18 @@ fn main() {
     let mut positional: Vec<String> = Vec::new();
     let mut format: Option<String> = None;
     let mut seed: Option<u32> = None;
+    let mut radius_seed: Option<u32> = None;
     let mut args = std::env::args().skip(1);
+    let u32_flag = |flag: &str, value: Option<String>| -> u32 {
+        value.and_then(|s| s.parse().ok()).unwrap_or_else(|| {
+            eprintln!("{flag} requires a u32 value");
+            std::process::exit(2);
+        })
+    };
     while let Some(arg) = args.next() {
         match arg.as_str() {
-            "--seed" => match args.next().and_then(|s| s.parse().ok()) {
-                Some(s) => seed = Some(s),
-                None => {
-                    eprintln!("--seed requires a u32 value");
-                    std::process::exit(2);
-                }
-            },
+            "--seed" => seed = Some(u32_flag("--seed", args.next())),
+            "--radius-seed" => radius_seed = Some(u32_flag("--radius-seed", args.next())),
             "--format" => match args.next() {
                 Some(f) => format = Some(f),
                 None => {
@@ -46,6 +49,7 @@ fn main() {
     let settings = HGridSettings {
         radius,
         height_noise_seed: seed.unwrap_or(defaults.height_noise_seed),
+        radius_noise_seed: radius_seed.unwrap_or(defaults.radius_noise_seed),
         nominal_hex_radius: 4.0,
         ..defaults
     };

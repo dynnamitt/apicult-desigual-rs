@@ -17,6 +17,7 @@ cargo test --doc                                     # doctests only (math.rs ha
 cargo run --example geo_export                       # plain SVG to stdout
 cargo run --example geo_export -- 5 2.0 --format svg-rich   # args: <radius> <pad> [--format svg|svg-plain|svg-rich|json-v1]
 cargo run --example geo_export -- --seed 7                  # override the height-noise seed
+cargo run --example geo_export -- --radius-seed 9           # override the radius-noise seed
 
 cargo build --features wasm --target wasm32-unknown-unknown # build the wasm bindings (needs `rustup target add wasm32-unknown-unknown`)
 wasm-pack build --target web --features wasm --release      # writes web/pkg/{apicult_desigual.js, _bg.wasm, .d.ts}
@@ -25,6 +26,7 @@ make preview                                         # build full preview bundle
 make RADIUS=4 PAD=1.0 preview                        # override grid params (SVG/JSON + terrain page)
 make UNITS_RADIUS=6 preview                          # grid radius for the units page only
 make CRAWLER_RADIUS=2 preview                        # grid radius for the crawler page only
+make STREAM_CHUNK_RADIUS=2 preview                   # rings of cells per chunk on the treadmill page
 make HSEED=42 preview                                # pin the seed for a reproducible preview
 make serve                                           # `preview` + `python3 -m http.server` in target/www-preview/
 ```
@@ -35,10 +37,11 @@ The `wasm` Makefile target auto-installs `wasm-pack` via `cargo install` if it i
 
 ## Architecture
 
-Three modules, exported flat from `lib.rs`, plus an optional `wasm` module gated behind the `wasm` feature:
+Four modules, exported flat from `lib.rs`, plus an optional `wasm` module gated behind the `wasm` feature:
 
 - **`layout`** — `HGridLayout` owns the `HexLayout` (from `hexx`), a `HexagonalMap<HexCell>` of per-hex `{hex, height, radius, entangled}` data populated from Fbm/Perlin noise on construction, and the cached unit corner offsets. The `entangled: bool` per-cell flag is set via the `entangle: &[Hex]` arg to `HGridLayout::new`; the hex-face-fan and gap-quad geometry methods filter by it: `hex_face_tris(entangled)`, `gap_quad_tris(entangled)`, `all_tris(entangled)` emit only the cells (or quads, by the same flag on `GapQuad`) matching the bool — letting two materials drive entangled vs non-entangled cells separately. `gap_tris()` (3-hex junction tris) and `gap_quads()` are unfiltered. `all_tris(entangled)` is still the canonical unified stream — gap quads are split along the `[v0, v2]` diagonal *here*, so consumers that take `all_tris` never decide tessellation. (Consumers that take `gap_quads` separately must NOT also consume `all_tris`, or the gap geometry will double-count.)
 - **`math`** — pure functions over `glam`/`hexx` types, no `HGridLayout` dependency. Contains the ownership rules used by both layout (`quad_corner_indices`) and analysis (`gap_filler` counts via the same even-edge `[0,2,4]` + canonical-vertex `[0,1]` rules), plus `idw_interpolate_height`, `map_noise_to_range`, `gap_vertex_data`, `edge_cuboid_transform`.
+- **`chunk`** — streaming terrain for an unbounded world. `NoiseWorld { settings, chunk_radius }` implements `ChunkSource::chunk(&self, coord: Hex) -> Chunk`. A chunk is the hexagon of cells with `hex.to_lower_res(chunk_radius) == coord`; `HGridLayout::for_chunk(g, coord, chunk_radius)` builds it with one extra **entangled ring** of neighbour cells (`g.radius` ignored, noise sampled at world positions, so chunks built alone fit exactly). `Chunk` carries `cells`, the **owned** stream (`HGridLayout::owned_tris_into` per own cell, with `owned_runs` per cell) and **seams** grouped by owning neighbour chunk. Consumer rules: always draw owned; draw seam group *k* only while neighbour *k* isn't loaded; entangled cells are never state; a changed cell rebuilds 1 / 2 / 3 chunks (interior / edge / corner). `all_tris` is the concatenation of `owned_tris_into` and is pinned byte-for-byte by `all_tris_golden_checksum`.
 - **`serialize`** — `SerializeGeo` trait + three implementors (`SvgPlain`, `SvgRich`, `JsonV1`) that stream to any `io::Write`. `examples/geo_export.rs` is a thin CLI wrapper around them. The web 3D demo no longer fetches JSON — it computes meshes in-browser via the wasm module — so `JsonV1` survives mainly for `make preview`'s SVG/JSON parity bundle and any external consumer that wants the raw `{hexes, edges, quads, tris}` payload.
 - **`wasm`** (feature-gated) — `wasm-bindgen` surface for the web demo. Exposes `WasmLayout` (opaque handle wrapping `HGridLayout`) with four renderable flat-buffer methods plus one structured query, all the renderables filtered by `entangled: bool`:
   - `tris(entangled)` — canonical welded fill stream (`all_tris` flattened to `n_tris * 9`).
@@ -46,6 +49,8 @@ Three modules, exported flat from `lib.rs`, plus an optional `wasm` module gated
   - `face_tris(entangled)` — per-hex face fans grouped `n_hexes * 54` floats (6 center-fan tris × 3 verts × 3 floats); the i-th 54-float slice owns the 6 tris of the i-th matching hex. Lets JS address whole hex cells (e.g. the band shader's random-subset overlay) without reconstructing the grouping from the flat `tris` stream.
   - `face_bridge_quads(entangled)` — per-hex face-edge bridge quads grouped `n_hexes * 78` floats (6 edge slots × 13 floats: `[flag, v0, n0, n1, v1]`). `flag` is `1.0` when the neighbor on that face edge exists in-grid, `0.0` for border edges (followed by 12 sentinel zeros). Same hex ordering as `face_tris`; corner layout matches `gap_quads` (`v0`/`v1` on source hex, `n0`/`n1` on neighbor). Lets the bridge band shader render a chosen face-edge's gap quad as a directional continuation of the source hex's ring overlay.
   - `borderline_cells(VertexDir)` returns `Vec<HexCellView>` for seam construction.
+
+  Chunks cross as `WasmChunkWorld::new(chunk_radius, height_seed, radius_seed)` → `chunk(q, r) -> WasmChunk`, whose `owned()` / `seam(i)` are flat `n_tris * 9` world-space buffers, `seam_owners()` is `[q0, r0, q1, r1, …]` and `center()` is the centre cell's world `[x, z]`.
 
   The renderable split keeps the boundary at the renderable level — clients never see `gap_quads` or the tessellation diagonal, sidestepping the "must NOT consume both `all_tris` + `gap_quads`" footgun. Inputs flow through `OverrideSpec { kind, q, r, value }` (pins per-hex height/radius post-noise; mapped to `Override`), `EntangleSpec { q, r }` (marks a hex as entangled; mapped to `Hex`), `NoiseChannel` (mirrors `NoiseType`), `VertexDir` (mirrors `hexx::VertexDirection` indices East..NorthEast). Outputs flow through `HexCellView { q, r, height, radius, entangled }` (Hex decomposed since foreign types can't carry `#[wasm_bindgen]`).
 
@@ -58,7 +63,7 @@ Three modules, exported flat from `lib.rs`, plus an optional `wasm` module gated
 
 ## Preview pipeline
 
-`make preview` runs `geo_export` three times (plain SVG, rich SVG, JSON v1 — all using `HSEED`), runs `wasm-pack build` once to produce `web/pkg/`, then templates `web/svg-preview.html` (with the short git SHA), `web/hex-terrain.html` (with the short SHA + `RADIUS`), `web/hex-units.html` (with the short SHA + `UNITS_RADIUS`) and `web/hex-crawler.html` (with the short SHA + `CRAWLER_RADIUS`) into `target/www-preview/`, and copies `docs/guide.html` (a static geometry guide with inline SVG figures) alongside them. The guide is generated: edit `docs/guide/guide.tmpl.html` (prose, `{{fN}}` figure slots) or `docs/guide/gen.py` (figures), then `make guide`; never hand-edit `docs/guide.html`. Pin `HSEED` for a reproducible build (the chosen seed is echoed at the end); the SVG previews and `apicult-desigual.json` (v1) all share it.
+`make preview` runs `geo_export` three times (plain SVG, rich SVG, JSON v1 — all using `HSEED`), runs `wasm-pack build` once to produce `web/pkg/`, then templates `web/svg-preview.html` (with the short git SHA), `web/hex-terrain.html` (with the short SHA + `RADIUS`), `web/hex-units.html` (with the short SHA + `UNITS_RADIUS`) and `web/hex-crawler.html` (with the short SHA + `CRAWLER_RADIUS`) and `web/hex-stream.html` (with the short SHA + `STREAM_CHUNK_RADIUS`) into `target/www-preview/`, and copies `docs/guide.html` (a static geometry guide with inline SVG figures) alongside them. The guide is generated: edit `docs/guide/guide.tmpl.html` (prose, `{{fN}}` figure slots) or `docs/guide/gen.py` (figures), then `make guide`; never hand-edit `docs/guide.html`. Pin `HSEED` for a reproducible build (the chosen seed is echoed at the end); the SVG previews and `apicult-desigual.json` (v1) all share it.
 
 The terrain page imports `pkg/apicult_desigual.js` and builds a **7-mesh flower cluster** on load: one center `WasmLayout` + six petal layouts arranged around it, each with its own fresh random u32 seeds (or seeded via the `seed` input for reproducibility — `splitmix32` derives 14 stable per-mesh seeds from one root). Each petal shares its inward-facing ring of hex cells with the center via WFC-style overrides + entangle markers, constructed by `web/hex-seam.js::seamSpec` — so the center owns those seams visually and the petal's mirror cells are skipped when its `tris(false)` / `face_tris(false)` / `wire_edges(false)` streams are pulled. The wasm handles are `.free()`'d after the buffers are extracted.
 
@@ -95,9 +100,20 @@ A third page, on **Phaser**, that inverts the other two: there is no sprite, the
 
 Sidebar: **grid** (radius, seed — rebuild), **crawl** (tempo, climb penalty, band speed — live), **view** (trail, bands, base layer).
 
+## The chunk treadmill (`hex-stream.html`)
+
+A fourth page, on **three.js**, closing #15 on top of the `chunk` module: seven chunks (an anchor + its 6 lattice neighbours) around a camera parked at the origin, the world group drifting at `speed` in one of 6 chunk directions. Load-bearing facts:
+
+- **One `WasmChunkWorld` per world.** Both seeds come from the seed box once per build (`seedSequence(seed, 2)`, or two `randomU32` when blank) — never per chunk, or chunks stop fitting.
+- **Stepping is pure JS** (`web/hex-stream.js`, node-tested): `nearestStep` compares the camera's world `(x, z)` against chunk centres from `chunkCenter(coord, u, v)`, where `u`, `v` are `WasmChunk.center()` of chunks `(1,0)` / `(0,1)` — valid because `to_higher_res` and `hex_to_world_pos` are both linear. Each step is `stepFootprint`: 3 spawn, 3 despawn, 4 kept untouched.
+- **Seams follow consumer rule 1**: every chunk builds a mesh per seam group up front; `visibleSeamGroups` shows only groups whose owner chunk isn't loaded, so the 1+6 always has a closed outline and no doubled interior gaps. `highlight seams` paints them amber.
+- Float precision far from the origin is not handled (the group offset grows without rebasing).
+
+Sidebar: **world** (chunk radius, seed — rebuild), **motion** (speed, direction — live), **view** (tint chunks, highlight seams).
+
 ### Shared web modules
 
-All three pages share `web/demo.css`, `web/weld.js` (engine-agnostic `weldTris` → `{positions, indices}`; `hex-terrain.js::weldedMesh` and the Babylon `VertexData` path both wrap it), `web/seed.js` (`randomU32` / `splitmix32` / `seedSequence`) and `web/hex-controls.js`. The last is schema-driven: `TERRAIN_SCHEMA`, `UNITS_SCHEMA` and `CRAWLER_SCHEMA` declare each page's inputs, toggles and which fields rebuild vs. update live, so a new page adds a schema rather than a binder. `make` copies them via the `COMMON_WEB` variable (per-page modules go in `TERRAIN_WEB` / `UNITS_WEB` / `CRAWLER_WEB`) — **any new shared module must be added there or it will 404 on gh-pages.**
+All four pages share `web/demo.css`, `web/page-nav.js` (the topbar page `<select>`, auto-mounted into `[data-page-nav]` by its own `<script type="module" src="page-nav.js">` so it survives a failing page module; `PAGES` is the one list of pages — a new page adds itself there, and `page-nav.test.mjs` fails until every `web/*.html` is listed and mounts the nav; `svg-preview.html` loads it too), `web/weld.js` (engine-agnostic `weldTris` → `{positions, indices}`; `three-weld.js::weldedMesh` and the Babylon `VertexData` path both wrap it), `web/three-weld.js` (`weldedMesh` → indexed `THREE.BufferGeometry`, for the three.js pages), `web/canvas.js` (`showError`; `needsResize`, which compares device px to device px so high-DPI screens don't reallocate every frame; `runFrames`, the rAF loop that shows a throwing frame's error once and clears it on recovery — use it for a new page's loop), `web/seed.js` (`randomU32` / `splitmix32` / `seedSequence`) and `web/hex-controls.js`. The last is schema-driven: `TERRAIN_SCHEMA`, `UNITS_SCHEMA`, `CRAWLER_SCHEMA` and `STREAM_SCHEMA` declare each page's inputs, toggles and which fields rebuild vs. update live, so a new page adds a schema rather than a binder. Live number fields are clamped to their input's own `min`/`max` (the HTML is the one source of the limits); rebuild fields aren't, so Makefile overrides past `max` (`make RADIUS=12`) survive. `make` copies them via the `COMMON_WEB` variable (per-page modules go in `TERRAIN_WEB` / `UNITS_WEB` / `CRAWLER_WEB` / `STREAM_WEB`) — **any new shared module must be added there or it will 404 on gh-pages.**
 
 The pure-JS units are tested with `node --test web/*.test.mjs` (the `test-js` make target, which `make test` and CI both run).
 
