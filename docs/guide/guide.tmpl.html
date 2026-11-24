@@ -71,12 +71,12 @@ figure.wide { width: min(calc(100vw - 40px), 880px); position: relative; left: 5
 .masthead .name { font: 400 clamp(1.25rem, 4.5vw, 1.9rem)/1.1 "Major Mono Display", var(--mono); letter-spacing: 0.02em; overflow-wrap: anywhere; }
 .masthead .name span { color: var(--quad); }
 .topnav { margin: 0 0 12px; text-align: right; }
+.topnav select { font: 0.85rem var(--body); color: var(--ink); background: var(--card); border: 1px solid var(--rule); border-radius: 4px; padding: 3px 6px; }
 dl.terms { display: grid; grid-template-columns: max-content 1fr; gap: 6px 16px; margin: 16px 0; }
 dl.terms dt { font: 500 0.95rem var(--display); }
 dl.terms dt.sub { padding-left: 14px; font-weight: 400; color: var(--muted); }
 dl.terms dd { margin: 0; }
 @media (max-width: 520px) { dl.terms { grid-template-columns: 1fr; } dl.terms dd { margin: 0 0 8px; } }
-.topnav select { font: 0.85rem var(--body); color: var(--ink); background: var(--card); border: 1px solid var(--rule); border-radius: 4px; padding: 3px 6px; }
 .svgwrap { background: var(--card); border: 1px solid var(--rule); border-radius: 8px; padding: 8px; overflow-x: auto; color: var(--ink); }
 svg { display: block; width: 100%; height: auto; }
 figcaption { font-size: 0.9rem; color: var(--muted); margin-top: 8px; }
@@ -145,20 +145,22 @@ a:focus-visible { outline: 2px solid var(--quad); outline-offset: 2px; }
 <dl class="terms">
 <dt>cell</dt><dd>One hexagon of the grid: a <code>HexCell { hex, height, radius, entangled }</code>. Its <code>hex</code> is the hexx coordinate, axial <code>(q, r)</code>. This page says <em>cell</em> for the grid element and <code>Hex</code> only for the coordinate type.</dd>
 <dt>centre</dt><dd>The cell's world position, a <code>Vec2(x, z)</code>. Centres sit on a fixed lattice, <code>√3 · nominal_hex_radius</code> apart. Height is <code>y</code>, so 3D points are <code>Vec3(x, height, z)</code>.</dd>
-<dt>corner</dt><dd>One of the six points <code>centre + unit_corner · cell.radius</code>, at the cell's height, numbered 0–5 (hexx <code>VertexDirection</code>).</dd>
+<dt>nominal radius</dt><dd><code>nominal_hex_radius</code> in <code>HGridSettings</code> (default 4): the corner radius at which neighbouring faces would just touch. It fixes the lattice; each cell's own <code>radius</code> is drawn from noise below it.</dd>
+<dt>corner</dt><dd>One of the six points at distance <code>cell.radius</code> from the centre, in the directions of a unit hexagon's corners, at the cell's height, numbered 0–5 (hexx <code>VertexDirection</code>).</dd>
 <dt>edge</dt><dd>The side from corner <code>i</code> to corner <code>i+1</code>, numbered 0–5 (hexx <code>EdgeDirection</code>). Edge <code>e</code> faces the neighbour in direction <code>e</code>; the neighbour sees the same edge as <code>e+3</code>.</dd>
 <dt>face</dt><dd>The flat top of a cell, drawn as a fan of six triangles from the centre.</dd>
 <dt>gap</dt><dd>The space between faces. A cell's <code>radius</code> is smaller than <code>nominal_hex_radius</code>, so faces never touch. The gap is filled by two kinds of piece:</dd>
 <dt class="sub">gap quad</dt><dd>Across an edge two cells share: two corners from each, drawn as two triangles.</dd>
 <dt class="sub">junction triangle</dt><dd>Where three cells meet: one corner from each.</dd>
 <dt>owner</dt><dd>The one cell that emits a gap piece, by the rules below.</dd>
+<dt>ring <code>k</code></dt><dd>The cells at distance exactly <code>k</code> from a centre cell (hexx <code>Hex::ring</code>); a radius-<code>r</code> grid is rings 0 to <code>r</code>.</dd>
 </dl>
 <p id="ownership">Two <strong>ownership rules</strong> keep every gap piece from being drawn twice. 1.5, 1.6 and sections 3 to 5 all rest on them:</p>
 <ul>
 <li><strong>Gap quads.</strong> Every interior edge is shared by two cells. If one meets it as an even edge (0, 2, 4), the other meets it as odd (3, 5, 1), because <code>e+3</code> flips parity. So "the cell that meets it as an even edge owns it" picks exactly one owner.</li>
 <li><strong>Junction triangles.</strong> Every interior corner is shared by three cells, and it is corner 0 or 1 of exactly one of them. That cell owns the triangle, so each cell owns the junctions at its corners 0 and 1.</li>
 </ul>
-<p>A gap piece is only emitted when every cell it touches exists. Later sections add <em>entangled</em> cells (section 4) and <em>chunks</em>, <em>rings</em> and <em>seams</em> (section 5).</p>
+<p>A gap piece is only emitted when every cell it touches exists. Later sections add <em>entangled</em> cells (section 4) and <em>chunks</em> and <em>seams</em> (section 5).</p>
 
 <h2 id="math">1 · The math functions, simplest first</h2>
 <p><code>src/math.rs</code> holds pure functions over <code>glam</code> and <code>hexx</code> types. None of them know about <code>HGridLayout</code>. They're ordered here from plain arithmetic to the grid combinatorics the rest of the crate is built on.</p>
@@ -169,7 +171,7 @@ a:focus-visible { outline: 2px solid var(--quad); outline-offset: 2px; }
 <div class="fnbody">
 <p>Noise generators return values centred on zero, roughly in <code>[-1, 1]</code>. This is the straight line through <code>(-1, min)</code> and <code>(1, max)</code>:</p>
 <p class="formula">out = min + (n + 1) / 2 · (max − min)</p>
-<p>The layout calls it twice per cell. Once for height, into <code>[0, max_height]</code> (default 20). Once for the cell's corner radius, into <code>[nominal · min_ratio, nominal · max_ratio]</code> (default 0.2 to 3.6 for a nominal radius of 4). Centres sit <code>√3 · nominal_hex_radius</code> apart (6.93 at the default), where faces of corner radius <code>nominal_hex_radius</code> would just touch. With the default ratios every cell's radius stays below that, so every cell is surrounded by <a href="#terms">gap</a>.</p>
+<p>The layout calls it twice per cell. Once for height, into <code>[0, max_height]</code> (default 20). Once for the cell's corner radius, into <code>[nominal · min_ratio, nominal · max_ratio]</code> (default 0.2 to 3.6 for a nominal radius of 4). With the default ratios every radius stays below the <a href="#terms">nominal radius</a>, so every cell is surrounded by gap. The centres sit 6.93 apart at the default.</p>
 {{f1}}
 </div>
 </details>
@@ -208,7 +210,7 @@ a:focus-visible { outline: 2px solid var(--quad); outline-offset: 2px; }
 <summary><span class="h3">1.5 <code>quad_corner_indices</code><span class="lvl">hexx direction tables</span></span><span class="gist">which corners form the gap quad across an edge</span></summary>
 <div class="fnbody">
 <p>Here the lattice itself comes in. hexx numbers a cell's six <a href="#terms">corners and edges</a> with separate tables (<code>VertexDirection</code>, <code>EdgeDirection</code>).</p>
-<p>The gap quad between a cell and its neighbour across edge <code>e</code> has two corners on each cell. On the neighbour, that same edge is edge <code>e+3</code>, and it is walked in the opposite direction. The function returns the four indices in a fixed order, <code>(v0, v1, n0, n1)</code>, so the quad always comes out as <code>[v0, n0, n1, v1]</code>.</p>
+<p>The gap quad between a cell and its neighbour across edge <code>e</code> has two corners on each cell. On the neighbour, that edge is walked in the opposite direction. The function returns the four indices in a fixed order, <code>(v0, v1, n0, n1)</code>, so the quad always comes out as <code>[v0, n0, n1, v1]</code>.</p>
 <div class="tablewrap"><table>
 <tr><th>edge</th><th>faces neighbour</th><th>owner corners v0, v1</th><th>neighbour corners n0, n1</th></tr>
 <tr><td>0</td><td class="mono">(+1, 0)</td><td class="mono">0, 1</td><td class="mono">4, 3</td></tr>
@@ -285,9 +287,9 @@ a:focus-visible { outline: 2px solid var(--quad); outline-offset: 2px; }
 <p><code>HGridLayout::new</code> builds a <code>HexagonalMap</code> of radius <code>settings.radius</code> around <code>Hex::ZERO</code>. Each cell gets its height and radius from <code>Fbm&lt;Perlin&gt;</code> sampled at its world centre divided by a scale (50 for height, 30 for radius).</p>
 <ul>
 <li>A cell's height and radius come from noise at its world position, unless pinned through <code>overrides</code>. Its neighbours don't affect them, and neither does the size or centre of the grid. That is why a chunk can be built on its own (<a href="#chunks">section 5</a>).</li>
-<li>Corners are <code>centre + unit_corner · cell.radius</code>, while centres are <code>√3 · nominal_hex_radius</code> apart on a fixed lattice. So a smaller cell widens the gaps around it, but never moves.</li>
+<li>Corners scale with <code>cell.radius</code>; centres don't (see <a href="#terms">terms</a>). So a smaller cell widens the gaps around it, but never moves.</li>
 </ul>
-<p><code>all_tris(entangled)</code> walks the grid once. For each cell it appends, in a fixed order, exactly what that cell owns under the rules in 1.6:</p>
+<p><code>all_tris(entangled)</code> walks the grid once. For each cell it appends, in a fixed order, exactly what that cell owns under the <a href="#ownership">ownership rules</a>:</p>
 {{f7}}
 <p>Because ownership is per cell, any way of splitting the cells into groups splits the triangle stream with no overlap and no holes. Chunks are one such split; <code>chunk::tests::owned_streams_partition_world</code> checks it bit for bit.</p>
 <h2 id="entangled">4 · Entangled cells</h2>
@@ -299,7 +301,7 @@ a:focus-visible { outline: 2px solid var(--quad); outline-offset: 2px; }
 <p><code>all_tris(entangled)</code>, <code>hex_face_tris(entangled)</code> and <code>gap_quad_tris(entangled)</code> return only the matching part, so a consumer can drive entangled and plain cells with two materials. <code>entangle_borderline(dir)</code> marks one outer side of the grid.</p>
 <p>Example: entangle the whole outer ring of a radius-3 grid. <code>all_tris(false)</code> skips the ring's faces and the gaps between two ring cells, but keeps every gap that reaches an inner cell, whoever owns it. The inner cells come out with a closed outline:</p>
 {{f10g}}
-<p>The terrain page's flower (<a href="https://github.com/dynnamitt/apicult-desigual-rs/issues/9">#9</a>) uses this per petal. Each petal entangles its ring of cells facing a neighbour and copies the neighbour's border values into it with overrides. The earlier-placed layout owns every shared seam, so the seams are drawn once, with no z-fighting and no doubled triangles.</p>
+<p>The terrain page's flower (<a href="https://github.com/dynnamitt/apicult-desigual-rs/issues/9">#9</a>) uses this per petal. Each petal entangles its ring of cells facing a neighbour and copies the neighbour's border values into it with overrides. The earlier-placed layout owns every gap piece the two share, so each is drawn once, with no z-fighting and no doubled triangles.</p>
 <p><code>HGridLayout::for_chunk</code> builds exactly the layout in the figure above, for one chunk.</p>
 
 <h2 id="chunks">5 · Streaming chunks</h2>

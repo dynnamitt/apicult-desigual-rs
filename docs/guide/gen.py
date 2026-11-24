@@ -86,6 +86,8 @@ def owned_gaps(q, r, cells, ratio, entangled=frozenset()):
     for vi in (0, 1):
         pts, co = junc_pts(q, r, vi, ratio)
         if all(c in cells for c in co): yield "junc", pts
+def fan(q, r, ratio):  # the six triangles a face is drawn with, from its centre
+    return [[center(q, r), corner(q, r, i, ratio), corner(q, r, (i+1) % 6, ratio)] for i in range(6)]
 def arrow(a, c, cls="edge acc"):
     return f'<line class="{cls}" x1="{a[0]:.1f}" y1="{a[1]:.1f}" x2="{c[0]:.1f}" y2="{c[1]:.1f}" marker-end="url(#arr)"/>'
 
@@ -110,8 +112,7 @@ def logo_shapes(v, R=LOGO_RATIO, fixed=False):
         dq, dr = EDGE[e]; out.append(P([corner(dq, dr, i, R) for i in range(6)], "ghost"))
     for e in (1, 3, 5):
         dq, dr = EDGE[e]; out.append(P(quad_pts(dq, dr, (e+3) % 6, R), "qghost"))
-    c0 = center(0, 0)
-    for i in range(6): out.append(P([c0, corner(0, 0, i, R), corner(0, 0, (i+1) % 6, R)], "face"))
+    out += [P(t, "face") for t in fan(0, 0, R)]
     for e in (0, 2, 4):
         q_ = quad_pts(0, 0, e, R); out.append(P(q_, "quad")); out.append(Ln(q_[0], q_[2]))
     for vi in (0, 1): out.append(P(junc_pts(0, 0, vi, R)[0], "junc"))
@@ -124,29 +125,26 @@ b = []
 v = View(130, 190, 245)
 TRIO = [(0, 0), (1, 0), (1, -1)]
 b += [hexpoly(v, *h, 1.0, "face missing") for h in TRIO]
-b += [poly(v, [center(*h), corner(*h, i, TERMS_RATIO), corner(*h, (i+1) % 6, TERMS_RATIO)], "face fan") for h in TRIO for i in range(6)]
-quads = [quad_pts(0, 0, 0, TERMS_RATIO), quad_pts(1, -1, 2, TERMS_RATIO), quad_pts(1, 0, 4, TERMS_RATIO)]
-b += [poly(v, q_, "quad") for q_ in quads]
-jt, _ = junc_pts(0, 0, 0, TERMS_RATIO); b.append(poly(v, jt, "junc"))
-b.append(line(v.p(corner(0, 0, 0, TERMS_RATIO)), v.p(corner(0, 0, 1, TERMS_RATIO)), "edge own"))
+b += [poly(v, t, "face fan") for h in TRIO for t in fan(*h, TERMS_RATIO)]
+pieces = [g for h in TRIO for g in owned_gaps(*h, set(TRIO), TERMS_RATIO)]  # 3 gap quads and 1 junction triangle
+b += [poly(v, pts, k) for k, pts in pieces]
+c0 = [corner(0, 0, i, TERMS_RATIO) for i in range(6)]
+b.append(line(v.p(c0[0]), v.p(c0[1]), "edge own"))
 mid = lambda pts: (sum(p[0] for p in pts)/len(pts), sum(p[1] for p in pts)/len(pts))
-def label(at, lines, cls="lbl", dy=0):  # centred lines of text at a world point
-    x, y = v.p(at); return [text(x, y + dy + 4 + 13*k - 6.5*(len(lines)-1), t, cls) for k, t in enumerate(lines)]
-for i in range(6):
-    sp = v.p(corner(0, 0, i, TERMS_RATIO)); b.append(f'<circle class="dot" cx="{sp[0]:.1f}" cy="{sp[1]:.1f}" r="3.5"/>')
+def label(at, lines, cls="lbl"):  # centred lines of text at a world point
+    x, y = v.p(at); return [text(x, y + 4 + 13*k - 6.5*(len(lines)-1), t, cls) for k, t in enumerate(lines)]
+for i, c in enumerate(c0):
+    sp = v.p(c); b.append(f'<circle class="dot" cx="{sp[0]:.1f}" cy="{sp[1]:.1f}" r="3.5"/>')
     b += label(corner(0, 0, i, TERMS_RATIO * 0.8), [str(i)], "lbl mono halo")
 sp = v.p(center(0, 0)); b.append(f'<circle class="dot acc" cx="{sp[0]:.1f}" cy="{sp[1]:.1f}" r="4"/>')
-b += label(center(0, 0), ["centre"], "lbl acc halo", dy=16)
-b += label(mid([corner(0, 0, 0, TERMS_RATIO), corner(0, 0, 1, TERMS_RATIO), center(0, 0)]), ["edge 0"], "lbl acc halo")
+b += label((0, -0.13), ["centre"], "lbl acc halo")
+b += label(mid([c0[0], c0[1], center(0, 0)]), ["edge 0"], "lbl acc halo")
 b += label(center(1, 0), ["face", "(1,0)"], "lbl halo")
 b += label(center(1, -1), ["face", "(1,−1)"], "lbl halo")
-b += [t for q_ in quads for t in label(mid(q_), ["gap", "quad"])]
-b += label(mid(jt), ["junction"], "lbl tiny")
+b += [t for k, pts in pieces for t in label(mid(pts), ["gap", "quad"] if k == "quad" else ["junction"], "lbl" if k == "quad" else "lbl tiny")]
 b += label((center(0, 0)[0], -SQ3/2 - 0.12), ["where faces would touch"], "lbl dim tiny")
 figs["f0"] = fig("\n".join(b), 560, 490, "Three cells meeting at a corner: faces, gap quads and a junction triangle",
-  "Three cells, <code>(0,0)</code>, <code>(1,0)</code> and <code>(1,−1)</code>, drawn with extra-wide gaps. Each <strong>face</strong> is smaller than the dashed outline where neighbouring faces would touch, and the space left between faces is the <strong>gap</strong>. "
-  "It is filled by two kinds of piece: a <strong>gap quad</strong> (blue) across each edge two cells share, and a <strong>junction triangle</strong> (amber) where three cells meet. "
-  "Cell <code>(0,0)</code> shows its <strong>centre</strong> and <strong>corners</strong> 0–5; the thick line is its <strong>edge</strong> 0. Every face is drawn as a fan of six triangles from its centre.")
+  "Cells <code>(0,0)</code>, <code>(1,0)</code> and <code>(1,−1)</code>, drawn with extra-wide gaps. Blue: gap quads. Amber: the junction triangle. Dashed: where faces of radius <code>nominal_hex_radius</code> would touch. Cell <code>(0,0)</code> shows its centre and corners 0–5; the thick line is its edge 0.")
 
 # ---- F1 map_noise_to_range
 b = []
