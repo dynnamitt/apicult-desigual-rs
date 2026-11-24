@@ -195,19 +195,19 @@ a:focus-visible { outline: 2px solid var(--quad); outline-offset: 2px; }
 <text class="lbl" x="385.0" y="255.5" text-anchor="middle">quad</text>
 <text class="lbl" x="287.5" y="298.8" text-anchor="middle">gap</text>
 <text class="lbl" x="287.5" y="311.8" text-anchor="middle">quad</text>
-<text class="lbl dim tiny" x="190.0" y="377.2" text-anchor="middle">where faces would touch</text></svg></div><figcaption>Cells <code>(0,0)</code>, <code>(1,0)</code> and <code>(1,−1)</code>, drawn with extra-wide gaps. Blue: gap quads. Amber: the junction triangle. Dashed: where faces of radius <code>nominal_hex_radius</code> would touch. Cell <code>(0,0)</code> shows its centre and corners 0–5; the thick line is its edge 0.</figcaption></figure>
+<text class="lbl dim tiny" x="190.0" y="377.2" text-anchor="middle">nominal outline</text></svg></div><figcaption>Cells <code>(0,0)</code>, <code>(1,0)</code> and <code>(1,−1)</code>, drawn with extra-wide gaps. Blue: gap quads. Amber: the junction triangle. Dashed: where faces of radius <code>nominal_hex_radius</code> would touch. Cell <code>(0,0)</code> shows its centre and corners 0–5; the thick line is its edge 0.</figcaption></figure>
 <dl class="terms">
 <dt>cell</dt><dd>One hexagon of the grid: a <code>HexCell { hex, height, radius, entangled }</code>. Its <code>hex</code> is the hexx coordinate, axial <code>(q, r)</code>. This page says <em>cell</em> for the grid element and <code>Hex</code> only for the coordinate type.</dd>
 <dt>centre</dt><dd>The cell's world position, a <code>Vec2(x, z)</code>. Centres sit on a fixed lattice, <code>√3 · nominal_hex_radius</code> apart. Height is <code>y</code>, so 3D points are <code>Vec3(x, height, z)</code>.</dd>
-<dt>nominal radius</dt><dd><code>nominal_hex_radius</code> in <code>HGridSettings</code> (default 4): the corner radius at which neighbouring faces would just touch. It fixes the lattice; each cell's own <code>radius</code> is drawn from noise below it.</dd>
+<dt>nominal radius</dt><dd><code>nominal_hex_radius</code> in <code>HGridSettings</code> (default 4): the corner radius at which neighbouring faces would just touch. It fixes the lattice. Each cell's own <code>radius</code> comes from noise, between <code>min_radius_ratio</code> and <code>max_radius_ratio</code> times it (0.05 and 0.9 by default).</dd>
 <dt>corner</dt><dd>One of the six points at distance <code>cell.radius</code> from the centre, in the directions of a unit hexagon's corners, at the cell's height, numbered 0–5 (hexx <code>VertexDirection</code>).</dd>
-<dt>edge</dt><dd>The side from corner <code>i</code> to corner <code>i+1</code>, numbered 0–5 (hexx <code>EdgeDirection</code>). Edge <code>e</code> faces the neighbour in direction <code>e</code>; the neighbour sees the same edge as <code>e+3</code>.</dd>
+<dt>edge</dt><dd>The side from corner <code>i</code> to corner <code>i+1</code>, numbered 0–5 (hexx <code>EdgeDirection</code>). Edge <code>e</code> faces the neighbour in direction <code>e</code>; the neighbour sees the same edge as <code>(e+3) mod 6</code>.</dd>
 <dt>face</dt><dd>The flat top of a cell, drawn as a fan of six triangles from the centre.</dd>
-<dt>gap</dt><dd>The space between faces. A cell's <code>radius</code> is smaller than <code>nominal_hex_radius</code>, so faces never touch. The gap is filled by two kinds of piece:</dd>
+<dt>gap</dt><dd>The space between faces, which opens wherever <code>cell.radius &lt; nominal_hex_radius</code>. With the default ratios that is every cell; a <code>max_radius_ratio</code> above 1, or a radius pinned by an override, can make faces touch or overlap. The gap is filled by two kinds of piece:</dd>
 <dt class="sub">gap quad</dt><dd>Across an edge two cells share: two corners from each, drawn as two triangles.</dd>
 <dt class="sub">junction triangle</dt><dd>Where three cells meet: one corner from each.</dd>
 <dt>owner</dt><dd>The one cell that emits a gap piece, by the rules below.</dd>
-<dt>ring <code>k</code></dt><dd>The cells at distance exactly <code>k</code> from a centre cell (hexx <code>Hex::ring</code>); a radius-<code>r</code> grid is rings 0 to <code>r</code>.</dd>
+<dt>ring <code>k</code></dt><dd>The cells at distance exactly <code>k</code> from a given cell (hexx <code>Hex::ring</code>); a radius-<code>r</code> grid is rings 0 to <code>r</code>.</dd>
 </dl>
 <p id="ownership">Two <strong>ownership rules</strong> keep every gap piece from being drawn twice. 1.5, 1.6 and sections 3 to 5 all rest on them:</p>
 <ul>
@@ -1046,7 +1046,7 @@ a:focus-visible { outline: 2px solid var(--quad); outline-offset: 2px; }
 <li>Junction triangles are never entangled. <code>all_tris(true)</code> skips them, and <code>all_tris(false)</code> always includes them.</li>
 </ul>
 <p><code>all_tris(entangled)</code>, <code>hex_face_tris(entangled)</code> and <code>gap_quad_tris(entangled)</code> return only the matching part, so a consumer can drive entangled and plain cells with two materials. <code>entangle_borderline(dir)</code> marks one outer side of the grid.</p>
-<p>Example: entangle the whole outer ring of a radius-3 grid. <code>all_tris(false)</code> skips the ring's faces and the gaps between two ring cells, but keeps every gap that reaches an inner cell, whoever owns it. The inner cells come out with a closed outline:</p>
+<p>Example: entangle the whole outer ring of a radius-3 grid. <code>all_tris(false)</code> skips the ring's faces and the gap quads between two ring cells (both entangled, by the <a href="#entangle-rules">first rule</a>), but keeps every gap piece that reaches an inner cell, whoever owns it. The inner cells come out with a closed outline:</p>
 <figure><div class="svgwrap"><svg viewBox="0 0 500 490" role="img" aria-label="A radius 3 layout with its outer ring entangled: all_tris(false) closes the outline of the inner cells">
 <defs><marker id="arr12" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="currentColor"/></marker></defs>
 <polygon class="face entring" points="114.6,336.5 101.3,313.5 74.7,313.5 61.4,336.5 74.7,359.6 101.3,359.6" />

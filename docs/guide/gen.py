@@ -23,6 +23,7 @@ args = ap.parse_args()
 SQ3 = math.sqrt(3)
 # Corner radius as a fraction of unit spacing: the logo (and the one-cell figure drawn from it), and the grid figures.
 LOGO_RATIO, GRID_RATIO = 0.72, 0.74
+TERMS_RATIO = 0.6  # the terms figure: wider gaps, so labels fit inside the pieces
 # Chunk radius of the for_chunk figures (sections 4 and 5); their counts are pinned in Rust for this value.
 CHUNK_R = 2
 
@@ -120,13 +121,13 @@ def logo_shapes(v, R=LOGO_RATIO, fixed=False):
 figs = {}
 
 # ---- F0 terms: three cells meeting at a corner, labelled in place
-TERMS_RATIO = 0.6  # wider gaps than the grid figures, so the labels fit inside the pieces
 b = []
 v = View(130, 190, 245)
 TRIO = [(0, 0), (1, 0), (1, -1)]
 b += [hexpoly(v, *h, 1.0, "face missing") for h in TRIO]
 b += [poly(v, t, "face fan") for h in TRIO for t in fan(*h, TERMS_RATIO)]
-pieces = [g for h in TRIO for g in owned_gaps(*h, set(TRIO), TERMS_RATIO)]  # 3 gap quads and 1 junction triangle
+pieces = [g for h in TRIO for g in owned_gaps(*h, set(TRIO), TERMS_RATIO)]
+assert sorted(k for k, _ in pieces) == ["junc", "quad", "quad", "quad"]  # what the caption and labels describe
 b += [poly(v, pts, k) for k, pts in pieces]
 c0 = [corner(0, 0, i, TERMS_RATIO) for i in range(6)]
 b.append(line(v.p(c0[0]), v.p(c0[1]), "edge own"))
@@ -142,7 +143,7 @@ b += label(mid([c0[0], c0[1], center(0, 0)]), ["edge 0"], "lbl acc halo")
 b += label(center(1, 0), ["face", "(1,0)"], "lbl halo")
 b += label(center(1, -1), ["face", "(1,−1)"], "lbl halo")
 b += [t for k, pts in pieces for t in label(mid(pts), ["gap", "quad"] if k == "quad" else ["junction"], "lbl" if k == "quad" else "lbl tiny")]
-b += label((center(0, 0)[0], -SQ3/2 - 0.12), ["where faces would touch"], "lbl dim tiny")
+b += label((center(0, 0)[0], -SQ3/2 - 0.12), ["nominal outline"], "lbl dim tiny")
 figs["f0"] = fig("\n".join(b), 560, 490, "Three cells meeting at a corner: faces, gap quads and a junction triangle",
   "Cells <code>(0,0)</code>, <code>(1,0)</code> and <code>(1,−1)</code>, drawn with extra-wide gaps. Blue: gap quads. Amber: the junction triangle. Dashed: where faces of radius <code>nominal_hex_radius</code> would touch. Cell <code>(0,0)</code> shows its centre and corners 0–5; the thick line is its edge 0.")
 
@@ -385,7 +386,7 @@ for k, svg in figs.items(): tmpl = tmpl.replace("{{" + k + "}}", svg)
 # extent: x ±(1.5+R), z ±(sqrt3 + R*sqrt3/2)
 LS = 60; LW = 2*(1.5+LOGO_RATIO)*LS + 8; LH = 2*(SQ3+LOGO_RATIO*SQ3/2)*LS + 8
 lv = View(LS, LW/2, LH/2)
-logo_file = (f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {LW:.0f} {LH:.0f}" role="img" aria-label="apicult-desigual logo: one hex cell with the gaps it owns">\n'
+logo_file = (f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {LW:.0f} {LH:.0f}" role="img" aria-label="apicult-desigual logo: one cell with the gaps it owns">\n'
              + "\n".join(logo_shapes(lv, fixed=True)) + "\n</svg>\n")
 if args.logo: args.logo.write_text(logo_file)
 logo_inline = (f'<svg class="logo" viewBox="0 0 {LW:.0f} {LH:.0f}" role="img" aria-label="apicult-desigual logo">'
