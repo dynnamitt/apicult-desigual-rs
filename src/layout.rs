@@ -541,8 +541,38 @@ fn corner_index_for_vertex(hex: Hex, target: &GridVertex) -> Option<u8> {
 mod tests {
     use super::*;
 
+    const GOLDEN_RADIUS: u32 = 4;
+    const ALL_TRIS_GOLDEN: u64 = 2_807_960_220_995_250_556;
+    const FNV_OFFSET: u64 = 0xcbf2_9ce4_8422_2325;
+    const FNV_PRIME: u64 = 0x0100_0000_01b3;
+
     fn default_settings() -> HGridSettings {
         HGridSettings::default()
+    }
+
+    /// 64-bit FNV-1a over the `f32` bit patterns of every vertex coordinate.
+    fn fnv1a_tris(tris: &[[Vec3; 3]]) -> u64 {
+        tris.iter()
+            .flat_map(|t| t.iter().flat_map(|v| [v.x, v.y, v.z]))
+            .fold(FNV_OFFSET, |h, f| {
+                (h ^ u64::from(f.to_bits())).wrapping_mul(FNV_PRIME)
+            })
+    }
+
+    #[test]
+    fn all_tris_golden_checksum() {
+        // Pins all_tris byte-for-byte. Update the constant only on an intentional geometry change.
+        let g = HGridSettings {
+            radius: GOLDEN_RADIUS,
+            ..default_settings()
+        };
+        let layout = HGridLayout::new(&g, &[], &[Hex::ZERO, Hex::new(1, 0), Hex::new(2, 0)]);
+        let tris: Vec<_> = layout
+            .all_tris(false)
+            .into_iter()
+            .chain(layout.all_tris(true))
+            .collect();
+        assert_eq!(fnv1a_tris(&tris), ALL_TRIS_GOLDEN);
     }
 
     #[test]
