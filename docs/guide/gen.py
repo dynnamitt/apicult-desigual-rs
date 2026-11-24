@@ -21,6 +21,10 @@ ap.add_argument("--out", type=Path, default=HERE.parent / "guide.html")
 ap.add_argument("--logo", type=Path, help="also write the stand-alone logo SVG here")
 args = ap.parse_args()
 SQ3 = math.sqrt(3)
+# Corner radius as a fraction of unit spacing: the logo (and the one-cell figure drawn from it), and the grid figures.
+LOGO_RATIO, GRID_RATIO = 0.72, 0.74
+# Chunk radius of the for_chunk figures (sections 4 and 5); their counts are pinned in Rust for this value.
+CHUNK_R = 2
 
 def center(q, r):  # flat-top axial -> world (x, z), unit spacing radius 1
     return (1.5*q, SQ3*(r + q/2))
@@ -86,7 +90,7 @@ def arrow(a, c, cls="edge acc"):
     return f'<line class="{cls}" x1="{a[0]:.1f}" y1="{a[1]:.1f}" x2="{c[0]:.1f}" y2="{c[1]:.1f}" marker-end="url(#arr)"/>'
 
 # ---- logo: the owned-cell picture without labels
-def logo_shapes(v, R=0.72, fixed=False):
+def logo_shapes(v, R=LOGO_RATIO, fixed=False):
     C = dict(face='fill="#c3cad3" stroke="#4a5360" stroke-width="1" stroke-opacity="0.55"',
              ghost='fill="none" stroke="#7d8794" stroke-width="1.2" stroke-opacity="0.7"',
              quad='fill="#3b63c9" fill-opacity="0.6" stroke="#3b63c9" stroke-width="1"',
@@ -227,17 +231,18 @@ figs["f5"] = fig("\n".join(b), 760, 450, "Hex corner and edge indices; each hex 
 
 # ---- F6 gap_filler r=2 grid
 v = View(46, 260, 230)
-gaps = [g for h in hexagon(2) for g in owned_gaps(*h, set(hexagon(2)), 0.74)]
+cells = set(hexagon(2))
+gaps = [g for h in hexagon(2) for g in owned_gaps(*h, cells, GRID_RATIO)]
 nq, nj = sum(k == "quad" for k, _ in gaps), sum(k == "junc" for k, _ in gaps)
-body = ([hexpoly(v, *h, 0.74, "face missing") for h in reversed(ring(3))]
-        + [hexpoly(v, *h, 0.74, "face") for h in hexagon(2)] + [poly(v, pts, k) for k, pts in gaps])
+body = ([hexpoly(v, *h, GRID_RATIO, "face missing") for h in reversed(ring(3))]
+        + [hexpoly(v, *h, GRID_RATIO, "face") for h in hexagon(2)] + [poly(v, pts, k) for k, pts in gaps])
 body.append(text(260, 460, f"19 cells → {nq} quads, {nj} junction tris", "lbl mono"))
 figs["f6"] = fig("\n".join(body), 520, 480, "A radius 2 grid: every interior gap is filled exactly once",
   f"<code>gap_filler</code> on the 19 cells of a radius-2 grid returns <code>({nq}, {nj})</code>. Blue are the gap quads, amber the 3-hex junction triangles. Each is drawn once, by its owner. The dashed ring would be radius 3: those cells don't exist, so the outer cells' gaps toward them are simply skipped. This is the rim the real map has too.")
 
 # ---- F7 one cell's owned stream
 v = View(92, 300, 250)
-R = 0.72
+R = LOGO_RATIO
 b = logo_shapes(v, R)  # the logo is this figure without its labels
 c0 = center(0, 0)
 for i in range(6):
@@ -313,7 +318,7 @@ figs["f13"] = fig("\n".join(b), 560, 380, "to_local gives a cell's offset from i
 # ---- F10g: one layout with its outer ring entangled (guide)
 # HGridLayout::for_chunk(g, (0,0), CR): own cells plus an entangled ring; F14 draws the same layout.
 v = View(36, 250, 243)
-R = 0.74; CR = 2
+R = GRID_RATIO; CR = CHUNK_R
 own, rim = hexagon(CR), ring(CR+1)
 layout_gaps = [(h, k, pts) for h in own + rim for k, pts in owned_gaps(*h, set(own) | set(rim), R, set(rim))]
 b = ([hexpoly(v, *h, R, "face entring") for h in rim] + [hexpoly(v, *h, R, "face") for h in own]
@@ -350,7 +355,7 @@ tmpl = args.template.read_text()
 for k, svg in figs.items(): tmpl = tmpl.replace("{{" + k + "}}", svg)
 
 # extent: x ±(1.5+R), z ±(sqrt3 + R*sqrt3/2)
-LS = 60; LW = 2*(1.5+0.72)*LS + 8; LH = 2*(SQ3+0.72*SQ3/2)*LS + 8
+LS = 60; LW = 2*(1.5+LOGO_RATIO)*LS + 8; LH = 2*(SQ3+LOGO_RATIO*SQ3/2)*LS + 8
 lv = View(LS, LW/2, LH/2)
 logo_file = (f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {LW:.0f} {LH:.0f}" role="img" aria-label="apicult-desigual logo: one hex cell with the gaps it owns">\n'
              + "\n".join(logo_shapes(lv, fixed=True)) + "\n</svg>\n")

@@ -70,6 +70,8 @@ figure.wide { width: min(calc(100vw - 40px), 880px); position: relative; left: 5
 .masthead .logo { width: 84px; height: auto; flex: none; }
 .masthead .name { font: 400 clamp(1.25rem, 4.5vw, 1.9rem)/1.1 "Major Mono Display", var(--mono); letter-spacing: 0.02em; overflow-wrap: anywhere; }
 .masthead .name span { color: var(--quad); }
+.topnav { margin: 0 0 12px; text-align: right; }
+.topnav select { font: 0.85rem var(--body); color: var(--ink); background: var(--card); border: 1px solid var(--rule); border-radius: 4px; padding: 3px 6px; }
 .svgwrap { background: var(--card); border: 1px solid var(--rule); border-radius: 8px; padding: 8px; overflow-x: auto; color: var(--ink); }
 svg { display: block; width: 100%; height: auto; }
 figcaption { font-size: 0.9rem; color: var(--muted); margin-top: 8px; }
@@ -115,9 +117,11 @@ th { font-family: var(--display); font-weight: 500; }
 .tile.part { fill-opacity: 0.45; }
 a:focus-visible { outline: 2px solid var(--quad); outline-offset: 2px; }
 </style>
+<script type="module" src="page-nav.js"></script>
 </head>
 <body>
 <main>
+<nav class="topnav" data-page-nav></nav>
 <header class="masthead"><svg class="logo" viewBox="0 0 274 291" role="img" aria-label="apicult-desigual logo"><polygon class="face ghost" points="270.4,93.4 248.8,56.0 205.6,56.0 184.0,93.4 205.6,130.8 248.8,130.8"/><polygon class="face ghost" points="180.4,41.4 158.8,4.0 115.6,4.0 94.0,41.4 115.6,78.8 158.8,78.8"/><polygon class="face ghost" points="90.4,93.4 68.8,56.0 25.6,56.0 4.0,93.4 25.6,130.8 68.8,130.8"/><polygon class="face ghost" points="90.4,197.3 68.8,159.9 25.6,159.9 4.0,197.3 25.6,234.7 68.8,234.7"/><polygon class="face ghost" points="180.4,249.3 158.8,211.8 115.6,211.8 94.0,249.3 115.6,286.7 158.8,286.7"/><polygon class="face ghost" points="270.4,197.3 248.8,159.9 205.6,159.9 184.0,197.3 205.6,234.7 248.8,234.7"/><polygon class="quad ghost" points="115.6,78.8 115.6,107.9 158.8,107.9 158.8,78.8"/><polygon class="quad ghost" points="90.4,197.3 115.6,182.7 94.0,145.3 68.8,159.9"/><polygon class="quad ghost" points="205.6,159.9 180.4,145.3 158.8,182.7 184.0,197.3"/><polygon class="face fan" points="137.2,145.3 180.4,145.3 158.8,107.9"/><polygon class="face fan" points="137.2,145.3 158.8,107.9 115.6,107.9"/><polygon class="face fan" points="137.2,145.3 115.6,107.9 94.0,145.3"/><polygon class="face fan" points="137.2,145.3 94.0,145.3 115.6,182.7"/><polygon class="face fan" points="137.2,145.3 115.6,182.7 158.8,182.7"/><polygon class="face fan" points="137.2,145.3 158.8,182.7 180.4,145.3"/><polygon class="quad" points="180.4,145.3 205.6,130.8 184.0,93.4 158.8,107.9"/><line x1="180.4" y1="145.3" x2="184.0" y2="93.4" class="diag"/><polygon class="quad" points="115.6,107.9 90.4,93.4 68.8,130.8 94.0,145.3"/><line x1="115.6" y1="107.9" x2="68.8" y2="130.8" class="diag"/><polygon class="quad" points="115.6,182.7 115.6,211.8 158.8,211.8 158.8,182.7"/><line x1="115.6" y1="182.7" x2="158.8" y2="211.8" class="diag"/><polygon class="junc" points="180.4,145.3 205.6,159.9 205.6,130.8"/><polygon class="junc" points="158.8,107.9 184.0,93.4 158.8,78.8"/></svg><div class="name">apicult-<span>desigual</span></div></header>
 <h1>Geometry guide</h1>
 <p class="sub">How <code>src/math.rs</code>, the hexx resolution functions, <code>HGridLayout</code>'s per-cell ownership and the <code>chunk</code> module fit together. Function sections start collapsed; open one to read it.</p>

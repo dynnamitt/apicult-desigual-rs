@@ -94,10 +94,11 @@ stream-html: prep
 
 # Regenerate docs/guide.html from docs/guide/guide.tmpl.html (stdlib Python only).
 guide:
-	python3 docs/guide/gen.py
+	python3 docs/guide/gen.py --logo docs/logo.svg
 
 guide-html: prep
 	cp docs/guide.html $(OUT)/guide.html
+	cp web/page-nav.js $(OUT)/
 
 serve: preview
 	cd $(OUT); python3 -m http.server

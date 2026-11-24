@@ -8,6 +8,9 @@ on:
       - "examples/**"
       - "Cargo.toml"
       - "web/**"
+      - "docs/guide/**"
+      - "docs/guide.html"
+      - "docs/logo.svg"
       - "Makefile"
       - ".github/workflows/svg-preview.yml"
   pull_request:
@@ -16,6 +19,9 @@ on:
       - "examples/**"
       - "Cargo.toml"
       - "web/**"
+      - "docs/guide/**"
+      - "docs/guide.html"
+      - "docs/logo.svg"
       - "Makefile"
       - ".github/workflows/svg-preview.yml"
   workflow_dispatch:
@@ -46,7 +52,7 @@ jobs:
         run: make test   # cargo tests + the pure-JS node tests
 
       - name: Guide is up to date
-        run: make guide && git diff --exit-code docs/guide.html   # gen.py is stdlib-only and deterministic
+        run: make guide && git diff --exit-code docs/guide.html docs/logo.svg   # gen.py is stdlib-only and deterministic
 
       - name: Build preview
         run: make preview SHORT_SHA="${GITHUB_SHA::7}" OUT=deploy
