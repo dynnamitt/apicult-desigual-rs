@@ -3,14 +3,14 @@ import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { weldedMesh } from "./hex-terrain.js";
 import {
   CHUNK_DIRS, chunkKey, footprint, stepFootprint, chunkCenter, nearestStep,
-  visibleSeamGroups, advancePos, clampChunkRadius,
+  visibleSeamGroups, advancePos, clampChunkRadius, advanceFade, FADE_IN_S, chunkHash,
 } from "./hex-stream.js";
 import { randomU32, seedSequence } from "./seed.js";
 
 const BG_COLOR = 0x0a0e1a;
 const FILL_COLOR = 0x66cc99, SEAM_COLOR = 0xffb347;
-// Per-chunk hue when `tint` is on: golden-ratio steps keep neighbours apart.
-const TINT_Q = 0.381966, TINT_R = 0.618034, TINT_SAT = 0.45, TINT_LIGHT = 0.55;
+// Per-chunk colour when `tint` is on: hue, saturation and lightness all come off chunkHash.
+const TINT_SAT_MIN = 0.45, TINT_SAT_SPAN = 0.45, TINT_LIGHT_MIN = 0.4, TINT_LIGHT_SPAN = 0.25;
 const AMBIENT_INTENSITY = 0.6, SUN_INTENSITY = 1.0;
 const SUN_POS = [15, 25, 10];
 const CAMERA_FOV = 45;
@@ -22,12 +22,20 @@ const STATS_INTERVAL_MS = 250;
 const TOGGLE_KEYS = ["tint", "seams"];
 
 const tintColor = ([q, r]) => {
-  const hue = (((q * TINT_Q + r * TINT_R) % 1) + 1) % 1;
-  return new THREE.Color().setHSL(hue, TINT_SAT, TINT_LIGHT);
+  const h = chunkHash(q, r);
+  const byte = (shift) => ((h >>> shift) & 0xff) / 0xff;
+  return new THREE.Color().setHSL(
+    (h & 0xffff) / 0x10000,
+    TINT_SAT_MIN + TINT_SAT_SPAN * byte(16),
+    TINT_LIGHT_MIN + TINT_LIGHT_SPAN * byte(24),
+  );
 };
 
+// Always transparent so fading needs no shader recompile; the polygon offset
+// (on while fading) lets the opaque seam that stands in for a fading chunk win the depth test.
 const material = (color) => new THREE.MeshStandardMaterial({
   color, flatShading: true, side: THREE.DoubleSide, roughness: 0.85, metalness: 0.05,
+  transparent: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1,
 });
 
 const disposeMesh = (group, mesh) => {
@@ -82,25 +90,31 @@ export function mount(canvas, statsEl, { initialSettings, WasmChunkWorld }) {
     scene.add(group);
 
     let world = null;
-    let loaded = new Map(); // chunkKey → { coord, owned: Mesh, seams: {owner, mesh}[] }
+    let loaded = new Map(); // chunkKey → { coord, owned: Mesh, seams: {mesh}[], fade }
     let anchor = [0, 0], pos = [0, 0], u = [0, 0], v = [0, 0], steps = 0;
 
     const chunkColor = (coord) => (state.tint ? tintColor(coord) : new THREE.Color(FILL_COLOR));
 
-    const buildChunk = (coord) => {
+    const applyAlpha = (c) => [c.owned, ...c.seams.map((s) => s.mesh)].forEach(({ material: m }) => {
+      m.opacity = c.fade.alpha;
+      m.polygonOffset = c.fade.alpha < 1;
+    });
+
+    const buildChunk = (coord, alpha = 1) => {
       const wc = world.chunk(coord[0], coord[1]);
       const owned = new THREE.Mesh(weldedMesh(wc.owned()), material(chunkColor(coord)));
       group.add(owned);
       const owners = wc.seam_owners();
       const seams = Array.from({ length: owners.length / 2 }, (_, i) => {
-        const owner = [owners[2 * i], owners[2 * i + 1]];
         const mesh = new THREE.Mesh(weldedMesh(wc.seam(i)), material(SEAM_COLOR));
         group.add(mesh);
-        return { owner, mesh };
+        return { mesh };
       });
       const center = Array.from(wc.center());
       wc.free();
-      loaded.set(chunkKey(...coord), { coord, center, owned, seams, owners });
+      const c = { coord, center, owned, seams, owners, fade: { alpha, target: 1, delay: 0 } };
+      applyAlpha(c);
+      loaded.set(chunkKey(...coord), c);
     };
 
     const dropChunk = (coord) => {
@@ -111,14 +125,16 @@ export function mount(canvas, statsEl, { initialSettings, WasmChunkWorld }) {
       loaded.delete(key);
     };
 
-    // Seam colour follows the owner it stands in for, unless `seams` highlights it.
+    // A seam wears its own chunk's colour (unless `seams` highlights it) until the
+    // owner fades in and its owned stream takes over.
+    // Only fully opaque chunks count as loaded, so seams cover a chunk while it fades.
     const refreshSeams = () => {
-      const keys = new Set(loaded.keys());
+      const keys = new Set([...loaded].filter(([, c]) => c.fade.alpha === 1).map(([k]) => k));
       loaded.forEach((c) => {
         const shown = new Set(visibleSeamGroups(c.owners, keys));
-        c.seams.forEach(({ owner, mesh }, i) => {
+        c.seams.forEach(({ mesh }, i) => {
           mesh.visible = shown.has(i);
-          mesh.material.color.copy(state.seams ? new THREE.Color(SEAM_COLOR) : chunkColor(owner));
+          mesh.material.color.copy(state.seams ? new THREE.Color(SEAM_COLOR) : chunkColor(c.coord));
         });
         c.owned.material.color.copy(chunkColor(c.coord));
       });
@@ -126,8 +142,16 @@ export function mount(canvas, statsEl, { initialSettings, WasmChunkWorld }) {
 
     const step = (dir) => {
       const diff = stepFootprint(anchor, dir);
-      diff.despawn.forEach(dropChunk);
-      diff.spawn.forEach(buildChunk);
+      // Spawns fade in first; despawns stay solid until they are in, then fade out.
+      diff.despawn.forEach((coord) => {
+        const c = loaded.get(chunkKey(...coord));
+        c.fade = { ...c.fade, target: 0, delay: FADE_IN_S };
+      });
+      diff.spawn.forEach((coord) => {
+        const c = loaded.get(chunkKey(...coord)); // still fading out after a reversal
+        if (c) c.fade = { ...c.fade, target: 1, delay: 0 };
+        else buildChunk(coord, 0);
+      });
       anchor = diff.anchor;
       steps += 1;
       refreshSeams();
@@ -148,7 +172,7 @@ export function mount(canvas, statsEl, { initialSettings, WasmChunkWorld }) {
       anchor = [0, 0];
       pos = [0, 0];
       steps = 0;
-      footprint(anchor).forEach(buildChunk);
+      footprint(anchor).forEach((c) => buildChunk(c));
       // to_higher_res and hex_to_world_pos are linear: two centres span the lattice.
       u = loaded.get(chunkKey(1, 0)).center;
       v = loaded.get(chunkKey(0, 1)).center;
@@ -194,6 +218,14 @@ export function mount(canvas, statsEl, { initialSettings, WasmChunkWorld }) {
           step(d);
         }
       }
+      const fading = [...loaded.values()]
+        .filter(({ fade: f }) => f.alpha !== f.target || f.delay > 0);
+      fading.forEach((c) => {
+        c.fade = advanceFade(c.fade, dt);
+        applyAlpha(c);
+        if (c.fade.target === 0 && c.fade.alpha === 0) dropChunk(c.coord);
+      });
+      if (fading.length) refreshSeams();
       group.position.set(-pos[0], 0, -pos[1]);
       controls.update();
       renderer.render(scene, camera);
