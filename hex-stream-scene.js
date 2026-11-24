@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
-import { weldedMesh } from "./hex-terrain.js";
+import { weldedMesh } from "./three-weld.js";
+import { showError, needsResize, runFrames } from "./canvas.js";
 import {
   CHUNK_DIRS, chunkKey, footprint, stepFootprint, chunkCenter, nearestStep,
   visibleSeamGroups, advancePos, clampChunkRadius, advanceFade, FADE_IN_S, chunkHash,
@@ -12,6 +13,8 @@ const FILL_COLOR = 0x66cc99, SEAM_COLOR = 0xffb347;
 // Per-chunk colour when `tint` is on: hue, saturation and lightness all come off chunkHash.
 const TINT_SAT_MIN = 0.45, TINT_SAT_SPAN = 0.45, TINT_LIGHT_MIN = 0.4, TINT_LIGHT_SPAN = 0.25;
 const AMBIENT_INTENSITY = 0.6, SUN_INTENSITY = 1.0;
+const ROUGHNESS = 0.85, METALNESS = 0.05;
+const ORBIT_DAMPING = 0.08;
 const SUN_POS = [15, 25, 10];
 const CAMERA_FOV = 45;
 // Camera distance in chunk spacings, so every chunk radius frames the same 1+6.
@@ -34,7 +37,7 @@ const tintColor = ([q, r]) => {
 // Always transparent so fading needs no shader recompile; the polygon offset
 // (on while fading) lets the opaque seam that stands in for a fading chunk win the depth test.
 const material = (color) => new THREE.MeshStandardMaterial({
-  color, flatShading: true, side: THREE.DoubleSide, roughness: 0.85, metalness: 0.05,
+  color, flatShading: true, side: THREE.DoubleSide, roughness: ROUGHNESS, metalness: METALNESS,
   transparent: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1,
 });
 
@@ -42,13 +45,6 @@ const disposeMesh = (group, mesh) => {
   group.remove(mesh);
   mesh.geometry.dispose();
   mesh.material.dispose();
-};
-
-const showError = (canvas, msg) => {
-  const p = document.createElement("p");
-  p.className = "error-msg";
-  p.textContent = msg;
-  canvas.insertAdjacentElement("afterend", p);
 };
 
 /**
@@ -83,7 +79,7 @@ export function mount(canvas, statsEl, { initialSettings, WasmChunkWorld }) {
     scene.add(sun);
     const controls = new OrbitControls(camera, canvas);
     controls.enableDamping = true;
-    controls.dampingFactor = 0.08;
+    controls.dampingFactor = ORBIT_DAMPING;
 
     // World-space terrain lives in `group`; moving it by -pos parks the camera.
     const group = new THREE.Group();
@@ -202,11 +198,10 @@ export function mount(canvas, statsEl, { initialSettings, WasmChunkWorld }) {
     };
 
     const clock = new THREE.Clock();
-    const animate = (now) => {
-      requestAnimationFrame(animate);
+    runFrames(canvas, "stream frame failed", (now) => {
       const dt = clock.getDelta();
-      const w = canvas.clientWidth, h = canvas.clientHeight;
-      if (canvas.width !== w || canvas.height !== h) {
+      if (needsResize(canvas, renderer.getPixelRatio())) {
+        const w = canvas.clientWidth, h = canvas.clientHeight;
         renderer.setSize(w, h, false);
         camera.aspect = w / h;
         camera.updateProjectionMatrix();
@@ -230,8 +225,7 @@ export function mount(canvas, statsEl, { initialSettings, WasmChunkWorld }) {
       controls.update();
       renderer.render(scene, camera);
       writeStats(now ?? 0);
-    };
-    animate();
+    });
 
     return {
       regenerate(settings) {

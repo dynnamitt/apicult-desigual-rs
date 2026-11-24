@@ -32,7 +32,7 @@
 </head>
 <body>
   <h1>apicult-desigual terrain preview</h1>
-  <p class="meta">generated from <a href="https://github.com/dynnamitt/apicult-desigual-rs">dynnamitt/apicult-desigual-rs</a> &mdash; <span id="sha">d34d30a</span> &middot; <span data-page-nav></span></p>
+  <p class="meta">generated from <a href="https://github.com/dynnamitt/apicult-desigual-rs">dynnamitt/apicult-desigual-rs</a> &mdash; <span id="sha">c79355b</span> &middot; <span data-page-nav></span></p>
   <div class="terrain-wrap">
     <canvas id="terrain"></canvas>
     <p class="hint">drag to orbit &middot; scroll to zoom &middot; right-drag to pan</p>
@@ -51,6 +51,7 @@
 <script type="module">
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { needsResize } from './canvas.js';
 
 const canvas = document.getElementById('terrain');
 
@@ -133,9 +134,8 @@ try {
 
   function animate() {
     requestAnimationFrame(animate);
-    const w = canvas.clientWidth;
-    const h = canvas.clientHeight;
-    if (canvas.width !== w || canvas.height !== h) {
+    if (needsResize(canvas, renderer.getPixelRatio())) {
+      const w = canvas.clientWidth, h = canvas.clientHeight;
       renderer.setSize(w, h, false);
       camera.aspect = w / h;
       camera.updateProjectionMatrix();
