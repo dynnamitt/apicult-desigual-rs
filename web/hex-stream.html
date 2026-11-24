@@ -55,12 +55,13 @@
         </label>
         <label class="row"><span>direction</span>
           <select id="ctl-direction">
-            <option value="0">+q</option>
-            <option value="1">+q −r</option>
-            <option value="2">−r</option>
-            <option value="3">−q</option>
-            <option value="4">−q +r</option>
-            <option value="5">+r</option>
+            <!-- camera heading on screen (north = up); terrain flows the opposite way -->
+            <option value="0">E (+q)</option>
+            <option value="1">NE (+q −r)</option>
+            <option value="2">NW (−r)</option>
+            <option value="3">W (−q)</option>
+            <option value="4">SW (−q +r)</option>
+            <option value="5">SE (+r)</option>
           </select>
         </label>
       </fieldset>
