@@ -1,10 +1,10 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { weldedMesh } from "./three-weld.js";
-import { showError, needsResize } from "./canvas.js";
+import { showError, needsResize, runFrames } from "./canvas.js";
 import {
   CHUNK_DIRS, chunkKey, footprint, stepFootprint, chunkCenter, nearestStep,
-  visibleSeamGroups, advancePos, clampChunkRadius, clampSpeed, advanceFade, FADE_IN_S, chunkHash,
+  visibleSeamGroups, advancePos, clampChunkRadius, advanceFade, FADE_IN_S, chunkHash,
 } from "./hex-stream.js";
 import { randomU32, seedSequence } from "./seed.js";
 
@@ -198,18 +198,17 @@ export function mount(canvas, statsEl, { initialSettings, WasmChunkWorld }) {
     };
 
     const clock = new THREE.Clock();
-    const frame = (now) => {
+    runFrames(canvas, "stream frame failed", (now) => {
       const dt = clock.getDelta();
-      const w = canvas.clientWidth, h = canvas.clientHeight;
       if (needsResize(canvas, renderer.getPixelRatio())) {
+        const w = canvas.clientWidth, h = canvas.clientHeight;
         renderer.setSize(w, h, false);
         camera.aspect = w / h;
         camera.updateProjectionMatrix();
       }
-      const speed = clampSpeed(state.speed);
-      if (speed > 0) {
+      if (state.speed > 0) {
         const dirVec = chunkCenter(CHUNK_DIRS[state.direction], u, v);
-        pos = advancePos(pos, dirVec, speed, dt, chunkCenter(anchor, u, v));
+        pos = advancePos(pos, dirVec, state.speed, dt, chunkCenter(anchor, u, v));
         for (let d = nearestStep(pos, anchor, u, v); d !== -1; d = nearestStep(pos, anchor, u, v)) {
           step(d);
         }
@@ -226,18 +225,7 @@ export function mount(canvas, statsEl, { initialSettings, WasmChunkWorld }) {
       controls.update();
       renderer.render(scene, camera);
       writeStats(now ?? 0);
-    };
-    // A throw (e.g. a chunk build) would otherwise repeat every frame with nothing on screen.
-    const animate = (now) => {
-      try {
-        frame(now);
-        requestAnimationFrame(animate);
-      } catch (e) {
-        console.error(e);
-        showError(canvas, `stream frame failed: ${e.message}`);
-      }
-    };
-    animate();
+    });
 
     return {
       regenerate(settings) {

@@ -12,7 +12,7 @@
  * side guarantees this — every shared corner goes through `HGridLayout::vertex`.
  *
  * Output is plain arrays so each renderer can wrap them in its own buffer type
- * (`THREE.BufferGeometry` in {@link ./hex-terrain.js}, `BABYLON.VertexData` in
+ * (`THREE.BufferGeometry` in {@link ./three-weld.js}, `BABYLON.VertexData` in
  * {@link ./hex-units-scene.js}).
  *
  * @param {Float32Array} trisBuf Flat `n * 9` triangle stream.

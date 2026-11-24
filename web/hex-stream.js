@@ -13,8 +13,6 @@ import { splitmix32 } from "./seed.js";
 export const MAX_FRAME_DT = 0.1;
 /** Largest chunk radius the page builds; matches the input's `max`. */
 export const MAX_CHUNK_RADIUS = 6;
-/** Fastest camera speed (world units/s); matches the input's `max`. Typing past it would build hundreds of chunks in one frame. */
-export const MAX_SPEED = 60;
 /** Rate (1/s) at which the camera's sideways offset from its rail decays; off-rail it would zig-zag between two chunk rows. */
 export const RAIL_PULL = 3;
 /** Seconds a step's 3 spawned chunks take to fade in; the 3 despawned ones wait this long, then fade out in {@link FADE_OUT_S}. */
@@ -151,13 +149,6 @@ export const advanceFade = ({ alpha, target, delay }, dt) => {
     : Math.max(0, alpha - run / FADE_OUT_S);
   return { alpha: next, target, delay: delay - wait };
 };
-
-/**
- * Speed from the sidebar, clamped to `0..MAX_SPEED`; the input's `max` doesn't stop typing.
- * @param {number} s parsed input (may be NaN)
- * @returns {number}
- */
-export const clampSpeed = (s) => Math.min(MAX_SPEED, Math.max(0, Number.isFinite(s) ? s : 0));
 
 /**
  * Chunk radius from the sidebar, clamped to `0..MAX_CHUNK_RADIUS`; a negative

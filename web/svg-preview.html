@@ -51,6 +51,7 @@
 <script type="module">
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { needsResize } from './canvas.js';
 
 const canvas = document.getElementById('terrain');
 
@@ -133,9 +134,8 @@ try {
 
   function animate() {
     requestAnimationFrame(animate);
-    const w = canvas.clientWidth;
-    const h = canvas.clientHeight;
-    if (canvas.width !== w || canvas.height !== h) {
+    if (needsResize(canvas, renderer.getPixelRatio())) {
+      const w = canvas.clientWidth, h = canvas.clientHeight;
       renderer.setSize(w, h, false);
       camera.aspect = w / h;
       camera.updateProjectionMatrix();

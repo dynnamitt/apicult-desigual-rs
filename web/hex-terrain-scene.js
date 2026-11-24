@@ -7,9 +7,8 @@ import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
 import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
 import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
-import { vertexCount, triangleCount } from "./hex-terrain.js";
-import { weldedMesh } from "./three-weld.js";
-import { showError, needsResize } from "./canvas.js";
+import { weldedMesh, vertexCount, triangleCount } from "./three-weld.js";
+import { showError, needsResize, runFrames } from "./canvas.js";
 import {
   wireEdgesGeometry,
   createWireShader,
@@ -389,12 +388,10 @@ export function mount(canvas, statsEl, { initialSettings, WasmLayout }) {
 
     const clock = new THREE.Clock();
 
-    const animate = () => {
-      requestAnimationFrame(animate);
+    runFrames(canvas, "terrain frame failed", () => {
       const dt = clock.getDelta();
-      const w = canvas.clientWidth;
-      const h = canvas.clientHeight;
       if (needsResize(canvas, renderer.getPixelRatio())) {
+        const w = canvas.clientWidth, h = canvas.clientHeight;
         renderer.setSize(w, h, false);
         composer.setSize(w, h);
         camera.aspect = w / h;
@@ -407,8 +404,7 @@ export function mount(canvas, statsEl, { initialSettings, WasmLayout }) {
       }
       controls.update();
       composer.render();
-    };
-    animate();
+    });
 
     const applyDisplayState = () => {
       for (const o of objs) {

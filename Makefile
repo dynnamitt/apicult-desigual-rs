@@ -33,10 +33,10 @@ RENDER_STREAM = sed -e "s|__SHA__|$(SHORT_SHA)|g" -e "s|__STREAM_CHUNK_RADIUS__|
 # first `@`-prefixed line of a recipe (each recipe line runs in its own shell).
 ENSURE = command -v $(1) >/dev/null 2>&1 || { echo ">> $(1) not found — installing via: $(2)"; $(2); }
 
-# Front-end assets, split by which page needs them. Both pages share the
-# stylesheet, the sidebar binder and the pure helpers (welding, seeds).
+# Front-end assets, split by which page needs them. All pages share the
+# stylesheet, the sidebar binder and the helpers (welding, seeds, canvas).
 COMMON_WEB   = web/demo.css web/hex-controls.js web/weld.js web/seed.js web/page-nav.js web/three-weld.js web/canvas.js
-TERRAIN_WEB  = web/hex-terrain.js web/hex-terrain-scene.js web/hex-terrain-shader.js web/hex-seam.js
+TERRAIN_WEB  = web/hex-terrain-scene.js web/hex-terrain-shader.js web/hex-seam.js
 UNITS_WEB    = web/hex-units-scene.js web/hex-units-grid.js
 # The crawler routes with the units page's graph, so it ships that module too.
 CRAWLER_WEB  = web/hex-crawler-scene.js web/hex-crawler-board.js web/hex-crawler-walk.js web/hex-units-grid.js
@@ -74,7 +74,7 @@ wasm: prep
 
 preview-html: prep
 	$(call RENDER,web/svg-preview.html,$(OUT)/svg-preview.html)
-	cp web/page-nav.js $(OUT)/
+	cp web/page-nav.js web/canvas.js $(OUT)/
 
 terrain-html: prep
 	$(call RENDER_TERRAIN,web/hex-terrain.html,$(OUT)/index.html)

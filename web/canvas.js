@@ -1,6 +1,6 @@
 /**
- * Canvas helpers shared by the three.js pages. No engine imports, so the
- * resize decision runs under plain node.
+ * Canvas helpers shared by the demo pages. No engine imports, so the resize
+ * decision runs under plain node.
  */
 
 /**
@@ -27,3 +27,24 @@ export const showError = (canvas, msg) => {
 export const needsResize = (canvas, pixelRatio) =>
   canvas.width !== Math.floor(canvas.clientWidth * pixelRatio)
   || canvas.height !== Math.floor(canvas.clientHeight * pixelRatio);
+
+/**
+ * Call `frame` on every animation frame. A throw stops the loop and shows
+ * `label: message` after `canvas`, instead of repeating every frame unseen.
+ * @param {HTMLCanvasElement} canvas
+ * @param {string} label e.g. `"stream frame failed"`
+ * @param {(now: number|undefined) => void} frame
+ * @returns {void}
+ */
+export const runFrames = (canvas, label, frame) => {
+  const tick = (now) => {
+    try {
+      frame(now);
+      requestAnimationFrame(tick);
+    } catch (e) {
+      console.error(e);
+      showError(canvas, `${label}: ${e.message}`);
+    }
+  };
+  tick();
+};

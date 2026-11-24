@@ -82,6 +82,11 @@ export const STREAM_SCHEMA = {
   live: new Set(["speed", "direction"]),
 };
 
+// An input's `min`/`max` don't stop typing; past `max` a speed of 100000 froze the treadmill.
+const clampToInput = (v, el) => (typeof v === "number" && Number.isFinite(v)
+  ? Math.min(Number(el?.max || Infinity), Math.max(Number(el?.min || -Infinity), v))
+  : v);
+
 function parseSeed(raw) {
   const trimmed = String(raw ?? "").trim();
   if (trimmed === "") return null;
@@ -99,7 +104,7 @@ export function readSettingsFromDOM(rootEl, schema = TERRAIN_SCHEMA) {
   const out = {};
   for (const spec of schema.inputs) {
     const el = rootEl.querySelector(`#${spec.id}`);
-    out[spec.field] = spec.parse(el?.value ?? "");
+    out[spec.field] = clampToInput(spec.parse(el?.value ?? ""), el);
   }
   // Display flags reflect the current button .on state.
   for (const k of schema.toggles) {
