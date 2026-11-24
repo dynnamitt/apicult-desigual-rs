@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Major+Mono+Display&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@500;600&family=IBM+Plex+Sans:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet">
 <style>
-/* Layout: one reading column (~68ch); figures may run wider. Blue = gap quads, amber = junctions, slate = hex faces. */
+/* Layout: one reading column (~68ch); figures may run wider. Blue = gap quads, amber = junctions, slate = cell faces. */
 :root {
   --paper: #f3f4f1;
   --ink: #1d2126;
@@ -71,6 +71,11 @@ figure.wide { width: min(calc(100vw - 40px), 880px); position: relative; left: 5
 .masthead .name { font: 400 clamp(1.25rem, 4.5vw, 1.9rem)/1.1 "Major Mono Display", var(--mono); letter-spacing: 0.02em; overflow-wrap: anywhere; }
 .masthead .name span { color: var(--quad); }
 .topnav { margin: 0 0 12px; text-align: right; }
+dl.terms { display: grid; grid-template-columns: max-content 1fr; gap: 6px 16px; margin: 16px 0; }
+dl.terms dt { font: 500 0.95rem var(--display); }
+dl.terms dt.sub { padding-left: 14px; font-weight: 400; color: var(--muted); }
+dl.terms dd { margin: 0; }
+@media (max-width: 520px) { dl.terms { grid-template-columns: 1fr; } dl.terms dd { margin: 0 0 8px; } }
 .topnav select { font: 0.85rem var(--body); color: var(--ink); background: var(--card); border: 1px solid var(--rule); border-radius: 4px; padding: 3px 6px; }
 .svgwrap { background: var(--card); border: 1px solid var(--rule); border-radius: 8px; padding: 8px; overflow-x: auto; color: var(--ink); }
 svg { display: block; width: 100%; height: auto; }
@@ -88,6 +93,7 @@ th { font-family: var(--display); font-weight: 500; }
 .lbl.dim { fill: var(--muted); }
 .lbl.acc { fill: var(--quad); font-weight: 500; }
 .lbl.acc2 { fill: var(--junc); font-weight: 500; }
+.lbl.halo { paint-order: stroke; stroke: var(--face); stroke-width: 4px; stroke-linejoin: round; }
 .axis { stroke: currentColor; stroke-width: 1.2; fill: none; }
 .dash { stroke-dasharray: 4 4; }
 .map { stroke: var(--muted); stroke-width: 1; fill: none; }
@@ -125,22 +131,37 @@ a:focus-visible { outline: 2px solid var(--quad); outline-offset: 2px; }
 <header class="masthead">{{logo}}<div class="name">apicult-<span>desigual</span></div></header>
 <h1>Geometry guide</h1>
 <p class="sub">How <code>src/math.rs</code>, the hexx resolution functions, <code>HGridLayout</code>'s per-cell ownership and the <code>chunk</code> module fit together. Function sections start collapsed; open one to read it.</p>
-<ol class="toc">
+<ol class="toc" start="0">
+<li><a href="#terms">Terms</a></li>
 <li><a href="#math">The math functions, simplest first</a></li>
 <li><a href="#resolution">Resolution functions from hexx</a></li>
 <li><a href="#cell">What one cell owns</a></li>
 <li><a href="#entangled">Entangled cells</a></li>
 <li><a href="#chunks">Streaming chunks</a></li>
 </ol>
+<h2 id="terms">0 · Terms</h2>
+<p>The words this page uses for the parts of the grid:</p>
+{{f0}}
+<dl class="terms">
+<dt>cell</dt><dd>One hexagon of the grid: a <code>HexCell { hex, height, radius, entangled }</code>. Its <code>hex</code> is the hexx coordinate, axial <code>(q, r)</code>. This page says <em>cell</em> for the grid element and <code>Hex</code> only for the coordinate type.</dd>
+<dt>centre</dt><dd>The cell's world position, a <code>Vec2(x, z)</code>. Centres sit on a fixed lattice, <code>√3 · nominal_hex_radius</code> apart. Height is <code>y</code>, so 3D points are <code>Vec3(x, height, z)</code>.</dd>
+<dt>corner</dt><dd>One of the six points <code>centre + unit_corner · cell.radius</code>, at the cell's height, numbered 0–5 (hexx <code>VertexDirection</code>).</dd>
+<dt>edge</dt><dd>The side from corner <code>i</code> to corner <code>i+1</code>, numbered 0–5 (hexx <code>EdgeDirection</code>). Edge <code>e</code> faces the neighbour in direction <code>e</code>; the neighbour sees the same edge as <code>e+3</code>.</dd>
+<dt>face</dt><dd>The flat top of a cell, drawn as a fan of six triangles from the centre.</dd>
+<dt>gap</dt><dd>The space between faces. A cell's <code>radius</code> is smaller than <code>nominal_hex_radius</code>, so faces never touch. The gap is filled by two kinds of piece:</dd>
+<dt class="sub">gap quad</dt><dd>Across an edge two cells share: two corners from each, drawn as two triangles.</dd>
+<dt class="sub">junction triangle</dt><dd>Where three cells meet: one corner from each.</dd>
+<dt>owner</dt><dd>The one cell that emits a gap piece, by the rules below.</dd>
+</dl>
+<p id="ownership">Two <strong>ownership rules</strong> keep every gap piece from being drawn twice. 1.5, 1.6 and sections 3 to 5 all rest on them:</p>
+<ul>
+<li><strong>Gap quads.</strong> Every interior edge is shared by two cells. If one meets it as an even edge (0, 2, 4), the other meets it as odd (3, 5, 1), because <code>e+3</code> flips parity. So "the cell that meets it as an even edge owns it" picks exactly one owner.</li>
+<li><strong>Junction triangles.</strong> Every interior corner is shared by three cells, and it is corner 0 or 1 of exactly one of them. That cell owns the triangle, so each cell owns the junctions at its corners 0 and 1.</li>
+</ul>
+<p>A gap piece is only emitted when every cell it touches exists. Later sections add <em>entangled</em> cells (section 4) and <em>chunks</em>, <em>rings</em> and <em>seams</em> (section 5).</p>
+
 <h2 id="math">1 · The math functions, simplest first</h2>
 <p><code>src/math.rs</code> holds pure functions over <code>glam</code> and <code>hexx</code> types. None of them know about <code>HGridLayout</code>. They're ordered here from plain arithmetic to the grid combinatorics the rest of the crate is built on.</p>
-<p>One convention to keep in mind: a hex's world position is a <code>Vec2(x, z)</code>. Height is <code>y</code>, so 3D points are <code>Vec3(x, height, z)</code>.</p>
-<p id="ownership">Two <strong>ownership rules</strong> keep every gap from being drawn twice. 1.5, 1.6 and sections 3 to 5 all rest on them:</p>
-<ul>
-<li><strong>Quads.</strong> Every interior edge is shared by two hexes. If one meets it as an even edge (0, 2, 4), the other meets it as odd (3, 5, 1), because <code>e+3</code> flips parity. So "the hex whose index is even owns it" picks exactly one owner.</li>
-<li><strong>Junction triangles.</strong> Every interior corner is shared by three hexes, and it is corner 0 or 1 of exactly one of them. That hex owns the triangle, so each hex owns the junctions at its corners 0 and 1.</li>
-</ul>
-<p>A gap is only emitted when every hex it touches exists.</p>
 
 <p class="tools"><button type="button" id="expand-all">Expand all</button></p>
 <details class="fn">
@@ -148,20 +169,20 @@ a:focus-visible { outline: 2px solid var(--quad); outline-offset: 2px; }
 <div class="fnbody">
 <p>Noise generators return values centred on zero, roughly in <code>[-1, 1]</code>. This is the straight line through <code>(-1, min)</code> and <code>(1, max)</code>:</p>
 <p class="formula">out = min + (n + 1) / 2 · (max − min)</p>
-<p>The layout calls it twice per cell. Once for height, into <code>[0, max_height]</code> (default 20). Once for the cell's corner radius, into <code>[nominal · min_ratio, nominal · max_ratio]</code> (default 0.2 to 3.6 for a nominal radius of 4). Centres sit <code>√3 · nominal_hex_radius</code> apart (6.93 at the default), where hexes of corner radius <code>nominal_hex_radius</code> would just touch. A gap opens wherever <code>cell.radius &lt; nominal_hex_radius</code>, and with the default ratios that is every cell. That leftover space is the <em>gap</em> the rest of this page is about.</p>
+<p>The layout calls it twice per cell. Once for height, into <code>[0, max_height]</code> (default 20). Once for the cell's corner radius, into <code>[nominal · min_ratio, nominal · max_ratio]</code> (default 0.2 to 3.6 for a nominal radius of 4). Centres sit <code>√3 · nominal_hex_radius</code> apart (6.93 at the default), where faces of corner radius <code>nominal_hex_radius</code> would just touch. With the default ratios every cell's radius stays below that, so every cell is surrounded by <a href="#terms">gap</a>.</p>
 {{f1}}
 </div>
 </details>
 <details class="fn">
-<summary><span class="h3">1.2 <code>edge_cuboid_transform</code><span class="lvl">vectors + one rotation</span></span><span class="gist">midpoint, length, rotation for a beam on an edge</span></summary>
+<summary><span class="h3">1.2 <code>edge_cuboid_transform</code><span class="lvl">vectors + one rotation</span></span><span class="gist">where to put a cuboid that lies along a segment</span></summary>
 <div class="fnbody">
-<p>This one gives you the placement for a box that should lie along an edge from <code>from</code> to <code>to</code>:</p>
+<p>For drawing a segment as a solid bar, for example a cell <a href="#terms">edge</a> as a 3D beam. Given the segment's ends <code>from</code> and <code>to</code>, it returns where to put a <em>cuboid</em> (a box) that lies along it:</p>
 <ul>
 <li>the midpoint, <code>(from + to) / 2</code></li>
 <li>the length, <code>|to − from|</code></li>
-<li>the rotation that turns the box's own +X axis onto the edge direction</li>
+<li>the rotation that turns +X onto the segment's direction</li>
 </ul>
-<p>Scale a unit cube by <code>length</code> on X, rotate, then translate.</p>
+<p>Start from a unit cube centred on the origin: scale it by <code>length</code> along X, rotate, then move it to the midpoint. The crate exports this for consumers and doesn't call it itself.</p>
 {{f2}}
 </div>
 </details>
@@ -170,24 +191,24 @@ a:focus-visible { outline: 2px solid var(--quad); outline-offset: 2px; }
 <div class="fnbody">
 <p>This prepares a gap polygon for mesh upload. It moves the polygon so its first vertex is at the origin, and finds which way it faces.</p>
 <p>The face direction is the cross product of the vectors <code>v0→v1</code> and <code>v0→v2</code>. For these gaps the winding makes that cross product point down, so the function negates it.</p>
-<p>When <code>flat</code> is set it ignores the slope and returns straight up, so tilted gaps get the same lighting as the flat hex tops.</p>
+<p>When <code>flat</code> is set it ignores the slope and returns straight up, so tilted gap pieces get the same lighting as the flat faces.</p>
 {{f3}}
 </div>
 </details>
 <details class="fn">
-<summary><span class="h3">1.4 <code>idw_interpolate_height</code><span class="lvl">weighted average</span></span><span class="gist">height at any point as a 1/d² weighted mean</span></summary>
+<summary><span class="h3">1.4 <code>idw_interpolate_height</code><span class="lvl">inverse distance weighting</span></span><span class="gist">height at any point as a 1/d²-weighted mean of nearby corners</span></summary>
 <div class="fnbody">
-<p>This answers "how high is the ground at an arbitrary point Q?" Every nearby corner votes with its height, and its vote counts <code>1 / d²</code>, where <code>d</code> is its distance to Q in the x–z plane:</p>
+<p><em>IDW</em> stands for <strong>inverse distance weighting</strong>. It answers "how high is the ground at an arbitrary point Q?" Every nearby corner votes with its height, and its vote counts <code>1 / d²</code>, where <code>d</code> is its distance to Q in the x–z plane. The closer the corner, the louder its vote:</p>
 <p class="formula">h(Q) = Σ hᵢ / dᵢ²  ⁄  Σ 1 / dᵢ²</p>
 <p>Near a corner its weight blows up, so the function simply snaps to that corner once <code>d² &lt; 0.001</code>. It returns <code>None</code> for an empty list and leaves the fallback to the caller.</p>
 {{f4}}
 </div>
 </details>
 <details class="fn">
-<summary><span class="h3">1.5 <code>quad_corner_indices</code><span class="lvl">hex direction tables</span></span><span class="gist">which corners form the gap across an edge</span></summary>
+<summary><span class="h3">1.5 <code>quad_corner_indices</code><span class="lvl">hexx direction tables</span></span><span class="gist">which corners form the gap quad across an edge</span></summary>
 <div class="fnbody">
-<p>Here the hex lattice itself comes in. hexx numbers a hex's six corners (<code>VertexDirection</code>) and six edges (<code>EdgeDirection</code>) separately. Edge <code>i</code> runs from corner <code>i</code> to corner <code>i+1</code>.</p>
-<p>The gap between a hex and its neighbour across edge <code>e</code> is a quad with two corners on each hex. On the neighbour, that same edge is edge <code>e+3</code>, and it is walked in the opposite direction. The function returns the four indices in a fixed order, <code>(v0, v1, n0, n1)</code>, so the quad always comes out as <code>[v0, n0, n1, v1]</code>.</p>
+<p>Here the lattice itself comes in. hexx numbers a cell's six <a href="#terms">corners and edges</a> with separate tables (<code>VertexDirection</code>, <code>EdgeDirection</code>).</p>
+<p>The gap quad between a cell and its neighbour across edge <code>e</code> has two corners on each cell. On the neighbour, that same edge is edge <code>e+3</code>, and it is walked in the opposite direction. The function returns the four indices in a fixed order, <code>(v0, v1, n0, n1)</code>, so the quad always comes out as <code>[v0, n0, n1, v1]</code>.</p>
 <div class="tablewrap"><table>
 <tr><th>edge</th><th>faces neighbour</th><th>owner corners v0, v1</th><th>neighbour corners n0, n1</th></tr>
 <tr><td>0</td><td class="mono">(+1, 0)</td><td class="mono">0, 1</td><td class="mono">4, 3</td></tr>
@@ -201,7 +222,7 @@ a:focus-visible { outline: 2px solid var(--quad); outline-offset: 2px; }
 <details class="fn">
 <summary><span class="h3">1.6 <code>gap_filler</code><span class="lvl">ownership counting</span></span><span class="gist">counts the gap quads and junction triangles a set of cells produces</span></summary>
 <div class="fnbody">
-<p><code>gap_filler</code> counts what the <a href="#ownership">ownership rules</a> produce for any set of cells: one quad per even edge whose neighbour exists, one junction per corner 0 or 1 whose two other hexes exist. A unit test (<code>quad_bridge_edges_count_matches_gap_filler</code>) checks its quad count against <code>quad_bridge_edges</code>.</p>
+<p><code>gap_filler</code> counts what the <a href="#ownership">ownership rules</a> produce for any set of cells: one quad per even edge whose neighbour exists, one junction triangle per corner 0 or 1 whose two other cells exist. A unit test (<code>quad_bridge_edges_count_matches_gap_filler</code>) checks its quad count against <code>quad_bridge_edges</code>.</p>
 {{f6}}
 </div>
 </details>
