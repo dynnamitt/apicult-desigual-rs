@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   CHUNK_DIRS, chunkKey, footprint, stepFootprint, chunkCenter, nearestStep,
   visibleSeamGroups, advancePos, clampChunkRadius, MAX_FRAME_DT, MAX_CHUNK_RADIUS,
+  advanceFade, FADE_IN_S, FADE_OUT_S,
 } from "./hex-stream.js";
 
 const ANCHOR = [2, -1];
@@ -77,6 +78,21 @@ test("advancePos settles onto the rail, so a direction change doesn't zig-zag th
   }
   assert.ok(taken.length > 10);
   assert.ok(taken.slice(-10).every((d) => d === 0), `tail of steps: ${taken.slice(-10)}`);
+});
+
+test("advanceFade: spawns fade in first, despawns wait for them then fade out faster", () => {
+  const run = (f, secs) => {
+    const n = Math.round(secs / 0.01);
+    return Array.from({ length: n }).reduce((g) => advanceFade(g, 0.01), f);
+  };
+  const spawn = { alpha: 0, target: 1, delay: 0 }, despawn = { alpha: 1, target: 0, delay: FADE_IN_S };
+  assert.ok(FADE_OUT_S < FADE_IN_S);
+  assert.ok(Math.abs(run(spawn, FADE_IN_S / 2).alpha - 0.5) < 1e-6);
+  assert.equal(run(spawn, FADE_IN_S).alpha, 1);
+  assert.ok(run(despawn, FADE_IN_S).alpha > 1 - 1e-9, "despawn still solid while spawns fade in");
+  assert.equal(run(despawn, FADE_IN_S + FADE_OUT_S).alpha, 0);
+  // One long frame spends the rest of the delay, then fades with what is left.
+  assert.ok(Math.abs(advanceFade({ alpha: 1, target: 0, delay: 0.1 }, 0.1 + FADE_OUT_S / 2).alpha - 0.5) < 1e-9);
 });
 
 test("clampChunkRadius keeps typed values inside 0..MAX_CHUNK_RADIUS", () => {

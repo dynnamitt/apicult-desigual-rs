@@ -3,7 +3,7 @@ import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { weldedMesh } from "./hex-terrain.js";
 import {
   CHUNK_DIRS, chunkKey, footprint, stepFootprint, chunkCenter, nearestStep,
-  visibleSeamGroups, advancePos, clampChunkRadius,
+  visibleSeamGroups, advancePos, clampChunkRadius, advanceFade, FADE_IN_S,
 } from "./hex-stream.js";
 import { randomU32, seedSequence } from "./seed.js";
 
@@ -26,8 +26,11 @@ const tintColor = ([q, r]) => {
   return new THREE.Color().setHSL(hue, TINT_SAT, TINT_LIGHT);
 };
 
+// Always transparent so fading needs no shader recompile; the polygon offset
+// (on while fading) lets the opaque seam that stands in for a fading chunk win the depth test.
 const material = (color) => new THREE.MeshStandardMaterial({
   color, flatShading: true, side: THREE.DoubleSide, roughness: 0.85, metalness: 0.05,
+  transparent: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1,
 });
 
 const disposeMesh = (group, mesh) => {
@@ -82,12 +85,17 @@ export function mount(canvas, statsEl, { initialSettings, WasmChunkWorld }) {
     scene.add(group);
 
     let world = null;
-    let loaded = new Map(); // chunkKey → { coord, owned: Mesh, seams: {owner, mesh}[] }
+    let loaded = new Map(); // chunkKey → { coord, owned: Mesh, seams: {owner, mesh}[], fade }
     let anchor = [0, 0], pos = [0, 0], u = [0, 0], v = [0, 0], steps = 0;
 
     const chunkColor = (coord) => (state.tint ? tintColor(coord) : new THREE.Color(FILL_COLOR));
 
-    const buildChunk = (coord) => {
+    const applyAlpha = (c) => [c.owned, ...c.seams.map((s) => s.mesh)].forEach(({ material: m }) => {
+      m.opacity = c.fade.alpha;
+      m.polygonOffset = c.fade.alpha < 1;
+    });
+
+    const buildChunk = (coord, alpha = 1) => {
       const wc = world.chunk(coord[0], coord[1]);
       const owned = new THREE.Mesh(weldedMesh(wc.owned()), material(chunkColor(coord)));
       group.add(owned);
@@ -100,7 +108,9 @@ export function mount(canvas, statsEl, { initialSettings, WasmChunkWorld }) {
       });
       const center = Array.from(wc.center());
       wc.free();
-      loaded.set(chunkKey(...coord), { coord, center, owned, seams, owners });
+      const c = { coord, center, owned, seams, owners, fade: { alpha, target: 1, delay: 0 } };
+      applyAlpha(c);
+      loaded.set(chunkKey(...coord), c);
     };
 
     const dropChunk = (coord) => {
@@ -112,8 +122,9 @@ export function mount(canvas, statsEl, { initialSettings, WasmChunkWorld }) {
     };
 
     // Seam colour follows the owner it stands in for, unless `seams` highlights it.
+    // Only fully opaque chunks count as loaded, so seams cover a chunk while it fades.
     const refreshSeams = () => {
-      const keys = new Set(loaded.keys());
+      const keys = new Set([...loaded].filter(([, c]) => c.fade.alpha === 1).map(([k]) => k));
       loaded.forEach((c) => {
         const shown = new Set(visibleSeamGroups(c.owners, keys));
         c.seams.forEach(({ owner, mesh }, i) => {
@@ -126,8 +137,16 @@ export function mount(canvas, statsEl, { initialSettings, WasmChunkWorld }) {
 
     const step = (dir) => {
       const diff = stepFootprint(anchor, dir);
-      diff.despawn.forEach(dropChunk);
-      diff.spawn.forEach(buildChunk);
+      // Spawns fade in first; despawns stay solid until they are in, then fade out.
+      diff.despawn.forEach((coord) => {
+        const c = loaded.get(chunkKey(...coord));
+        c.fade = { ...c.fade, target: 0, delay: FADE_IN_S };
+      });
+      diff.spawn.forEach((coord) => {
+        const c = loaded.get(chunkKey(...coord)); // still fading out after a reversal
+        if (c) c.fade = { ...c.fade, target: 1, delay: 0 };
+        else buildChunk(coord, 0);
+      });
       anchor = diff.anchor;
       steps += 1;
       refreshSeams();
@@ -148,7 +167,7 @@ export function mount(canvas, statsEl, { initialSettings, WasmChunkWorld }) {
       anchor = [0, 0];
       pos = [0, 0];
       steps = 0;
-      footprint(anchor).forEach(buildChunk);
+      footprint(anchor).forEach((c) => buildChunk(c));
       // to_higher_res and hex_to_world_pos are linear: two centres span the lattice.
       u = loaded.get(chunkKey(1, 0)).center;
       v = loaded.get(chunkKey(0, 1)).center;
@@ -194,6 +213,14 @@ export function mount(canvas, statsEl, { initialSettings, WasmChunkWorld }) {
           step(d);
         }
       }
+      const fading = [...loaded.values()]
+        .filter(({ fade: f }) => f.alpha !== f.target || f.delay > 0);
+      fading.forEach((c) => {
+        c.fade = advanceFade(c.fade, dt);
+        applyAlpha(c);
+        if (c.fade.target === 0 && c.fade.alpha === 0) dropChunk(c.coord);
+      });
+      if (fading.length) refreshSeams();
       group.position.set(-pos[0], 0, -pos[1]);
       controls.update();
       renderer.render(scene, camera);
