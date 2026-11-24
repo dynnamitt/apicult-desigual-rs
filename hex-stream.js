@@ -7,12 +7,16 @@
  * not cell coordinates. No engine or wasm imports, so it runs under plain node.
  */
 
+import { splitmix32 } from "./seed.js";
+
 /** Longest frame (s) one update may integrate; a tab back from the background would otherwise replay every step it missed in one frame. */
 export const MAX_FRAME_DT = 0.1;
 /** Largest chunk radius the page builds; matches the input's `max`. */
 export const MAX_CHUNK_RADIUS = 6;
 /** Rate (1/s) at which the camera's sideways offset from its rail decays; off-rail it would zig-zag between two chunk rows. */
 export const RAIL_PULL = 3;
+/** Seconds a step's 3 spawned chunks take to fade in; the 3 despawned ones wait this long, then fade out in {@link FADE_OUT_S}. */
+export const FADE_IN_S = 0.6, FADE_OUT_S = 0.25;
 
 /** The 6 axial neighbour offsets on the chunk lattice. */
 export const CHUNK_DIRS = [[1, 0], [1, -1], [0, -1], [-1, 0], [-1, 1], [0, 1]];
@@ -24,6 +28,14 @@ export const CHUNK_DIRS = [[1, 0], [1, -1], [0, -1], [-1, 0], [-1, 1], [0, 1]];
  * @returns {string} `"q,r"`
  */
 export const chunkKey = (q, r) => `${q},${r}`;
+
+/**
+ * Stable, well-mixed u32 per chunk coordinate, so neighbours get unrelated colours.
+ * @param {number} q
+ * @param {number} r
+ * @returns {number} u32
+ */
+export const chunkHash = (q, r) => splitmix32(splitmix32(q >>> 0) ^ (r >>> 0));
 
 const add = ([q, r], [dq, dr]) => [q + dq, r + dr];
 const keyOf = ([q, r]) => chunkKey(q, r);
@@ -121,6 +133,21 @@ export const advancePos = (pos, [dx, dz], speed, dt, rail = pos) => {
     pos[0] + ux * speed * t + (ox - along * ux) * pull,
     pos[1] + uz * speed * t + (oz - along * uz) * pull,
   ];
+};
+
+/**
+ * Advance one chunk's fade by `dt`: wait out `delay`, then move `alpha`
+ * toward `target` (fade-in over {@link FADE_IN_S}, fade-out over {@link FADE_OUT_S}).
+ * @param {{alpha: number, target: 0|1, delay: number}} fade
+ * @param {number} dt seconds
+ * @returns {{alpha: number, target: 0|1, delay: number}}
+ */
+export const advanceFade = ({ alpha, target, delay }, dt) => {
+  const wait = Math.min(delay, dt), run = dt - wait;
+  const next = target > alpha
+    ? Math.min(1, alpha + run / FADE_IN_S)
+    : Math.max(0, alpha - run / FADE_OUT_S);
+  return { alpha: next, target, delay: delay - wait };
 };
 
 /**
