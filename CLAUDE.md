@@ -17,6 +17,7 @@ cargo test --doc                                     # doctests only (math.rs ha
 cargo run --example geo_export                       # plain SVG to stdout
 cargo run --example geo_export -- 5 2.0 --format svg-rich   # args: <radius> <pad> [--format svg|svg-plain|svg-rich|json-v1]
 cargo run --example geo_export -- --seed 7                  # override the height-noise seed
+cargo run --example geo_export -- --radius-seed 9           # override the radius-noise seed
 
 cargo build --features wasm --target wasm32-unknown-unknown # build the wasm bindings (needs `rustup target add wasm32-unknown-unknown`)
 wasm-pack build --target web --features wasm --release      # writes web/pkg/{apicult_desigual.js, _bg.wasm, .d.ts}
