@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import {
   CHUNK_DIRS, chunkKey, footprint, stepFootprint, chunkCenter, nearestStep,
   visibleSeamGroups, advancePos, clampChunkRadius, MAX_FRAME_DT, MAX_CHUNK_RADIUS,
-  advanceFade, FADE_IN_S, FADE_OUT_S,
+  advanceFade, FADE_IN_S, FADE_OUT_S, chunkHash,
 } from "./hex-stream.js";
 
 const ANCHOR = [2, -1];
@@ -93,6 +93,15 @@ test("advanceFade: spawns fade in first, despawns wait for them then fade out fa
   assert.equal(run(despawn, FADE_IN_S + FADE_OUT_S).alpha, 0);
   // One long frame spends the rest of the delay, then fades with what is left.
   assert.ok(Math.abs(advanceFade({ alpha: 1, target: 0, delay: 0.1 }, 0.1 + FADE_OUT_S / 2).alpha - 0.5) < 1e-9);
+});
+
+test("chunkHash is stable, u32, and differs across a chunk's neighbours", () => {
+  assert.equal(chunkHash(...ANCHOR), chunkHash(...ANCHOR));
+  const hashes = footprint(ANCHOR).map(([q, r]) => chunkHash(q, r));
+  assert.equal(new Set(hashes).size, 7);
+  assert.ok(hashes.every((h) => Number.isInteger(h) && h >= 0 && h < 2 ** 32));
+  assert.notEqual(chunkHash(1, -1), chunkHash(-1, 1));
+  assert.notEqual(chunkHash(2, 3), chunkHash(3, 2));
 });
 
 test("clampChunkRadius keeps typed values inside 0..MAX_CHUNK_RADIUS", () => {

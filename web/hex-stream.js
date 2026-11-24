@@ -7,6 +7,8 @@
  * not cell coordinates. No engine or wasm imports, so it runs under plain node.
  */
 
+import { splitmix32 } from "./seed.js";
+
 /** Longest frame (s) one update may integrate; a tab back from the background would otherwise replay every step it missed in one frame. */
 export const MAX_FRAME_DT = 0.1;
 /** Largest chunk radius the page builds; matches the input's `max`. */
@@ -26,6 +28,14 @@ export const CHUNK_DIRS = [[1, 0], [1, -1], [0, -1], [-1, 0], [-1, 1], [0, 1]];
  * @returns {string} `"q,r"`
  */
 export const chunkKey = (q, r) => `${q},${r}`;
+
+/**
+ * Stable, well-mixed u32 per chunk coordinate, so neighbours get unrelated colours.
+ * @param {number} q
+ * @param {number} r
+ * @returns {number} u32
+ */
+export const chunkHash = (q, r) => splitmix32(splitmix32(q >>> 0) ^ (r >>> 0));
 
 const add = ([q, r], [dq, dr]) => [q + dq, r + dr];
 const keyOf = ([q, r]) => chunkKey(q, r);
