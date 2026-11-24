@@ -68,6 +68,20 @@ export const UNITS_SCHEMA = {
   live: new Set(["unitCount", "speed", "maxClimb"]),
 };
 
+/** Sidebar of `hex-stream.html` (the three.js chunk treadmill). */
+export const STREAM_SCHEMA = {
+  inputs: [
+    { id: "ctl-chunk-radius", field: "chunkRadius", parse: parseInt   },
+    { id: "ctl-seed",         field: "seed",        parse: parseSeed  },
+    { id: "ctl-speed",        field: "speed",       parse: parseFloat },
+    { id: "ctl-direction",    field: "direction",   parse: parseInt   },
+  ],
+  toggles: ["tint", "seams"],
+  // One world per chunk radius + seed; motion is read every frame.
+  rebuild: new Set(["chunkRadius", "seed"]),
+  live: new Set(["speed", "direction"]),
+};
+
 function parseSeed(raw) {
   const trimmed = String(raw ?? "").trim();
   if (trimmed === "") return null;
@@ -129,6 +143,7 @@ export function bindControls(
     if (schema.live.has(spec.field)) {
       // Number inputs respond to both arrow-stepping (input event) and typing.
       el.addEventListener("input", liveDispatch);
+      el.addEventListener("change", liveDispatch);
     }
     if (schema.rebuild.has(spec.field)) {
       // Pressing Enter inside a rebuild input triggers Apply, mirroring the

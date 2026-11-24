@@ -26,6 +26,7 @@ make preview                                         # build full preview bundle
 make RADIUS=4 PAD=1.0 preview                        # override grid params (SVG/JSON + terrain page)
 make UNITS_RADIUS=6 preview                          # grid radius for the units page only
 make CRAWLER_RADIUS=2 preview                        # grid radius for the crawler page only
+make STREAM_CHUNK_RADIUS=2 preview                   # rings of cells per chunk on the treadmill page
 make HSEED=42 preview                                # pin the seed for a reproducible preview
 make serve                                           # `preview` + `python3 -m http.server` in target/www-preview/
 ```
@@ -62,7 +63,7 @@ Four modules, exported flat from `lib.rs`, plus an optional `wasm` module gated 
 
 ## Preview pipeline
 
-`make preview` runs `geo_export` three times (plain SVG, rich SVG, JSON v1 — all using `HSEED`), runs `wasm-pack build` once to produce `web/pkg/`, then templates `web/svg-preview.html` (with the short git SHA), `web/hex-terrain.html` (with the short SHA + `RADIUS`), `web/hex-units.html` (with the short SHA + `UNITS_RADIUS`) and `web/hex-crawler.html` (with the short SHA + `CRAWLER_RADIUS`) into `target/www-preview/`. Pin `HSEED` for a reproducible build (the chosen seed is echoed at the end); the SVG previews and `apicult-desigual.json` (v1) all share it.
+`make preview` runs `geo_export` three times (plain SVG, rich SVG, JSON v1 — all using `HSEED`), runs `wasm-pack build` once to produce `web/pkg/`, then templates `web/svg-preview.html` (with the short git SHA), `web/hex-terrain.html` (with the short SHA + `RADIUS`), `web/hex-units.html` (with the short SHA + `UNITS_RADIUS`) and `web/hex-crawler.html` (with the short SHA + `CRAWLER_RADIUS`) and `web/hex-stream.html` (with the short SHA + `STREAM_CHUNK_RADIUS`) into `target/www-preview/`. Pin `HSEED` for a reproducible build (the chosen seed is echoed at the end); the SVG previews and `apicult-desigual.json` (v1) all share it.
 
 The terrain page imports `pkg/apicult_desigual.js` and builds a **7-mesh flower cluster** on load: one center `WasmLayout` + six petal layouts arranged around it, each with its own fresh random u32 seeds (or seeded via the `seed` input for reproducibility — `splitmix32` derives 14 stable per-mesh seeds from one root). Each petal shares its inward-facing ring of hex cells with the center via WFC-style overrides + entangle markers, constructed by `web/hex-seam.js::seamSpec` — so the center owns those seams visually and the petal's mirror cells are skipped when its `tris(false)` / `face_tris(false)` / `wire_edges(false)` streams are pulled. The wasm handles are `.free()`'d after the buffers are extracted.
 
@@ -99,9 +100,20 @@ A third page, on **Phaser**, that inverts the other two: there is no sprite, the
 
 Sidebar: **grid** (radius, seed — rebuild), **crawl** (tempo, climb penalty, band speed — live), **view** (trail, bands, base layer).
 
+## The chunk treadmill (`hex-stream.html`)
+
+A fourth page, on **three.js**, closing #15 on top of the `chunk` module: seven chunks (an anchor + its 6 lattice neighbours) around a camera parked at the origin, the world group drifting at `speed` in one of 6 chunk directions. Load-bearing facts:
+
+- **One `WasmChunkWorld` per world.** Both seeds come from the seed box once per build (`seedSequence(seed, 2)`, or two `randomU32` when blank) — never per chunk, or chunks stop fitting.
+- **Stepping is pure JS** (`web/hex-stream.js`, node-tested): `nearestStep` compares the camera's world `(x, z)` against chunk centres from `chunkCenter(coord, u, v)`, where `u`, `v` are `WasmChunk.center()` of chunks `(1,0)` / `(0,1)` — valid because `to_higher_res` and `hex_to_world_pos` are both linear. Each step is `stepFootprint`: 3 spawn, 3 despawn, 4 kept untouched.
+- **Seams follow consumer rule 1**: every chunk builds a mesh per seam group up front; `visibleSeamGroups` shows only groups whose owner chunk isn't loaded, so the 1+6 always has a closed outline and no doubled interior gaps. `highlight seams` paints them amber.
+- Float precision far from the origin is not handled (the group offset grows without rebasing).
+
+Sidebar: **world** (chunk radius, seed — rebuild), **motion** (speed, direction — live), **view** (tint chunks, highlight seams).
+
 ### Shared web modules
 
-All three pages share `web/demo.css`, `web/weld.js` (engine-agnostic `weldTris` → `{positions, indices}`; `hex-terrain.js::weldedMesh` and the Babylon `VertexData` path both wrap it), `web/seed.js` (`randomU32` / `splitmix32` / `seedSequence`) and `web/hex-controls.js`. The last is schema-driven: `TERRAIN_SCHEMA`, `UNITS_SCHEMA` and `CRAWLER_SCHEMA` declare each page's inputs, toggles and which fields rebuild vs. update live, so a new page adds a schema rather than a binder. `make` copies them via the `COMMON_WEB` variable (per-page modules go in `TERRAIN_WEB` / `UNITS_WEB` / `CRAWLER_WEB`) — **any new shared module must be added there or it will 404 on gh-pages.**
+All four pages share `web/demo.css`, `web/weld.js` (engine-agnostic `weldTris` → `{positions, indices}`; `hex-terrain.js::weldedMesh` and the Babylon `VertexData` path both wrap it), `web/seed.js` (`randomU32` / `splitmix32` / `seedSequence`) and `web/hex-controls.js`. The last is schema-driven: `TERRAIN_SCHEMA`, `UNITS_SCHEMA`, `CRAWLER_SCHEMA` and `STREAM_SCHEMA` declare each page's inputs, toggles and which fields rebuild vs. update live, so a new page adds a schema rather than a binder. `make` copies them via the `COMMON_WEB` variable (per-page modules go in `TERRAIN_WEB` / `UNITS_WEB` / `CRAWLER_WEB` / `STREAM_WEB`) — **any new shared module must be added there or it will 404 on gh-pages.**
 
 The pure-JS units are tested with `node --test web/*.test.mjs` (the `test-js` make target, which `make test` and CI both run).
 
