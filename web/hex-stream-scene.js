@@ -88,6 +88,7 @@ export function mount(canvas, statsEl, { initialSettings, WasmChunkWorld }) {
     let world = null;
     let loaded = new Map(); // chunkKey → { coord, owned: Mesh, ownedTris, seams: {mesh, tris, owner}[], keys, fade }
     let anchor = [0, 0], pos = [0, 0], u = [0, 0], v = [0, 0], steps = 0;
+    let overlaps = 0, drawnSig = ""; // recount only when what is drawn changes; a count is ~20 ms at radius 6
 
     const chunkColor = (coord) => (state.tint ? tintColor(coord) : new THREE.Color(FILL_COLOR));
 
@@ -136,6 +137,13 @@ export function mount(canvas, statsEl, { initialSettings, WasmChunkWorld }) {
         });
         c.owned.material.color.copy(chunkColor(c.coord));
       });
+      // Fading chunks overlap on purpose (cross-fade); count only the opaque ones.
+      const opaque = [...loaded.values()].filter((c) => keys.has(chunkKey(...c.coord)));
+      const sig = opaque.map((c) => chunkKey(...c.coord) + c.seams.map((s) => +s.mesh.visible).join("")).join(" ");
+      if (sig === drawnSig) return;
+      drawnSig = sig;
+      overlaps = duplicateTris(opaque.flatMap((c) =>
+        [c.ownedTris, ...c.seams.filter((s) => s.mesh.visible).map((s) => s.tris)]));
     };
 
     const step = (dir) => {
@@ -170,6 +178,7 @@ export function mount(canvas, statsEl, { initialSettings, WasmChunkWorld }) {
       anchor = [0, 0];
       pos = [0, 0];
       steps = 0;
+      drawnSig = ""; // new geometry, same keys
       footprint(anchor).forEach((c) => buildChunk(c));
       // to_higher_res and hex_to_world_pos are linear: two centres span the lattice.
       u = loaded.get(chunkKey(1, 0)).center;
@@ -194,9 +203,6 @@ export function mount(canvas, statsEl, { initialSettings, WasmChunkWorld }) {
       const seamTotal = all.reduce((n, c) => n + c.seams.length, 0);
       const seamShown = all.reduce((n, c) => n + c.seams.filter((s) => s.mesh.visible).length, 0);
       const tris = all.reduce((n, c) => n + c.owned.geometry.index.count / 3, 0);
-      // Fading chunks overlap on purpose (cross-fade); count only the opaque ones.
-      const overlaps = duplicateTris(all.filter((c) => c.fade.alpha === 1).flatMap((c) =>
-        [c.ownedTris, ...c.seams.filter((s) => s.mesh.visible).map((s) => s.tris)]));
       statsEl.textContent =
         `${loaded.size} chunks · anchor (${anchor[0]}, ${anchor[1]}) · ${steps} steps · ` +
         `${tris} owned tris · seams ${seamShown}/${seamTotal} groups · ${overlaps} overlaps`;

@@ -114,19 +114,24 @@ const before = ([q, r], [bq, br]) => q < bq || (q === bq && r < br);
  */
 export const visibleSeamGroups = (keys, self, loaded) =>
   Array.from({ length: keys.length / 4 }, (_, i) => i).filter((i) => {
-    const [oq, or, aq, ar] = Array.from(keys.slice(4 * i, 4 * i + 4));
+    const [oq, or, aq, ar] = keys.slice(4 * i, 4 * i + 4);
     return !loaded.has(chunkKey(oq, or)) && (!loaded.has(chunkKey(aq, ar)) || before(self, [aq, ar]));
   });
 
 /**
- * Triangles that appear more than once across flat `n_tris * 9` buffers (exact float match).
- * @param {(Float32Array|number[])[]} buffers
+ * Triangles that appear more than once across flat `n_tris * 9` buffers (bit-exact match).
+ * @param {Float32Array[]} buffers
  * @returns {number} extra copies; 0 when no triangle is drawn twice.
  */
 export const duplicateTris = (buffers) => {
-  const keys = buffers.flatMap((b) =>
-    Array.from({ length: b.length / 9 }, (_, i) => Array.from(b.slice(9 * i, 9 * i + 9)).join()));
-  return keys.length - new Set(keys).size;
+  const seen = new Set();
+  let total = 0;
+  buffers.forEach((b) => {
+    // The tri's 36 bytes as an 18-char string: exact and far cheaper than formatting 9 floats.
+    const u16 = new Uint16Array(b.buffer, b.byteOffset, b.length * 2);
+    for (let i = 0; i < u16.length; i += 18, total += 1) seen.add(String.fromCharCode(...u16.subarray(i, i + 18)));
+  });
+  return total - seen.size;
 };
 
 /**

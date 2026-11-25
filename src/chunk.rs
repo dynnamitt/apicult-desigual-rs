@@ -98,6 +98,7 @@ impl ChunkSource for NoiseWorld {
 
     fn chunk(&self, coord: Hex) -> Chunk {
         let r = self.chunk_radius;
+        debug_assert!(self.settings.max_radius_ratio < 1.0, "corner-to-chunk lookup below needs gaps");
         let layout = HGridLayout::for_chunk(&self.settings, coord, r);
         let center = layout.center();
 
@@ -278,15 +279,12 @@ mod tests {
         let c = world(2).chunk(Hex::ZERO);
         assert_eq!(c.owned.len(), GUIDE_OWNED);
         // The guide counts per owner; corner groups fold back into their owner.
-        let seams = c.seams.iter().fold(Vec::<((i32, i32), usize)>::new(), |mut acc, s| {
-            let key = (s.owner.x, s.owner.y);
-            match acc.iter_mut().find(|(k, _)| *k == key) {
-                Some((_, n)) => *n += s.tris.len(),
-                None => acc.push((key, s.tris.len())),
-            }
-            acc
-        });
-        assert_eq!(seams, GUIDE_SEAMS);
+        for ((q, s), n) in GUIDE_SEAMS {
+            let owned_by = |seam: &&Seam| seam.owner == Hex::new(q, s);
+            assert_eq!(c.seams.iter().filter(owned_by).map(|seam| seam.tris.len()).sum::<usize>(), n, "({q}, {s})");
+        }
+        let owners: HashSet<Hex> = c.seams.iter().map(|seam| seam.owner).collect();
+        assert_eq!(owners.len(), GUIDE_SEAMS.len());
     }
 
     /// Loaded sets to check: every subset of the 1+6 around the origin, then
@@ -312,29 +310,34 @@ mod tests {
             let mut region: Vec<Hex> = std::iter::once(Hex::ZERO).chain(Hex::ZERO.ring(1)).collect();
             region.extend(shapes::hexagon(Hex::ZERO, REGION_RADIUS).filter(|h| h.length() > 1));
             let chunks: Vec<Chunk> = region.iter().map(|&c| src.chunk(c)).collect();
+            // Number each distinct triangle once, so a loaded set is just counting.
+            let mut ids = std::collections::HashMap::new();
+            let mut id_of = |t: &[Vec3; 3]| {
+                let n = ids.len();
+                *ids.entry(tri_bits(t)).or_insert(n)
+            };
+            let owned: Vec<Vec<usize>> = chunks.iter().map(|c| c.owned.iter().map(&mut id_of).collect()).collect();
+            let seams: Vec<Vec<Vec<usize>>> = chunks
+                .iter()
+                .map(|c| c.seams.iter().map(|s| s.tris.iter().map(&mut id_of).collect()).collect())
+                .collect();
 
             for set in loaded_sets(region.len()) {
                 let loaded = |h: Hex| region.iter().zip(&set).any(|(c, &on)| on && *c == h);
-                let live = || chunks.iter().zip(&set).filter(|&(_, &on)| on).map(|(c, _)| c);
-
-                let mut drawn: Vec<[u32; 9]> = live()
-                    .flat_map(|c| {
-                        let seams = c.seams.iter().filter(|s| s.drawn(c.coord, loaded));
-                        c.owned.iter().chain(seams.flat_map(|s| &s.tris))
-                    })
-                    .map(tri_bits)
-                    .collect();
-                drawn.sort_unstable();
-                let n = drawn.len();
-                drawn.dedup();
-                assert_eq!(drawn.len(), n, "r {r}: {} duplicate tris, set {set:?}", n - drawn.len());
-
+                let mut drawn = vec![0u8; ids.len()];
+                let mut touching = vec![false; ids.len()];
+                for (i, c) in chunks.iter().enumerate().filter(|&(i, _)| set[i]) {
+                    owned[i].iter().for_each(|&t| (drawn[t], touching[t]) = (drawn[t] + 1, true));
+                    for (s, tris) in c.seams.iter().zip(&seams[i]) {
+                        let on = u8::from(s.drawn(c.coord, loaded));
+                        tris.iter().for_each(|&t| (drawn[t], touching[t]) = (drawn[t] + on, true));
+                    }
+                }
+                let twice = drawn.iter().filter(|&&n| n > 1).count();
+                assert_eq!(twice, 0, "r {r}: {twice} duplicate tris, set {set:?}");
                 // Every triangle touching a loaded chunk is in its owned or seam stream.
-                let touching: HashSet<[u32; 9]> = live()
-                    .flat_map(|c| c.owned.iter().chain(c.seams.iter().flat_map(|s| &s.tris)))
-                    .map(tri_bits)
-                    .collect();
-                assert_eq!(drawn.into_iter().collect::<HashSet<_>>(), touching, "r {r}: holes, set {set:?}");
+                let holes = touching.iter().zip(&drawn).filter(|&(&t, &n)| t && n == 0).count();
+                assert_eq!(holes, 0, "r {r}: {holes} holes, set {set:?}");
             }
         }
     }
