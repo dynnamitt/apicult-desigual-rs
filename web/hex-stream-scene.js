@@ -34,11 +34,10 @@ const tintColor = ([q, r]) => {
   );
 };
 
-// Always transparent so fading needs no shader recompile; the polygon offset
-// (on while fading) lets the opaque seam that stands in for a fading chunk win the depth test.
+// Always transparent so fading needs no shader recompile.
 const material = (color) => new THREE.MeshStandardMaterial({
   color, flatShading: true, side: THREE.DoubleSide, roughness: ROUGHNESS, metalness: METALNESS,
-  transparent: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1,
+  transparent: true,
 });
 
 const disposeMesh = (group, mesh) => {
@@ -94,7 +93,6 @@ export function mount(canvas, statsEl, { initialSettings, WasmChunkWorld }) {
 
     const applyAlpha = (c) => [c.owned, ...c.seams.map((s) => s.mesh)].forEach(({ material: m }) => {
       m.opacity = c.fade.alpha;
-      m.polygonOffset = c.fade.alpha < 1;
     });
 
     const buildChunk = (coord, alpha = 1) => {
@@ -125,9 +123,10 @@ export function mount(canvas, statsEl, { initialSettings, WasmChunkWorld }) {
 
     // A seam wears its own chunk's colour (unless `seams` highlights it), not the
     // owner's: it must not preview the chunk that has not loaded yet (c3fc7e8).
-    // Only fully opaque chunks count as loaded, so seams cover a chunk while it fades.
+    // Every chunk in the scene counts as loaded at any opacity (ghosts and fade-ins
+    // included), as Seam::drawn requires: otherwise a neighbour's seam doubles its owned strips.
     const refreshSeams = () => {
-      const keys = new Set([...loaded].filter(([, c]) => c.fade.alpha === 1).map(([k]) => k));
+      const keys = new Set(loaded.keys());
       loaded.forEach((c) => {
         const shown = new Set(visibleSeamGroups(c.keys, c.coord, keys));
         const color = chunkColor(c.coord);
@@ -138,12 +137,11 @@ export function mount(canvas, statsEl, { initialSettings, WasmChunkWorld }) {
         c.owned.material.color.copy(color);
       });
       // Seams doubling up is #27; owned streams are disjoint by construction (owned_streams_partition_world).
-      // Fading chunks overlap on purpose (cross-fade), so count only the opaque ones.
-      const opaque = [...loaded.values()].filter((c) => keys.has(chunkKey(...c.coord)));
-      const sig = opaque.map((c) => chunkKey(...c.coord) + c.seams.map((s) => +s.mesh.visible).join("")).join(" ");
+      const chunks = [...loaded.values()];
+      const sig = chunks.map((c) => chunkKey(...c.coord) + c.seams.map((s) => +s.mesh.visible).join("")).join(" ");
       if (sig === drawnSig) return;
       drawnSig = sig;
-      overlaps = duplicateTris(opaque.flatMap((c) => c.seams.filter((s) => s.mesh.visible).map((s) => s.tris)));
+      overlaps = duplicateTris(chunks.flatMap((c) => c.seams.filter((s) => s.mesh.visible).map((s) => s.tris)));
     };
 
     const step = (dir) => {
