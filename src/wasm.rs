@@ -271,21 +271,28 @@ impl WasmChunk {
         vec![self.inner.center.x, self.inner.center.y]
     }
 
-    /// Owning neighbour chunk of each seam group, flat `[q0, r0, q1, r1, …]`.
-    pub fn seam_owners(&self) -> Vec<i32> {
+    /// Key of each seam group, flat `[owner_q, owner_r, also_q, also_r, …]`.
+    /// A seam with no `also` repeats its owner there, which makes rule 1
+    /// (`Seam::drawn`) reduce to "owner not loaded" with no special case.
+    ///
+    /// @returns {Vec<i32>} 4 ints per group, in `seam(i)` order.
+    pub fn seam_keys(&self) -> Vec<i32> {
         self.inner
             .seams
             .iter()
-            .flat_map(|(owner, _)| [owner.x, owner.y])
+            .flat_map(|s| {
+                let also = s.also.unwrap_or(s.owner);
+                [s.owner.x, s.owner.y, also.x, also.y]
+            })
             .collect()
     }
 
-    /// Seam group `i` — draw only while its owner chunk isn't loaded. Empty when out of range.
+    /// Seam group `i` — draw only while `Seam::drawn` holds. Empty when out of range.
     pub fn seam(&self, i: usize) -> Vec<f32> {
         self.inner
             .seams
             .get(i)
-            .map(|(_, tris)| flatten_tris(tris))
+            .map(|s| flatten_tris(&s.tris))
             .unwrap_or_default()
     }
 }
@@ -352,11 +359,14 @@ mod tests {
             let wc = world.chunk(q, r);
             let c = native.chunk(Hex::new(q, r));
             assert_eq!(wc.owned().len(), 9 * c.owned.len());
-            assert_eq!(wc.seam_owners().len(), 2 * c.seams.len());
-            for (i, (owner, tris)) in c.seams.iter().enumerate() {
-                assert_eq!(wc.seam(i).len(), 9 * tris.len());
-                assert_eq!(wc.seam_owners()[2 * i..2 * i + 2], [owner.x, owner.y]);
+            let keys = wc.seam_keys();
+            assert_eq!(keys.len(), 4 * c.seams.len());
+            for (i, s) in c.seams.iter().enumerate() {
+                assert_eq!(wc.seam(i).len(), 9 * s.tris.len());
+                let also = s.also.unwrap_or(s.owner);
+                assert_eq!(keys[4 * i..4 * i + 4], [s.owner.x, s.owner.y, also.x, also.y]);
             }
+            assert!(c.seams.iter().any(|s| s.also.is_some()), "({q}, {r}): no corner seams");
             assert!(wc.seam(OUT_OF_RANGE_SEAM).is_empty());
             assert_eq!(wc.center(), vec![c.center.x, c.center.y]);
         }

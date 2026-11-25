@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   CHUNK_DIRS, chunkKey, footprint, stepFootprint, chunkCenter, nearestStep,
-  visibleSeamGroups, advancePos, clampChunkRadius, MAX_FRAME_DT, MAX_CHUNK_RADIUS,
+  visibleSeamGroups, duplicateTris, advancePos, clampChunkRadius, MAX_FRAME_DT, MAX_CHUNK_RADIUS,
   advanceFade, FADE_IN_S, FADE_OUT_S, chunkHash,
 } from "./hex-stream.js";
 
@@ -49,10 +49,34 @@ test("nearestStep stays put at the anchor centre and steps towards a nearer neig
 });
 
 test("visibleSeamGroups hides groups whose owner is loaded", () => {
-  const owners = Int32Array.from([1, 0, 5, 5, -2, 3]);
+  // No `also`: the key repeats the owner.
+  const keys = Int32Array.from([1, 0, 1, 0, 5, 5, 5, 5, -2, 3, -2, 3]);
   const loaded = new Set([chunkKey(1, 0), chunkKey(-2, 3)]);
-  assert.deepEqual(visibleSeamGroups(owners, loaded), [1]);
-  assert.deepEqual(visibleSeamGroups(owners, new Set()), [0, 1, 2]);
+  assert.deepEqual(visibleSeamGroups(keys, [0, 0], loaded), [1]);
+  assert.deepEqual(visibleSeamGroups(keys, [0, 0], new Set()), [0, 1, 2]);
+});
+
+test("visibleSeamGroups follows the corner tie-break table", () => {
+  // Corner tri owned by X = (1, -1), touching A = (0, 0) < B = (1, 0).
+  const A = [0, 0], B = [1, 0], X = [1, -1];
+  const inA = [...X, ...B], inB = [...X, ...A];
+  const drawers = (...on) => {
+    const loaded = new Set(on.map((c) => chunkKey(...c)));
+    return [[A, inA], [B, inB]].filter(([c, k]) => loaded.has(chunkKey(...c)) && visibleSeamGroups(k, c, loaded).length);
+  };
+  const names = (...on) => drawers(...on).map(([c]) => (c === A ? "A" : "B"));
+  assert.deepEqual(names(X, A, B), []);
+  assert.deepEqual(names(A), ["A"]);
+  assert.deepEqual(names(B), ["B"]);
+  assert.deepEqual(names(A, B), ["A"]);
+  assert.deepEqual(names(), []);
+});
+
+test("duplicateTris counts exact repeats across buffers", () => {
+  const t = [0, 1, 2, 3, 4, 5, 6, 7, 8], u = t.map((x) => x + 0.5);
+  assert.equal(duplicateTris([Float32Array.from([...t, ...u])]), 0);
+  assert.equal(duplicateTris([Float32Array.from(t), Float32Array.from([...u, ...t])]), 1);
+  assert.equal(duplicateTris([]), 0);
 });
 
 test("advancePos caps a long frame so a backgrounded tab doesn't replay hours of steps", () => {
