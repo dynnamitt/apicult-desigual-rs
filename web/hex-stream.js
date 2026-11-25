@@ -15,7 +15,11 @@ export const MAX_FRAME_DT = 0.1;
 export const MAX_CHUNK_RADIUS = 6;
 /** Rate (1/s) at which the camera's sideways offset from its rail decays; off-rail it would zig-zag between two chunk rows. */
 export const RAIL_PULL = 3;
-/** Seconds a step's 3 spawned chunks take to fade in; the 3 despawned ones wait this long, then fade out in {@link FADE_OUT_S}. */
+/**
+ * Fade timing: a step's 3 spawned chunks fade in over FADE_IN_S; the 3 despawned ones
+ * wait that long, then fade to a ghost (see {@link ageGhost}). FADE_OUT_S is the time a
+ * full 1 → 0 fade-out would take; partial fades take their share of it.
+ */
 export const FADE_IN_S = 0.6, FADE_OUT_S = 0.25;
 /** Opacity a despawned chunk holds for each step since it left: 10% on the first, 5% on the next, then dropped. */
 export const GHOST_ALPHAS = [0.1, 0.05];
@@ -163,6 +167,25 @@ export const advancePos = (pos, [dx, dz], speed, dt, rail = pos) => {
     pos[1] + uz * speed * t + (oz - along * uz) * pull,
   ];
 };
+
+/**
+ * Age a chunk by one step out of the footprint: aim at the next {@link GHOST_ALPHAS}
+ * stage, or at 0 (then dropped) past the last. Never aims above the alpha it has, so a
+ * chunk despawned before it showed stays invisible. A settled chunk waits FADE_IN_S to
+ * fade alongside this step's despawns; one still waiting or fading keeps going, so
+ * steps faster than FADE_IN_S cannot hold a ghost in place.
+ * @param {{fade: {alpha: number, target: number, delay: number}, ghost: number}} chunk
+ *   ghost is the steps it has been out (0 = in the footprint)
+ * @returns {{fade: {alpha: number, target: number, delay: number}, ghost: number}}
+ */
+export const ageGhost = ({ fade, ghost }) => ({
+  fade: {
+    alpha: fade.alpha,
+    target: Math.min(fade.alpha, GHOST_ALPHAS[ghost] ?? 0),
+    delay: fade.alpha === fade.target ? FADE_IN_S : fade.delay,
+  },
+  ghost: ghost + 1,
+});
 
 /**
  * Advance one chunk's fade by `dt`: wait out `delay`, then move `alpha`

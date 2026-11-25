@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import {
   CHUNK_DIRS, chunkKey, footprint, stepFootprint, chunkCenter, nearestStep,
   visibleSeamGroups, duplicateTris, advancePos, clampChunkRadius, MAX_FRAME_DT, MAX_CHUNK_RADIUS,
-  advanceFade, FADE_IN_S, FADE_OUT_S, GHOST_ALPHAS, chunkHash,
+  advanceFade, ageGhost, FADE_IN_S, FADE_OUT_S, GHOST_ALPHAS, chunkHash,
 } from "./hex-stream.js";
 
 const ANCHOR = [2, -1];
@@ -125,6 +125,31 @@ test("advanceFade: stops at a ghost's partial target, and a ghost can fade back 
   assert.equal(ghost.alpha, first);
   assert.equal(advanceFade({ ...ghost, target: second }, 10).alpha, second);
   assert.equal(advanceFade({ ...ghost, target: 1 }, 10).alpha, 1);
+});
+
+test("ageGhost: 10% → 5% → out, each stage waiting for that step's despawns", () => {
+  const settle = (c) => ({ ...c, fade: advanceFade(c.fade, 10) });
+  const solid = { fade: { alpha: 1, target: 1, delay: 0 }, ghost: 0 };
+  const stages = [1, 2, 3].reduce((acc) => [...acc, settle(ageGhost(acc.at(-1)))], [solid]);
+  assert.deepEqual(stages.map((c) => c.fade.alpha), [1, ...GHOST_ALPHAS, 0]);
+  assert.equal(ageGhost(solid).fade.delay, FADE_IN_S, "a fresh despawn waits for the spawns");
+  assert.equal(ageGhost(stages[1]).fade.delay, FADE_IN_S, "a settled ghost fades with the new despawns");
+});
+
+test("ageGhost: steps faster than FADE_IN_S still get every ghost out", () => {
+  // A step every 0.1 s, about radius-0 chunks at speed 60: no ghost may linger.
+  const STEP_S = 0.1;
+  const end = Array.from({ length: 40 }).reduce((c) => {
+    const aged = ageGhost(c);
+    return { ...aged, fade: advanceFade(aged.fade, STEP_S) };
+  }, { fade: { alpha: 1, target: 1, delay: 0 }, ghost: 0 });
+  assert.equal(end.fade.alpha, 0);
+});
+
+test("ageGhost: never fades a chunk up, so one despawned before it showed stays hidden", () => {
+  const unseen = ageGhost({ fade: { alpha: 0, target: 1, delay: 0 }, ghost: 0 });
+  assert.equal(unseen.fade.target, 0);
+  assert.equal(advanceFade(unseen.fade, 10).alpha, 0);
 });
 
 test("chunkHash is stable, u32, and differs across a chunk's neighbours", () => {
