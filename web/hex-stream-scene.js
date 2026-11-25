@@ -4,7 +4,7 @@ import { weldedMesh } from "./three-weld.js";
 import { showError, needsResize, runFrames } from "./canvas.js";
 import {
   CHUNK_DIRS, chunkKey, footprint, stepFootprint, chunkCenter, nearestStep,
-  visibleSeamGroups, duplicateTris, SEAM_KEY_STRIDE, advancePos, clampChunkRadius, advanceFade, FADE_IN_S, chunkHash,
+  visibleSeamGroups, duplicateTris, SEAM_KEY_STRIDE, advancePos, clampChunkRadius, advanceFade, FADE_IN_S, GHOST_ALPHAS, chunkHash,
 } from "./hex-stream.js";
 import { randomU32, seedSequence } from "./seed.js";
 
@@ -86,7 +86,7 @@ export function mount(canvas, statsEl, { initialSettings, WasmChunkWorld }) {
     scene.add(group);
 
     let world = null;
-    let loaded = new Map(); // chunkKey → { coord, owned: Mesh, seams: {mesh, tris}[], keys, fade }
+    let loaded = new Map(); // chunkKey → { coord, owned: Mesh, seams: {mesh, tris}[], keys, fade, ghost }
     let anchor = [0, 0], pos = [0, 0], u = [0, 0], v = [0, 0], steps = 0;
     let overlaps = 0, drawnSig = ""; // recount only when the drawn seams change
 
@@ -110,7 +110,7 @@ export function mount(canvas, statsEl, { initialSettings, WasmChunkWorld }) {
       });
       const center = Array.from(wc.center());
       wc.free();
-      const c = { coord, center, owned, seams, keys, fade: { alpha, target: 1, delay: 0 } };
+      const c = { coord, center, owned, seams, keys, fade: { alpha, target: 1, delay: 0 }, ghost: 0 };
       applyAlpha(c);
       loaded.set(chunkKey(...coord), c);
     };
@@ -148,14 +148,17 @@ export function mount(canvas, statsEl, { initialSettings, WasmChunkWorld }) {
 
     const step = (dir) => {
       const diff = stepFootprint(anchor, dir);
-      // Spawns fade in first; despawns stay solid until they are in, then fade out.
-      diff.despawn.forEach((coord) => {
-        const c = loaded.get(chunkKey(...coord));
-        c.fade = { ...c.fade, target: 0, delay: FADE_IN_S };
-      });
+      // Spawns fade in first; despawns stay solid until they are in, then fade to a
+      // ghost. Each step after that, older ghosts fade on with them: 10% → 5% → dropped.
+      const fadeOut = (c) => {
+        c.ghost += 1;
+        c.fade = { ...c.fade, target: GHOST_ALPHAS[c.ghost - 1] ?? 0, delay: FADE_IN_S };
+      };
+      loaded.forEach((c) => { if (c.ghost) fadeOut(c); });
+      diff.despawn.forEach((coord) => fadeOut(loaded.get(chunkKey(...coord))));
       diff.spawn.forEach((coord) => {
-        const c = loaded.get(chunkKey(...coord)); // still fading out after a reversal
-        if (c) c.fade = { ...c.fade, target: 1, delay: 0 };
+        const c = loaded.get(chunkKey(...coord)); // still a ghost after a reversal
+        if (c) Object.assign(c, { fade: { ...c.fade, target: 1, delay: 0 }, ghost: 0 });
         else buildChunk(coord, 0);
       });
       anchor = diff.anchor;

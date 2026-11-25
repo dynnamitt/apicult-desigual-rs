@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import {
   CHUNK_DIRS, chunkKey, footprint, stepFootprint, chunkCenter, nearestStep,
   visibleSeamGroups, duplicateTris, advancePos, clampChunkRadius, MAX_FRAME_DT, MAX_CHUNK_RADIUS,
-  advanceFade, FADE_IN_S, FADE_OUT_S, chunkHash,
+  advanceFade, FADE_IN_S, FADE_OUT_S, GHOST_ALPHAS, chunkHash,
 } from "./hex-stream.js";
 
 const ANCHOR = [2, -1];
@@ -117,6 +117,14 @@ test("advanceFade: spawns fade in first, despawns wait for them then fade out fa
   assert.equal(run(despawn, FADE_IN_S + FADE_OUT_S).alpha, 0);
   // One long frame spends the rest of the delay, then fades with what is left.
   assert.ok(Math.abs(advanceFade({ alpha: 1, target: 0, delay: 0.1 }, 0.1 + FADE_OUT_S / 2).alpha - 0.5) < 1e-9);
+});
+
+test("advanceFade: stops at a ghost's partial target, and a ghost can fade back in", () => {
+  const [first, second] = GHOST_ALPHAS;
+  const ghost = advanceFade({ alpha: 1, target: first, delay: 0 }, 10);
+  assert.equal(ghost.alpha, first);
+  assert.equal(advanceFade({ ...ghost, target: second }, 10).alpha, second);
+  assert.equal(advanceFade({ ...ghost, target: 1 }, 10).alpha, 1);
 });
 
 test("chunkHash is stable, u32, and differs across a chunk's neighbours", () => {

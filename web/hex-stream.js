@@ -17,6 +17,8 @@ export const MAX_CHUNK_RADIUS = 6;
 export const RAIL_PULL = 3;
 /** Seconds a step's 3 spawned chunks take to fade in; the 3 despawned ones wait this long, then fade out in {@link FADE_OUT_S}. */
 export const FADE_IN_S = 0.6, FADE_OUT_S = 0.25;
+/** Opacity a despawned chunk holds for each step since it left: 10% on the first, 5% on the next, then dropped. */
+export const GHOST_ALPHAS = [0.1, 0.05];
 
 /** Ints per seam group in `WasmChunk.seam_keys()`: `[oq, or, aq, ar]`. */
 export const SEAM_KEY_STRIDE = 4;
@@ -164,16 +166,16 @@ export const advancePos = (pos, [dx, dz], speed, dt, rail = pos) => {
 
 /**
  * Advance one chunk's fade by `dt`: wait out `delay`, then move `alpha`
- * toward `target` (fade-in over {@link FADE_IN_S}, fade-out over {@link FADE_OUT_S}).
- * @param {{alpha: number, target: 0|1, delay: number}} fade
+ * toward `target` and stop there (fading in at 1 per {@link FADE_IN_S}, out at 1 per {@link FADE_OUT_S}).
+ * @param {{alpha: number, target: number, delay: number}} fade target in [0, 1]
  * @param {number} dt seconds
- * @returns {{alpha: number, target: 0|1, delay: number}}
+ * @returns {{alpha: number, target: number, delay: number}}
  */
 export const advanceFade = ({ alpha, target, delay }, dt) => {
   const wait = Math.min(delay, dt), run = dt - wait;
   const next = target > alpha
-    ? Math.min(1, alpha + run / FADE_IN_S)
-    : Math.max(0, alpha - run / FADE_OUT_S);
+    ? Math.min(target, alpha + run / FADE_IN_S)
+    : Math.max(target, alpha - run / FADE_OUT_S);
   return { alpha: next, target, delay: delay - wait };
 };
 
