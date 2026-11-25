@@ -123,19 +123,19 @@ export function mount(canvas, statsEl, { initialSettings, WasmChunkWorld }) {
       loaded.delete(key);
     };
 
-    // A seam wears its owner's colour (unless `seams` highlights it), so nothing
-    // changes on screen when the owner fades in and its owned stream takes over.
+    // A seam wears its own chunk's colour (unless `seams` highlights it), not the
+    // owner's: it must not preview the chunk that has not loaded yet (c3fc7e8).
     // Only fully opaque chunks count as loaded, so seams cover a chunk while it fades.
     const refreshSeams = () => {
       const keys = new Set([...loaded].filter(([, c]) => c.fade.alpha === 1).map(([k]) => k));
       loaded.forEach((c) => {
         const shown = new Set(visibleSeamGroups(c.keys, c.coord, keys));
+        const color = chunkColor(c.coord);
         c.seams.forEach(({ mesh }, i) => {
-          const owner = [c.keys[SEAM_KEY_STRIDE * i], c.keys[SEAM_KEY_STRIDE * i + 1]];
           mesh.visible = shown.has(i);
-          mesh.material.color.copy(state.seams ? new THREE.Color(SEAM_COLOR) : chunkColor(owner));
+          mesh.material.color.copy(state.seams ? new THREE.Color(SEAM_COLOR) : color);
         });
-        c.owned.material.color.copy(chunkColor(c.coord));
+        c.owned.material.color.copy(color);
       });
       // Seams doubling up is #27; owned streams are disjoint by construction (owned_streams_partition_world).
       // Fading chunks overlap on purpose (cross-fade), so count only the opaque ones.

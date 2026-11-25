@@ -106,7 +106,7 @@ A fourth page, on **three.js**, closing #15 on top of the `chunk` module: seven 
 
 - **One `WasmChunkWorld` per world.** Both seeds come from the seed box once per build (`seedSequence(seed, 2)`, or two `randomU32` when blank) — never per chunk, or chunks stop fitting.
 - **Stepping is pure JS** (`web/hex-stream.js`, node-tested): `nearestStep` compares the camera's world `(x, z)` against chunk centres from `chunkCenter(coord, u, v)`, where `u`, `v` are `WasmChunk.center()` of chunks `(1,0)` / `(0,1)` — valid because `to_higher_res` and `hex_to_world_pos` are both linear. Each step is `stepFootprint`: 3 spawn, 3 despawn, 4 kept untouched.
-- **Seams follow consumer rule 1**: every chunk builds a mesh per seam group up front; `visibleSeamGroups(keys, self, loaded)` applies the same tie-break as `Seam::drawn`, so the 1+6 always has a closed outline and no doubled gaps (the stats line counts `seam overlaps` among opaque chunks; it should read 0). Seams wear their owner's tint; `highlight seams` paints them amber.
+- **Seams follow consumer rule 1**: every chunk builds a mesh per seam group up front; `visibleSeamGroups(keys, self, loaded)` applies the same tie-break as `Seam::drawn`, so the 1+6 always has a closed outline and no doubled gaps (the stats line counts `seam overlaps` among opaque chunks; it should read 0). Seams wear their own chunk's tint, not the owner's (which is often not loaded yet); `highlight seams` paints them amber.
 - Float precision far from the origin is not handled (the group offset grows without rebasing).
 
 Sidebar: **world** (chunk radius, seed — rebuild), **motion** (speed, direction — live), **view** (tint chunks, highlight seams).
