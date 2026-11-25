@@ -4,7 +4,7 @@ import { weldedMesh } from "./three-weld.js";
 import { showError, needsResize, runFrames } from "./canvas.js";
 import {
   CHUNK_DIRS, chunkKey, footprint, stepFootprint, chunkCenter, nearestStep,
-  visibleSeamGroups, advancePos, clampChunkRadius, advanceFade, FADE_IN_S, chunkHash,
+  visibleSeamGroups, duplicateTris, advancePos, clampChunkRadius, advanceFade, FADE_IN_S, chunkHash,
 } from "./hex-stream.js";
 import { randomU32, seedSequence } from "./seed.js";
 
@@ -86,7 +86,7 @@ export function mount(canvas, statsEl, { initialSettings, WasmChunkWorld }) {
     scene.add(group);
 
     let world = null;
-    let loaded = new Map(); // chunkKey → { coord, owned: Mesh, seams: {mesh}[], fade }
+    let loaded = new Map(); // chunkKey → { coord, owned: Mesh, ownedTris, seams: {mesh, tris, owner}[], keys, fade }
     let anchor = [0, 0], pos = [0, 0], u = [0, 0], v = [0, 0], steps = 0;
 
     const chunkColor = (coord) => (state.tint ? tintColor(coord) : new THREE.Color(FILL_COLOR));
@@ -98,17 +98,19 @@ export function mount(canvas, statsEl, { initialSettings, WasmChunkWorld }) {
 
     const buildChunk = (coord, alpha = 1) => {
       const wc = world.chunk(coord[0], coord[1]);
-      const owned = new THREE.Mesh(weldedMesh(wc.owned()), material(chunkColor(coord)));
+      const ownedTris = wc.owned();
+      const owned = new THREE.Mesh(weldedMesh(ownedTris), material(chunkColor(coord)));
       group.add(owned);
-      const owners = wc.seam_owners();
-      const seams = Array.from({ length: owners.length / 2 }, (_, i) => {
-        const mesh = new THREE.Mesh(weldedMesh(wc.seam(i)), material(SEAM_COLOR));
+      const keys = wc.seam_keys();
+      const seams = Array.from({ length: keys.length / 4 }, (_, i) => {
+        const tris = wc.seam(i);
+        const mesh = new THREE.Mesh(weldedMesh(tris), material(SEAM_COLOR));
         group.add(mesh);
-        return { mesh };
+        return { mesh, tris, owner: [keys[4 * i], keys[4 * i + 1]] };
       });
       const center = Array.from(wc.center());
       wc.free();
-      const c = { coord, center, owned, seams, owners, fade: { alpha, target: 1, delay: 0 } };
+      const c = { coord, center, owned, ownedTris, seams, keys, fade: { alpha, target: 1, delay: 0 } };
       applyAlpha(c);
       loaded.set(chunkKey(...coord), c);
     };
@@ -121,16 +123,16 @@ export function mount(canvas, statsEl, { initialSettings, WasmChunkWorld }) {
       loaded.delete(key);
     };
 
-    // A seam wears its own chunk's colour (unless `seams` highlights it) until the
-    // owner fades in and its owned stream takes over.
+    // A seam wears its owner's colour (unless `seams` highlights it), so nothing
+    // changes on screen when the owner fades in and its owned stream takes over.
     // Only fully opaque chunks count as loaded, so seams cover a chunk while it fades.
     const refreshSeams = () => {
       const keys = new Set([...loaded].filter(([, c]) => c.fade.alpha === 1).map(([k]) => k));
       loaded.forEach((c) => {
-        const shown = new Set(visibleSeamGroups(c.owners, keys));
-        c.seams.forEach(({ mesh }, i) => {
+        const shown = new Set(visibleSeamGroups(c.keys, c.coord, keys));
+        c.seams.forEach(({ mesh, owner }, i) => {
           mesh.visible = shown.has(i);
-          mesh.material.color.copy(state.seams ? new THREE.Color(SEAM_COLOR) : chunkColor(c.coord));
+          mesh.material.color.copy(state.seams ? new THREE.Color(SEAM_COLOR) : chunkColor(owner));
         });
         c.owned.material.color.copy(chunkColor(c.coord));
       });
@@ -192,9 +194,12 @@ export function mount(canvas, statsEl, { initialSettings, WasmChunkWorld }) {
       const seamTotal = all.reduce((n, c) => n + c.seams.length, 0);
       const seamShown = all.reduce((n, c) => n + c.seams.filter((s) => s.mesh.visible).length, 0);
       const tris = all.reduce((n, c) => n + c.owned.geometry.index.count / 3, 0);
+      // Fading chunks overlap on purpose (cross-fade); count only the opaque ones.
+      const overlaps = duplicateTris(all.filter((c) => c.fade.alpha === 1).flatMap((c) =>
+        [c.ownedTris, ...c.seams.filter((s) => s.mesh.visible).map((s) => s.tris)]));
       statsEl.textContent =
         `${loaded.size} chunks · anchor (${anchor[0]}, ${anchor[1]}) · ${steps} steps · ` +
-        `${tris} owned tris · seams ${seamShown}/${seamTotal} groups`;
+        `${tris} owned tris · seams ${seamShown}/${seamTotal} groups · ${overlaps} overlaps`;
     };
 
     const clock = new THREE.Clock();

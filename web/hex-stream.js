@@ -100,16 +100,34 @@ export const nearestStep = (pos, anchor, u, v) => {
   return dir;
 };
 
+const before = ([q, r], [bq, br]) => q < bq || (q === bq && r < br);
+
 /**
- * Seam groups to draw: those whose owning chunk is not loaded (otherwise the
- * owner's owned stream already covers them).
- * @param {Int32Array|number[]} owners `WasmChunk.seam_owners()`, `[q0, r0, q1, r1, …]`
+ * Seam groups chunk `self` should draw (consumer rule 1, `Seam::drawn` in
+ * `src/chunk.rs`): the owner isn't loaded, and the `also` chunk a corner
+ * triangle touches isn't loaded either or comes after `self` in `(q, r)`
+ * order — so of two loaded carriers exactly one draws a corner.
+ * @param {Int32Array|number[]} keys `WasmChunk.seam_keys()`, `[oq, or, aq, ar, …]`
+ * @param {[number, number]} self the carrying chunk's coordinate
  * @param {Set<string>} loaded keys from {@link chunkKey}
  * @returns {number[]} group indices for `WasmChunk.seam(i)`.
  */
-export const visibleSeamGroups = (owners, loaded) =>
-  Array.from({ length: owners.length / 2 }, (_, i) => i)
-    .filter((i) => !loaded.has(chunkKey(owners[2 * i], owners[2 * i + 1])));
+export const visibleSeamGroups = (keys, self, loaded) =>
+  Array.from({ length: keys.length / 4 }, (_, i) => i).filter((i) => {
+    const [oq, or, aq, ar] = Array.from(keys.slice(4 * i, 4 * i + 4));
+    return !loaded.has(chunkKey(oq, or)) && (!loaded.has(chunkKey(aq, ar)) || before(self, [aq, ar]));
+  });
+
+/**
+ * Triangles that appear more than once across flat `n_tris * 9` buffers (exact float match).
+ * @param {(Float32Array|number[])[]} buffers
+ * @returns {number} extra copies; 0 when no triangle is drawn twice.
+ */
+export const duplicateTris = (buffers) => {
+  const keys = buffers.flatMap((b) =>
+    Array.from({ length: b.length / 9 }, (_, i) => Array.from(b.slice(9 * i, 9 * i + 9)).join()));
+  return keys.length - new Set(keys).size;
+};
 
 /**
  * Move the camera position along `dir` for one frame, with `dt` capped at
