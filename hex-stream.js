@@ -18,6 +18,11 @@ export const RAIL_PULL = 3;
 /** Seconds a step's 3 spawned chunks take to fade in; the 3 despawned ones wait this long, then fade out in {@link FADE_OUT_S}. */
 export const FADE_IN_S = 0.6, FADE_OUT_S = 0.25;
 
+/** Ints per seam group in `WasmChunk.seam_keys()`: `[oq, or, aq, ar]`. */
+export const SEAM_KEY_STRIDE = 4;
+/** u16 values in one triangle of a flat f32 buffer (9 floats × 2). */
+const U16_PER_TRI = 18;
+
 /** The 6 axial neighbour offsets on the chunk lattice. */
 export const CHUNK_DIRS = [[1, 0], [1, -1], [0, -1], [-1, 0], [-1, 1], [0, 1]];
 
@@ -100,16 +105,38 @@ export const nearestStep = (pos, anchor, u, v) => {
   return dir;
 };
 
+const before = ([q, r], [bq, br]) => q < bq || (q === bq && r < br);
+
 /**
- * Seam groups to draw: those whose owning chunk is not loaded (otherwise the
- * owner's owned stream already covers them).
- * @param {Int32Array|number[]} owners `WasmChunk.seam_owners()`, `[q0, r0, q1, r1, …]`
+ * Seam groups chunk `self` should draw (consumer rule 1, `Seam::drawn` in
+ * `src/chunk.rs`): the owner isn't loaded, and the `also` chunk a corner
+ * triangle touches isn't loaded either or comes after `self` in `(q, r)`
+ * order — so of two loaded carriers exactly one draws a corner.
+ * @param {Int32Array|number[]} keys `WasmChunk.seam_keys()`, `[oq, or, aq, ar, …]`
+ * @param {[number, number]} self the carrying chunk's coordinate
  * @param {Set<string>} loaded keys from {@link chunkKey}
  * @returns {number[]} group indices for `WasmChunk.seam(i)`.
  */
-export const visibleSeamGroups = (owners, loaded) =>
-  Array.from({ length: owners.length / 2 }, (_, i) => i)
-    .filter((i) => !loaded.has(chunkKey(owners[2 * i], owners[2 * i + 1])));
+export const visibleSeamGroups = (keys, self, loaded) =>
+  Array.from({ length: keys.length / SEAM_KEY_STRIDE }, (_, i) => i).filter((i) => {
+    const [oq, or, aq, ar] = keys.slice(SEAM_KEY_STRIDE * i, SEAM_KEY_STRIDE * (i + 1));
+    return !loaded.has(chunkKey(oq, or)) && (!loaded.has(chunkKey(aq, ar)) || before(self, [aq, ar]));
+  });
+
+/**
+ * Triangles that appear more than once across flat `n_tris * 9` buffers (bit-exact match).
+ * @param {Float32Array[]} buffers
+ * @returns {number} extra copies; 0 when no triangle is drawn twice.
+ */
+export const duplicateTris = (buffers) => {
+  // Each tri's raw bytes as a short string: exact, and far cheaper than formatting 9 floats.
+  const keys = buffers.flatMap((b) => {
+    const u16 = new Uint16Array(b.buffer, b.byteOffset, b.length * 2);
+    return Array.from({ length: u16.length / U16_PER_TRI }, (_, i) =>
+      String.fromCharCode(...u16.subarray(U16_PER_TRI * i, U16_PER_TRI * (i + 1))));
+  });
+  return keys.length - new Set(keys).size;
+};
 
 /**
  * Move the camera position along `dir` for one frame, with `dt` capped at

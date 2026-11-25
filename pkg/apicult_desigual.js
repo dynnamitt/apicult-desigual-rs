@@ -299,7 +299,7 @@ export class WasmChunk {
         return v1;
     }
     /**
-     * Seam group `i` — draw only while its owner chunk isn't loaded. Empty when out of range.
+     * Seam group `i` — draw only while `Seam::drawn` holds. Empty when out of range.
      * @param {number} i
      * @returns {Float32Array}
      */
@@ -310,11 +310,15 @@ export class WasmChunk {
         return v1;
     }
     /**
-     * Owning neighbour chunk of each seam group, flat `[q0, r0, q1, r1, …]`.
+     * Key of each seam group, flat `[owner_q, owner_r, also_q, also_r, …]`.
+     * A seam with no `also` repeats its owner there, which makes rule 1
+     * (`Seam::drawn`) reduce to "owner not loaded" with no special case.
+     *
+     * @returns {Vec<i32>} 4 ints per group, in `seam(i)` order.
      * @returns {Int32Array}
      */
-    seam_owners() {
-        const ret = wasm.wasmchunk_seam_owners(this.__wbg_ptr);
+    seam_keys() {
+        const ret = wasm.wasmchunk_seam_keys(this.__wbg_ptr);
         var v1 = getArrayI32FromWasm0(ret[0], ret[1]).slice();
         wasm.__wbindgen_free(ret[0], ret[1] * 4, 4);
         return v1;

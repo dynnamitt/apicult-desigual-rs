@@ -77,13 +77,17 @@ export class WasmChunk {
      */
     owned(): Float32Array;
     /**
-     * Seam group `i` — draw only while its owner chunk isn't loaded. Empty when out of range.
+     * Seam group `i` — draw only while `Seam::drawn` holds. Empty when out of range.
      */
     seam(i: number): Float32Array;
     /**
-     * Owning neighbour chunk of each seam group, flat `[q0, r0, q1, r1, …]`.
+     * Key of each seam group, flat `[owner_q, owner_r, also_q, also_r, …]`.
+     * A seam with no `also` repeats its owner there, which makes rule 1
+     * (`Seam::drawn`) reduce to "owner not loaded" with no special case.
+     *
+     * @returns {Vec<i32>} 4 ints per group, in `seam(i)` order.
      */
-    seam_owners(): Int32Array;
+    seam_keys(): Int32Array;
 }
 
 /**
@@ -201,7 +205,7 @@ export interface InitOutput {
     readonly wasmchunk_center: (a: number) => [number, number];
     readonly wasmchunk_owned: (a: number) => [number, number];
     readonly wasmchunk_seam: (a: number, b: number) => [number, number];
-    readonly wasmchunk_seam_owners: (a: number) => [number, number];
+    readonly wasmchunk_seam_keys: (a: number) => [number, number];
     readonly wasmchunkworld_chunk: (a: number, b: number, c: number) => number;
     readonly wasmchunkworld_new: (a: number, b: number, c: number) => number;
     readonly wasmlayout_borderline_cells: (a: number, b: number) => [number, number];
