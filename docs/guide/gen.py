@@ -349,7 +349,7 @@ figs["f14"] = fig("\n".join(b), 500, 490, "Chunk (0,0) of radius 2: its owned st
   f"Chunk <code>(0,0)</code> with <code>chunk_radius = 2</code>. <code>for_chunk</code> adds ring 3 (dashed), tinted by the neighbour chunk each ring cell belongs to, labelled outside. "
   f"<strong>Owned</strong>, solid: the 19 faces and every gap an own cell owns, {n_owned} triangles. "
   f"<strong>Seams</strong>, dashed and tinted: the gaps ring cells own that touch the chunk, {n_seam} triangles from the {len(groups)} neighbour chunks that own them. "
-  f"Together they make the same 312 triangles as the figure in section 4. Once a neighbour is loaded, its owned stream draws the same triangles, so its seam group is hidden.")
+  f"Together they make the same 312 triangles as the figure in section 4. Once a neighbour is loaded, its owned stream draws the same triangles, so its seam group is hidden. A corner triangle is carried by two chunks; when both are loaded, only the one first in <code>(q, r)</code> order draws it.")
 
 tmpl = args.template.read_text()
 for k, svg in figs.items(): tmpl = tmpl.replace("{{" + k + "}}", svg)

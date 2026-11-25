@@ -4,7 +4,7 @@ import { weldedMesh } from "./three-weld.js";
 import { showError, needsResize, runFrames } from "./canvas.js";
 import {
   CHUNK_DIRS, chunkKey, footprint, stepFootprint, chunkCenter, nearestStep,
-  visibleSeamGroups, duplicateTris, advancePos, clampChunkRadius, advanceFade, FADE_IN_S, chunkHash,
+  visibleSeamGroups, duplicateTris, SEAM_KEY_STRIDE, advancePos, clampChunkRadius, advanceFade, FADE_IN_S, chunkHash,
 } from "./hex-stream.js";
 import { randomU32, seedSequence } from "./seed.js";
 
@@ -86,9 +86,9 @@ export function mount(canvas, statsEl, { initialSettings, WasmChunkWorld }) {
     scene.add(group);
 
     let world = null;
-    let loaded = new Map(); // chunkKey → { coord, owned: Mesh, ownedTris, seams: {mesh, tris, owner}[], keys, fade }
+    let loaded = new Map(); // chunkKey → { coord, owned: Mesh, seams: {mesh, tris}[], keys, fade }
     let anchor = [0, 0], pos = [0, 0], u = [0, 0], v = [0, 0], steps = 0;
-    let overlaps = 0, drawnSig = ""; // recount only when what is drawn changes; a count is ~20 ms at radius 6
+    let overlaps = 0, drawnSig = ""; // recount only when the drawn seams change
 
     const chunkColor = (coord) => (state.tint ? tintColor(coord) : new THREE.Color(FILL_COLOR));
 
@@ -99,19 +99,18 @@ export function mount(canvas, statsEl, { initialSettings, WasmChunkWorld }) {
 
     const buildChunk = (coord, alpha = 1) => {
       const wc = world.chunk(coord[0], coord[1]);
-      const ownedTris = wc.owned();
-      const owned = new THREE.Mesh(weldedMesh(ownedTris), material(chunkColor(coord)));
+      const owned = new THREE.Mesh(weldedMesh(wc.owned()), material(chunkColor(coord)));
       group.add(owned);
       const keys = wc.seam_keys();
-      const seams = Array.from({ length: keys.length / 4 }, (_, i) => {
+      const seams = Array.from({ length: keys.length / SEAM_KEY_STRIDE }, (_, i) => {
         const tris = wc.seam(i);
         const mesh = new THREE.Mesh(weldedMesh(tris), material(SEAM_COLOR));
         group.add(mesh);
-        return { mesh, tris, owner: [keys[4 * i], keys[4 * i + 1]] };
+        return { mesh, tris };
       });
       const center = Array.from(wc.center());
       wc.free();
-      const c = { coord, center, owned, ownedTris, seams, keys, fade: { alpha, target: 1, delay: 0 } };
+      const c = { coord, center, owned, seams, keys, fade: { alpha, target: 1, delay: 0 } };
       applyAlpha(c);
       loaded.set(chunkKey(...coord), c);
     };
@@ -131,19 +130,20 @@ export function mount(canvas, statsEl, { initialSettings, WasmChunkWorld }) {
       const keys = new Set([...loaded].filter(([, c]) => c.fade.alpha === 1).map(([k]) => k));
       loaded.forEach((c) => {
         const shown = new Set(visibleSeamGroups(c.keys, c.coord, keys));
-        c.seams.forEach(({ mesh, owner }, i) => {
+        c.seams.forEach(({ mesh }, i) => {
+          const owner = [c.keys[SEAM_KEY_STRIDE * i], c.keys[SEAM_KEY_STRIDE * i + 1]];
           mesh.visible = shown.has(i);
           mesh.material.color.copy(state.seams ? new THREE.Color(SEAM_COLOR) : chunkColor(owner));
         });
         c.owned.material.color.copy(chunkColor(c.coord));
       });
-      // Fading chunks overlap on purpose (cross-fade); count only the opaque ones.
+      // Seams doubling up is #27; owned streams are disjoint by construction (owned_streams_partition_world).
+      // Fading chunks overlap on purpose (cross-fade), so count only the opaque ones.
       const opaque = [...loaded.values()].filter((c) => keys.has(chunkKey(...c.coord)));
       const sig = opaque.map((c) => chunkKey(...c.coord) + c.seams.map((s) => +s.mesh.visible).join("")).join(" ");
       if (sig === drawnSig) return;
       drawnSig = sig;
-      overlaps = duplicateTris(opaque.flatMap((c) =>
-        [c.ownedTris, ...c.seams.filter((s) => s.mesh.visible).map((s) => s.tris)]));
+      overlaps = duplicateTris(opaque.flatMap((c) => c.seams.filter((s) => s.mesh.visible).map((s) => s.tris)));
     };
 
     const step = (dir) => {
@@ -205,7 +205,7 @@ export function mount(canvas, statsEl, { initialSettings, WasmChunkWorld }) {
       const tris = all.reduce((n, c) => n + c.owned.geometry.index.count / 3, 0);
       statsEl.textContent =
         `${loaded.size} chunks · anchor (${anchor[0]}, ${anchor[1]}) · ${steps} steps · ` +
-        `${tris} owned tris · seams ${seamShown}/${seamTotal} groups · ${overlaps} overlaps`;
+        `${tris} owned tris · seams ${seamShown}/${seamTotal} groups · ${overlaps} seam overlaps`;
     };
 
     const clock = new THREE.Clock();

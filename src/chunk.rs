@@ -71,9 +71,9 @@ impl Seam {
     /// Consumer rule 1: whether the chunk `carrier` should draw this seam now.
     /// The `(q, r)` tie-break lets exactly one of two loaded carriers draw a corner.
     ///
-    /// @param carrier — the chunk whose `seams` hold this one.
-    /// @param loaded — whether a chunk coordinate is loaded.
-    /// @returns true when no loaded chunk already draws these triangles.
+    /// @param carrier {Hex} — the chunk whose `seams` hold this one.
+    /// @param loaded {impl Fn(Hex) -> bool} — whether a chunk coordinate is loaded.
+    /// @returns {bool} true when no loaded chunk already draws these triangles.
     pub fn drawn(&self, carrier: Hex, loaded: impl Fn(Hex) -> bool) -> bool {
         !loaded(self.owner)
             && self
@@ -98,7 +98,6 @@ impl ChunkSource for NoiseWorld {
 
     fn chunk(&self, coord: Hex) -> Chunk {
         let r = self.chunk_radius;
-        debug_assert!(self.settings.max_radius_ratio < 1.0, "corner-to-chunk lookup below needs gaps");
         let layout = HGridLayout::for_chunk(&self.settings, coord, r);
         let center = layout.center();
 
@@ -112,15 +111,20 @@ impl ChunkSource for NoiseWorld {
             },
         );
 
-        // shortcut: a corner lies strictly inside its cell only while max_radius_ratio < 1;
-        // at 1.0 junction tris are degenerate anyway. Carry hexes through owned_tris_into if that changes.
-        let chunk_of = |v: &Vec3| layout.world_pos_to_hex(Vec2::new(v.x, v.z)).to_lower_res(r);
+        // Exact at any radius: a seam vertex is bit-for-bit a `vertex()` of ring cell `h` or a neighbour.
+        let chunk_of = |h: Hex, v: &Vec3| {
+            std::iter::once(h)
+                .chain(h.all_neighbors())
+                .find(|&n| (0..6).any(|i| layout.vertex(n, i) == Some(*v)))
+                .expect("seam vertex is a corner of its ring cell or a neighbour")
+                .to_lower_res(r)
+        };
         let seams = center.ring(r + 1).fold(Vec::<Seam>::new(), |mut groups, h| {
             let owner = h.to_lower_res(r);
             let mut tris = Vec::new();
             layout.owned_tris_into(h, false, &mut tris);
             tris.into_iter().for_each(|t| {
-                let also = t.iter().map(chunk_of).find(|&c| c != coord && c != owner);
+                let also = t.iter().map(|v| chunk_of(h, v)).find(|&c| c != coord && c != owner);
                 match groups.iter_mut().find(|s| s.owner == owner && s.also == also) {
                     Some(s) => s.tris.push(t),
                     None => groups.push(Seam { owner, also, tris: vec![t] }),
@@ -158,6 +162,7 @@ mod tests {
     const MAX_SEAM_GROUPS: usize = 12;
     const COVER_RADII: [u32; 4] = [0, 1, 2, 3];
     const REGION_RADIUS: u32 = 2; // 19 chunks
+    const ONE_PLUS_SIX: usize = 7;
     const RANDOM_SUBSETS: usize = 300;
     const SUBSET_SEED: u64 = 0x2727;
     // The chunk drawn in the geometry guide (docs/guide/gen.py asserts the same numbers).
@@ -290,7 +295,7 @@ mod tests {
     /// Loaded sets to check: every subset of the 1+6 around the origin, then
     /// random subsets of the whole region. Bit `i` loads `region[i]`.
     fn loaded_sets(region_len: usize) -> Vec<Vec<bool>> {
-        let one_plus_six = (0u32..1 << 7).map(|m| (0..region_len).map(|i| i < 7 && m >> i & 1 == 1).collect());
+        let one_plus_six = (0u32..1 << ONE_PLUS_SIX).map(|m| (0..region_len).map(|i| i < ONE_PLUS_SIX && m >> i & 1 == 1).collect());
         // splitmix64: no rand dependency for a test.
         let random = (0..RANDOM_SUBSETS as u64).map(|k| {
             let mut z = SUBSET_SEED.wrapping_add(k.wrapping_mul(0x9E37_79B9_7F4A_7C15));
@@ -306,7 +311,7 @@ mod tests {
     fn drawn_seams_cover_loaded_chunks_once() {
         for r in COVER_RADII {
             let src = world(r);
-            // The 1+6 first, so bits 0..7 of a loaded set pick them.
+            // The 1+6 first, so the low ONE_PLUS_SIX bits of a loaded set pick them.
             let mut region: Vec<Hex> = std::iter::once(Hex::ZERO).chain(Hex::ZERO.ring(1)).collect();
             region.extend(shapes::hexagon(Hex::ZERO, REGION_RADIUS).filter(|h| h.length() > 1));
             let chunks: Vec<Chunk> = region.iter().map(|&c| src.chunk(c)).collect();

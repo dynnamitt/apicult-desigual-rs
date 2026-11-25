@@ -18,6 +18,11 @@ export const RAIL_PULL = 3;
 /** Seconds a step's 3 spawned chunks take to fade in; the 3 despawned ones wait this long, then fade out in {@link FADE_OUT_S}. */
 export const FADE_IN_S = 0.6, FADE_OUT_S = 0.25;
 
+/** Ints per seam group in `WasmChunk.seam_keys()`: `[oq, or, aq, ar]`. */
+export const SEAM_KEY_STRIDE = 4;
+/** u16 values in one triangle of a flat f32 buffer (9 floats × 2). */
+const U16_PER_TRI = 18;
+
 /** The 6 axial neighbour offsets on the chunk lattice. */
 export const CHUNK_DIRS = [[1, 0], [1, -1], [0, -1], [-1, 0], [-1, 1], [0, 1]];
 
@@ -113,8 +118,8 @@ const before = ([q, r], [bq, br]) => q < bq || (q === bq && r < br);
  * @returns {number[]} group indices for `WasmChunk.seam(i)`.
  */
 export const visibleSeamGroups = (keys, self, loaded) =>
-  Array.from({ length: keys.length / 4 }, (_, i) => i).filter((i) => {
-    const [oq, or, aq, ar] = keys.slice(4 * i, 4 * i + 4);
+  Array.from({ length: keys.length / SEAM_KEY_STRIDE }, (_, i) => i).filter((i) => {
+    const [oq, or, aq, ar] = keys.slice(SEAM_KEY_STRIDE * i, SEAM_KEY_STRIDE * (i + 1));
     return !loaded.has(chunkKey(oq, or)) && (!loaded.has(chunkKey(aq, ar)) || before(self, [aq, ar]));
   });
 
@@ -124,14 +129,13 @@ export const visibleSeamGroups = (keys, self, loaded) =>
  * @returns {number} extra copies; 0 when no triangle is drawn twice.
  */
 export const duplicateTris = (buffers) => {
-  const seen = new Set();
-  let total = 0;
-  buffers.forEach((b) => {
-    // The tri's 36 bytes as an 18-char string: exact and far cheaper than formatting 9 floats.
+  // Each tri's raw bytes as a short string: exact, and far cheaper than formatting 9 floats.
+  const keys = buffers.flatMap((b) => {
     const u16 = new Uint16Array(b.buffer, b.byteOffset, b.length * 2);
-    for (let i = 0; i < u16.length; i += 18, total += 1) seen.add(String.fromCharCode(...u16.subarray(i, i + 18)));
+    return Array.from({ length: u16.length / U16_PER_TRI }, (_, i) =>
+      String.fromCharCode(...u16.subarray(U16_PER_TRI * i, U16_PER_TRI * (i + 1))));
   });
-  return total - seen.size;
+  return keys.length - new Set(keys).size;
 };
 
 /**

@@ -274,6 +274,8 @@ impl WasmChunk {
     /// Key of each seam group, flat `[owner_q, owner_r, also_q, also_r, …]`.
     /// A seam with no `also` repeats its owner there, which makes rule 1
     /// (`Seam::drawn`) reduce to "owner not loaded" with no special case.
+    ///
+    /// @returns {Vec<i32>} 4 ints per group, in `seam(i)` order.
     pub fn seam_keys(&self) -> Vec<i32> {
         self.inner
             .seams
