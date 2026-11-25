@@ -4,7 +4,7 @@ import { weldedMesh } from "./three-weld.js";
 import { showError, needsResize, runFrames } from "./canvas.js";
 import {
   CHUNK_DIRS, chunkKey, footprint, stepFootprint, chunkCenter, nearestStep,
-  visibleSeamGroups, duplicateTris, SEAM_KEY_STRIDE, advancePos, clampChunkRadius, advanceFade, FADE_IN_S, chunkHash,
+  visibleSeamGroups, duplicateTris, SEAM_KEY_STRIDE, advancePos, clampChunkRadius, advanceFade, ageGhost, chunkHash,
 } from "./hex-stream.js";
 import { randomU32, seedSequence } from "./seed.js";
 
@@ -34,11 +34,11 @@ const tintColor = ([q, r]) => {
   );
 };
 
-// Always transparent so fading needs no shader recompile; the polygon offset
-// (on while fading) lets the opaque seam that stands in for a fading chunk win the depth test.
+// Always transparent so fading needs no shader recompile; depthWrite goes off below full
+// opacity (applyAlpha) so a ghost drawn first cannot hide live terrain behind it.
 const material = (color) => new THREE.MeshStandardMaterial({
   color, flatShading: true, side: THREE.DoubleSide, roughness: ROUGHNESS, metalness: METALNESS,
-  transparent: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1,
+  transparent: true,
 });
 
 const disposeMesh = (group, mesh) => {
@@ -86,15 +86,15 @@ export function mount(canvas, statsEl, { initialSettings, WasmChunkWorld }) {
     scene.add(group);
 
     let world = null;
-    let loaded = new Map(); // chunkKey → { coord, owned: Mesh, seams: {mesh, tris}[], keys, fade }
+    let loaded = new Map(); // chunkKey → { coord, owned: Mesh, seams: {mesh, tris}[], keys, fade, ghost }
     let anchor = [0, 0], pos = [0, 0], u = [0, 0], v = [0, 0], steps = 0;
-    let overlaps = 0, drawnSig = ""; // recount only when the drawn seams change
+    let overlaps = 0;
 
     const chunkColor = (coord) => (state.tint ? tintColor(coord) : new THREE.Color(FILL_COLOR));
 
     const applyAlpha = (c) => [c.owned, ...c.seams.map((s) => s.mesh)].forEach(({ material: m }) => {
       m.opacity = c.fade.alpha;
-      m.polygonOffset = c.fade.alpha < 1;
+      m.depthWrite = c.fade.alpha === 1;
     });
 
     const buildChunk = (coord, alpha = 1) => {
@@ -110,7 +110,7 @@ export function mount(canvas, statsEl, { initialSettings, WasmChunkWorld }) {
       });
       const center = Array.from(wc.center());
       wc.free();
-      const c = { coord, center, owned, seams, keys, fade: { alpha, target: 1, delay: 0 } };
+      const c = { coord, center, owned, seams, keys, fade: { alpha, target: 1, delay: 0 }, ghost: 0 };
       applyAlpha(c);
       loaded.set(chunkKey(...coord), c);
     };
@@ -125,9 +125,10 @@ export function mount(canvas, statsEl, { initialSettings, WasmChunkWorld }) {
 
     // A seam wears its own chunk's colour (unless `seams` highlights it), not the
     // owner's: it must not preview the chunk that has not loaded yet (c3fc7e8).
-    // Only fully opaque chunks count as loaded, so seams cover a chunk while it fades.
+    // Every chunk in the scene counts as loaded at any opacity (ghosts and fade-ins
+    // included), as Seam::drawn requires: otherwise a neighbour's seam doubles its owned strips.
     const refreshSeams = () => {
-      const keys = new Set([...loaded].filter(([, c]) => c.fade.alpha === 1).map(([k]) => k));
+      const keys = new Set(loaded.keys());
       loaded.forEach((c) => {
         const shown = new Set(visibleSeamGroups(c.keys, c.coord, keys));
         const color = chunkColor(c.coord);
@@ -138,24 +139,25 @@ export function mount(canvas, statsEl, { initialSettings, WasmChunkWorld }) {
         c.owned.material.color.copy(color);
       });
       // Seams doubling up is #27; owned streams are disjoint by construction (owned_streams_partition_world).
-      // Fading chunks overlap on purpose (cross-fade), so count only the opaque ones.
-      const opaque = [...loaded.values()].filter((c) => keys.has(chunkKey(...c.coord)));
-      const sig = opaque.map((c) => chunkKey(...c.coord) + c.seams.map((s) => +s.mesh.visible).join("")).join(" ");
-      if (sig === drawnSig) return;
-      drawnSig = sig;
-      overlaps = duplicateTris(opaque.flatMap((c) => c.seams.filter((s) => s.mesh.visible).map((s) => s.tris)));
+      const chunks = [...loaded.values()];
+      overlaps = duplicateTris(chunks.flatMap((c) => c.seams.filter((s) => s.mesh.visible).map((s) => s.tris)));
     };
 
-    const step = (dir) => {
+    /**
+     * Move the footprint one chunk along `dir`. Spawns fade in first; despawns wait for
+     * them, then fade to a ghost, and older ghosts age with them (10% → 5% → dropped).
+     * @param {number} dir index into CHUNK_DIRS
+     * @param {boolean} ageOld age existing ghosts: only on a frame's first step, so
+     *   ghost stages count frames that stepped, not steps taken inside one frame
+     */
+    const step = (dir, ageOld) => {
       const diff = stepFootprint(anchor, dir);
-      // Spawns fade in first; despawns stay solid until they are in, then fade out.
-      diff.despawn.forEach((coord) => {
-        const c = loaded.get(chunkKey(...coord));
-        c.fade = { ...c.fade, target: 0, delay: FADE_IN_S };
-      });
+      const age = (key) => loaded.set(key, { ...loaded.get(key), ...ageGhost(loaded.get(key)) });
+      if (ageOld) [...loaded].filter(([, c]) => c.ghost).forEach(([key]) => age(key));
+      diff.despawn.forEach((coord) => age(chunkKey(...coord)));
       diff.spawn.forEach((coord) => {
-        const c = loaded.get(chunkKey(...coord)); // still fading out after a reversal
-        if (c) c.fade = { ...c.fade, target: 1, delay: 0 };
+        const key = chunkKey(...coord), c = loaded.get(key); // still a ghost after a reversal
+        if (c) loaded.set(key, { ...c, fade: { ...c.fade, target: 1, delay: 0 }, ghost: 0 });
         else buildChunk(coord, 0);
       });
       anchor = diff.anchor;
@@ -178,7 +180,6 @@ export function mount(canvas, statsEl, { initialSettings, WasmChunkWorld }) {
       anchor = [0, 0];
       pos = [0, 0];
       steps = 0;
-      drawnSig = ""; // new geometry, same keys
       footprint(anchor).forEach((c) => buildChunk(c));
       // to_higher_res and hex_to_world_pos are linear: two centres span the lattice.
       u = loaded.get(chunkKey(1, 0)).center;
@@ -220,8 +221,8 @@ export function mount(canvas, statsEl, { initialSettings, WasmChunkWorld }) {
       if (state.speed > 0) {
         const dirVec = chunkCenter(CHUNK_DIRS[state.direction], u, v);
         pos = advancePos(pos, dirVec, state.speed, dt, chunkCenter(anchor, u, v));
-        for (let d = nearestStep(pos, anchor, u, v); d !== -1; d = nearestStep(pos, anchor, u, v)) {
-          step(d);
+        for (let d = nearestStep(pos, anchor, u, v), first = true; d !== -1; d = nearestStep(pos, anchor, u, v), first = false) {
+          step(d, first);
         }
       }
       const fading = [...loaded.values()]
@@ -229,9 +230,11 @@ export function mount(canvas, statsEl, { initialSettings, WasmChunkWorld }) {
       fading.forEach((c) => {
         c.fade = advanceFade(c.fade, dt);
         applyAlpha(c);
-        if (c.fade.target === 0 && c.fade.alpha === 0) dropChunk(c.coord);
       });
-      if (fading.length) refreshSeams();
+      // Seam visibility depends only on which chunks are loaded: refresh on a drop, not per fade frame.
+      const gone = fading.filter(({ fade: f }) => f.target === 0 && f.alpha === 0);
+      gone.forEach((c) => dropChunk(c.coord));
+      if (gone.length) refreshSeams();
       group.position.set(-pos[0], 0, -pos[1]);
       controls.update();
       renderer.render(scene, camera);
