@@ -1,0 +1,23 @@
+# Consumer rule 1 (EntangledSeam::drawn, docs/design/cell-state.md D7): may chunk `carrier`
+# draw an entangled seam tri keyed (owner, also) while the chunks in `loaded` are loaded?
+# Every port of the rule is tested against this table: Rust (src/chunk.rs), the treadmill's
+# JS (web/hex-stream.test.mjs) and zig-fatmile. Columns are tab-separated; a hex is `q,r`;
+# `-` is no `also`; `loaded` is `;`-separated or `-` for none.
+# carrier	owner	also	loaded	drawn
+0,0	1,0	-	-	true
+0,0	1,0	-	0,0	true
+0,0	1,0	-	1,0	false
+0,0	1,0	-	0,0;1,0	false
+0,0	1,-1	1,0	-	true
+0,0	1,-1	1,0	0,0	true
+0,0	1,-1	1,0	0,0;1,0	true
+0,0	1,-1	1,0	1,-1	false
+0,0	1,-1	1,0	0,0;1,-1;1,0	false
+1,0	1,-1	0,0	1,0	true
+1,0	1,-1	0,0	0,0;1,0	false
+1,0	1,-1	0,0	0,0;1,-1;1,0	false
+0,1	-1,1	0,0	0,0;0,1	false
+0,0	-1,1	0,1	0,0;0,1	true
+-2,3	-1,2	-2,4	-2,3;-2,4	true
+-2,4	-1,2	-2,3	-2,3;-2,4	false
+3,-5	3,-4	-	2,-4;3,-5	true

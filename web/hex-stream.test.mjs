@@ -1,5 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import {
   CHUNK_DIRS, chunkKey, footprint, stepFootprint, chunkCenter, nearestStep,
   visibleSeamGroups, duplicateTris, advancePos, clampChunkRadius, MAX_FRAME_DT, MAX_CHUNK_RADIUS,
@@ -54,6 +55,19 @@ test("visibleSeamGroups hides groups whose owner is loaded", () => {
   const loaded = new Set([chunkKey(1, 0), chunkKey(-2, 3)]);
   assert.deepEqual(visibleSeamGroups(keys, [0, 0], loaded), [1]);
   assert.deepEqual(visibleSeamGroups(keys, [0, 0], new Set()), [0, 1, 2]);
+});
+
+test("visibleSeamGroups follows testdata/entangled_seam_drawn.tsv, the rule's shared table", () => {
+  const hex = (t) => t.split(",").map(Number);
+  const rows = readFileSync(new URL("../testdata/entangled_seam_drawn.tsv", import.meta.url), "utf8")
+    .split("\n").filter((l) => l.trim() && !l.startsWith("#")).map((l) => l.split("\t"));
+  assert.ok(rows.length >= 10);
+  for (const [carrier, owner, also, loaded, drawn] of rows) {
+    const keys = [...hex(owner), ...hex(also === "-" ? owner : also)]; // no `also` repeats the owner
+    const set = new Set(loaded === "-" ? [] : loaded.split(";").map((h) => chunkKey(...hex(h))));
+    const got = visibleSeamGroups(keys, hex(carrier), set).length === 1;
+    assert.equal(got, drawn === "true", `${carrier} ${owner} ${also} ${loaded}`);
+  }
 });
 
 test("visibleSeamGroups follows the corner tie-break table", () => {

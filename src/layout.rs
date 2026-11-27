@@ -444,6 +444,54 @@ impl HGridLayout {
         })
     }
 
+    /// The own cells: every cell of a `new` grid, or a chunk's cells without its
+    /// entangled ring, in `shapes::hexagon` order.
+    pub fn own_cells(&self) -> impl Iterator<Item = Hex> + '_ {
+        shapes::hexagon(self.center, self.grid_radius - u32::from(self.chunk))
+    }
+
+    /// The entangled ring's cells in `center.ring(chunk_radius + 1)` order;
+    /// none for a `new` grid.
+    pub fn entangled_ring(&self) -> impl Iterator<Item = Hex> + '_ {
+        let rings = if self.chunk { 1 } else { 0 };
+        (0..rings).flat_map(move |_| self.center.ring(self.grid_radius))
+    }
+
+    /// The tris the own cells own, cell by cell in [`own_cells`](Self::own_cells)
+    /// order. In a chunk every own cell has all its neighbours, so each owns
+    /// exactly 14: 6 face, 6 gap-quad and 2 junction tris (its `tri_sequence`).
+    pub fn own_tris(&self) -> Vec<[Vec3; 3]> {
+        self.own_cells().fold(Vec::new(), |mut out, hex| {
+            self.owned_tris_into(hex, &mut out);
+            out
+        })
+    }
+
+    /// The tris the entangled ring gives this chunk: per entangled cell, in
+    /// [`entangled_ring`](Self::entangled_ring) order, its quads then its
+    /// junctions. Each is a copy of a tri in the owning neighbour chunk's
+    /// [`own_tris`](Self::own_tris). Empty for a `new` grid.
+    pub fn entangled_seam_tris(&self) -> Vec<[Vec3; 3]> {
+        self.entangled_ring().fold(Vec::new(), |mut out, hex| {
+            self.owned_tris_into(hex, &mut out);
+            out
+        })
+    }
+
+    /// `(quad_tris, junction_tris)` of each entangled cell, parallel to
+    /// [`entangled_ring`](Self::entangled_ring): how
+    /// [`entangled_seam_tris`](Self::entangled_seam_tris) splits up.
+    pub fn entangled_seam_counts(&self) -> Vec<(usize, usize)> {
+        let in_layout = |h: Hex| self.cells.get(h).is_some();
+        self.entangled_ring()
+            .map(|hex| {
+                let gaps = owned_gaps(hex, |nb| in_layout(nb) && !self.is_entangled(nb), in_layout);
+                let quads = gaps.quads.iter().flatten().count();
+                (2 * quads, gaps.junctions.iter().flatten().count())
+            })
+            .collect()
+    }
+
     /// Appends the triangles `hex` owns to `out` — the per-cell body of
     /// [`HGridLayout::all_tris`].
     ///
@@ -483,22 +531,16 @@ impl HGridLayout {
         }
         let after_faces = out.len();
 
-        for edge_index in [0u8, 2, 4] {
-            let dir = EdgeDirection::ALL_DIRECTIONS[edge_index as usize];
-            let neighbor = hex.neighbor(dir);
-            let Some(&nb_cell) = self.cells.get(neighbor) else {
-                continue;
-            };
-            if entangled && self.is_entangled(neighbor) {
-                continue;
-            }
+        let in_layout = |h: Hex| self.cells.get(h).is_some();
+        let quad = |nb: Hex| in_layout(nb) && !(entangled && self.is_entangled(nb));
+        let gaps = owned_gaps(hex, quad, in_layout);
+        for (edge_index, neighbor) in gaps.quads.into_iter().flatten() {
+            let nb_cell = self.cells[neighbor];
             let (v0_idx, v1_idx, n0_idx, n1_idx) = math::quad_corner_indices(edge_index);
             let nb_center2 = self.layout.hex_to_world_pos(neighbor);
-            let nb_height = nb_cell.height;
-            let nb_radius = nb_cell.radius;
             let nb_corner = |i: u8| {
-                let off = self.unit_corners[i as usize] * nb_radius;
-                Vec3::new(nb_center2.x + off.x, nb_height, nb_center2.y + off.y)
+                let off = self.unit_corners[i as usize] * nb_cell.radius;
+                Vec3::new(nb_center2.x + off.x, nb_cell.height, nb_center2.y + off.y)
             };
             let a = corners[v0_idx as usize];
             let b = nb_corner(n0_idx);
@@ -509,19 +551,8 @@ impl HGridLayout {
         }
         let after_quads = out.len();
 
-        for v_idx in [0u8, 1] {
-            let dir = VertexDirection::ALL_DIRECTIONS[v_idx as usize];
-            let gv = GridVertex {
-                origin: hex,
-                direction: dir,
-            };
+        for (v_idx, gv) in gaps.junctions.into_iter().flatten() {
             let coords = gv.coordinates();
-            if coords[0] != hex {
-                continue;
-            }
-            if !coords.iter().all(|c| self.cells.get(*c).is_some()) {
-                continue;
-            }
             if let (Some(i1), Some(i2)) = (
                 corner_index_for_vertex(coords[1], &gv),
                 corner_index_for_vertex(coords[2], &gv),
@@ -601,6 +632,47 @@ impl HGridLayout {
         math::idw_interpolate_height(pos, &vertices)
             .unwrap_or_else(|| self.cells.get(hex).map(|c| c.height).unwrap_or(0.0))
     }
+}
+
+/// The gap pieces a cell owns, by hex coordinates only (no heights or radii).
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub(crate) struct OwnedGaps {
+    /// `(edge_index, neighbour)` of each owned gap quad, edges `[0, 2, 4]` in order.
+    pub quads: [Option<(u8, Hex)>; 3],
+    /// `(corner_index, vertex)` of each owned junction, corners `[0, 1]` in order.
+    pub junctions: [Option<(u8, GridVertex)>; 2],
+}
+
+/// What `hex` owns besides its face, under the ownership rules: the quads on
+/// its even edges `[0, 2, 4]` whose neighbour passes `quad`, and the junctions
+/// at its corners `[0, 1]` whose three cells all pass `exists` (every lattice
+/// vertex is corner 0 or 1 of exactly one of its three hexes).
+///
+/// [`HGridLayout::owned_tris_into`] emits these pieces in this order, and
+/// `entangled_seam_keys` keys them without a layout, so both share one rule.
+pub(crate) fn owned_gaps(
+    hex: Hex,
+    quad: impl Fn(Hex) -> bool,
+    exists: impl Fn(Hex) -> bool,
+) -> OwnedGaps {
+    let mut gaps = OwnedGaps::default();
+    for (slot, edge_index) in [0u8, 2, 4].into_iter().enumerate() {
+        let neighbor = hex.neighbor(EdgeDirection::ALL_DIRECTIONS[edge_index as usize]);
+        if quad(neighbor) {
+            gaps.quads[slot] = Some((edge_index, neighbor));
+        }
+    }
+    for v_idx in [0u8, 1] {
+        let gv = GridVertex {
+            origin: hex,
+            direction: VertexDirection::ALL_DIRECTIONS[v_idx as usize],
+        };
+        let coords = gv.coordinates();
+        if coords[0] == hex && coords.iter().all(|&c| exists(c)) {
+            gaps.junctions[v_idx as usize] = Some((v_idx, gv));
+        }
+    }
+    gaps
 }
 
 fn corner_index_for_vertex(hex: Hex, target: &GridVertex) -> Option<u8> {

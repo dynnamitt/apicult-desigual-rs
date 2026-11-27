@@ -8,7 +8,7 @@ pub mod layout;
 pub mod math;
 pub mod serialize;
 
-pub use chunk::{Chunk, ChunkSource, NoiseWorld, Seam};
+pub use chunk::{Chunk, ChunkSource, EntangledSeam, NoiseWorld, Seam, entangled_seam_keys};
 pub use layout::{
     ChunkError, HGridLayout, HGridSettings, HexCell, NoiseParams, NoiseType, Override,
 };

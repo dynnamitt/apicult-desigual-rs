@@ -312,7 +312,7 @@ a:focus-visible { outline: 2px solid var(--quad); outline-offset: 2px; }
 {{f14}}
 <p>Rules for consumers, from the module docs:</p>
 <ol>
-<li>Always draw the owned stream. Draw a seam only while its owner isn't loaded. If it names a third chunk, draw it only while that chunk isn't loaded either, or comes after this one in <code>(q, r)</code> order. Every triangle touching a loaded chunk is then drawn exactly once (<code>Seam::drawn</code>).</li>
+<li>Always draw the owned stream. Draw a seam only while its owner isn't loaded. If it names a third chunk, draw it only while that chunk isn't loaded either, or comes after this one in <code>(q, r)</code> order. Every triangle touching a loaded chunk is then drawn exactly once (<code>EntangledSeam::drawn</code>; its test cases are in <code>testdata/entangled_seam_drawn.tsv</code>).</li>
 <li>Entangled cells are never state. A change to a cell goes to its owning chunk only.</li>
 <li>A changed cell rebuilds its own chunk and every chunk that has it in its entangled ring: 1 chunk for an interior cell, 2 along a chunk edge, 3 at a chunk corner.</li>
 </ol>

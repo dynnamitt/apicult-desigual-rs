@@ -114,7 +114,7 @@ export const nearestStep = (pos, anchor, u, v) => {
 const before = ([q, r], [bq, br]) => q < bq || (q === bq && r < br);
 
 /**
- * Seam groups chunk `self` should draw (consumer rule 1, `Seam::drawn` in
+ * Seam groups chunk `self` should draw (consumer rule 1, `EntangledSeam::drawn` in
  * `src/chunk.rs`): the owner isn't loaded, and the `also` chunk a corner
  * triangle touches isn't loaded either or comes after `self` in `(q, r)`
  * order — so of two loaded carriers exactly one draws a corner.

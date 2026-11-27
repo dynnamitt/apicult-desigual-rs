@@ -8,13 +8,15 @@
 //!
 //! - **owned** — what the chunk's own cells own. Across all chunks the owned
 //!   streams cover the world with no overlap and no holes.
-//! - **seams** — the gaps that ring cells own and that touch the chunk,
-//!   grouped by [`Seam`] key `(owner, also)`. Each is a copy of triangles in
+//! - **seams** — the entangled seam tris: the gaps that ring cells own and
+//!   that touch the chunk ([`HGridLayout::entangled_seam_tris`]), grouped by
+//!   their [`EntangledSeam`] key `(owner, also)`. Each is a copy of triangles in
 //!   the owner's owned stream. `also` names the third chunk a corner junction
-//!   triangle touches; that chunk carries the same copy.
+//!   triangle touches; that chunk carries the same copy. The keys come from hex
+//!   coordinates alone ([`entangled_seam_keys`]).
 //!
 //! Rules for consumers:
-//! 1. Always draw the owned stream. Draw a seam only while [`Seam::drawn`]:
+//! 1. Always draw the owned stream. Draw a seam only while [`EntangledSeam::drawn`]:
 //!    its owner isn't loaded, and if it has an `also` chunk, that one isn't
 //!    loaded either or sorts after the carrier in `(q, r)` order. Every
 //!    triangle touching a loaded chunk is then drawn exactly once.
@@ -27,7 +29,7 @@
 use glam::{Vec2, Vec3};
 use hexx::{Hex, shapes};
 
-use crate::layout::{ChunkError, HGridLayout, HGridSettings, HexCell};
+use crate::layout::{ChunkError, HGridLayout, HGridSettings, HexCell, owned_gaps};
 
 /// Deterministic per-coordinate chunk generator.
 pub trait ChunkSource {
@@ -69,18 +71,74 @@ pub struct Seam {
 }
 
 impl Seam {
-    /// Consumer rule 1: whether the chunk `carrier` should draw this seam now.
-    /// The `(q, r)` tie-break lets exactly one of two loaded carriers draw a corner.
+    /// This group's key.
+    pub fn key(&self) -> EntangledSeam {
+        EntangledSeam { owner: self.owner, also: self.also }
+    }
+}
+
+/// The key of an entangled seam tri: which chunk owns it, and which third
+/// chunk (if any) it also touches. A seam tri with no `also` touches only its
+/// owner and the carrying chunk.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct EntangledSeam {
+    /// Chunk whose owned stream holds the tri.
+    pub owner: Hex,
+    /// Third chunk a corner junction tri touches; it carries the same copy.
+    pub also: Option<Hex>,
+}
+
+impl EntangledSeam {
+    /// Consumer rule 1: whether chunk `carrier` should draw a seam tri with
+    /// this key now. The `(q, r)` tie-break lets exactly one of two loaded
+    /// carriers draw a corner. `testdata/entangled_seam_drawn.tsv` holds the
+    /// cases every port of this rule is tested against.
     ///
-    /// @param carrier {Hex} — the chunk whose `seams` hold this one.
+    /// @param carrier {Hex} — the chunk whose entangled seam tris hold this one.
     /// @param loaded {impl Fn(Hex) -> bool} — whether a chunk coordinate is loaded.
-    /// @returns {bool} true when no loaded chunk already draws these triangles.
+    /// @returns {bool} true when no loaded chunk already draws the tri.
     pub fn drawn(&self, carrier: Hex, loaded: impl Fn(Hex) -> bool) -> bool {
         !loaded(self.owner)
             && self
                 .also
                 .is_none_or(|b| !loaded(b) || (carrier.x, carrier.y) < (b.x, b.y))
     }
+}
+
+/// The key of each of chunk `coord`'s entangled seam tris, parallel to
+/// [`HGridLayout::entangled_seam_tris`] of that chunk, from hex coordinates
+/// alone. Which tris exist depends only on the chunk's shape, not on heights
+/// or edits, so no layout is built.
+///
+/// Matches the layout for every `coord` that [`HGridLayout::for_chunk`]
+/// accepts.
+///
+/// @param coord — the carrying chunk's coordinate on the chunk lattice.
+/// @param chunk_radius — rings of cells per chunk.
+/// @returns one key per tri: per entangled cell, in `ring(chunk_radius + 1)`
+///   order, its quad tris then its junction tris.
+pub fn entangled_seam_keys(coord: Hex, chunk_radius: u32) -> Vec<EntangledSeam> {
+    let r = chunk_radius;
+    let center = coord.to_higher_res(r);
+    let exists = |h: Hex| center.unsigned_distance_to(h) <= r + 1;
+    let entangled = |h: Hex| center.unsigned_distance_to(h) == r + 1;
+    let mut keys = Vec::new();
+    for hex in center.ring(r + 1) {
+        let owner = hex.to_lower_res(r);
+        let gaps = owned_gaps(hex, |nb| exists(nb) && !entangled(nb), exists);
+        for _ in gaps.quads.iter().flatten() {
+            keys.extend([EntangledSeam { owner, also: None }; 2]);
+        }
+        for (_, gv) in gaps.junctions.iter().flatten() {
+            let also = gv
+                .coordinates()
+                .into_iter()
+                .map(|c| c.to_lower_res(r))
+                .find(|&c| c != coord && c != owner);
+            keys.push(EntangledSeam { owner, also });
+        }
+    }
+    keys
 }
 
 /// [`ChunkSource`] that samples noise per request via [`HGridLayout::for_chunk`].
@@ -112,25 +170,13 @@ impl ChunkSource for NoiseWorld {
             },
         );
 
-        // Exact at any radius: a seam vertex is bit-for-bit a `vertex()` of ring cell `h` or a neighbour.
-        let chunk_of = |h: Hex, v: &Vec3| {
-            std::iter::once(h)
-                .chain(h.all_neighbors())
-                .find(|&n| (0..6).any(|i| layout.vertex(n, i) == Some(*v)))
-                .expect("seam vertex is a corner of its ring cell or a neighbour")
-                .to_lower_res(r)
-        };
-        let seams = center.ring(r + 1).fold(Vec::<Seam>::new(), |mut groups, h| {
-            let owner = h.to_lower_res(r);
-            let mut tris = Vec::new();
-            layout.owned_tris_into(h, &mut tris);
-            tris.into_iter().for_each(|t| {
-                let also = t.iter().map(|v| chunk_of(h, v)).find(|&c| c != coord && c != owner);
-                match groups.iter_mut().find(|s| s.owner == owner && s.also == also) {
-                    Some(s) => s.tris.push(t),
-                    None => groups.push(Seam { owner, also, tris: vec![t] }),
-                }
-            });
+        let keys = entangled_seam_keys(coord, r);
+        let tris = layout.entangled_seam_tris();
+        let seams = keys.into_iter().zip(tris).fold(Vec::<Seam>::new(), |mut groups, (key, t)| {
+            match groups.iter_mut().find(|s| s.key() == key) {
+                Some(s) => s.tris.push(t),
+                None => groups.push(Seam { owner: key.owner, also: key.also, tris: vec![t] }),
+            }
             groups
         });
 
@@ -330,7 +376,7 @@ mod tests {
                 for (i, c) in chunks.iter().enumerate().filter(|&(i, _)| set[i]) {
                     owned[i].iter().for_each(|&t| (drawn[t], touching[t]) = (drawn[t] + 1, true));
                     for (s, tris) in c.seams.iter().zip(&seams[i]) {
-                        let on = u8::from(s.drawn(c.coord, loaded));
+                        let on = u8::from(s.key().drawn(c.coord, loaded));
                         tris.iter().for_each(|&t| (drawn[t], touching[t]) = (drawn[t] + on, true));
                     }
                 }
@@ -341,6 +387,88 @@ mod tests {
                 assert_eq!(holes, 0, "r {r}: {holes} holes, set {set:?}");
             }
         }
+    }
+
+    /// `testdata/entangled_seam_drawn.tsv`: `(carrier, key, loaded, drawn)` rows.
+    fn drawn_table() -> Vec<(Hex, EntangledSeam, Vec<Hex>, bool)> {
+        let hex = |t: &str| {
+            let (q, r) = t.split_once(',').expect("hex is `q,r`");
+            Hex::new(q.parse().expect("q"), r.parse().expect("r"))
+        };
+        let hexes = |t: &str| if t == "-" { Vec::new() } else { t.split(';').map(hex).collect() };
+        include_str!("../testdata/entangled_seam_drawn.tsv")
+            .lines()
+            .filter(|l| !l.starts_with('#') && !l.trim().is_empty())
+            .map(|l| {
+                let f: Vec<&str> = l.split('\t').collect();
+                let also = (f[2] != "-").then(|| hex(f[2]));
+                let key = EntangledSeam { owner: hex(f[1]), also };
+                (hex(f[0]), key, hexes(f[3]), f[4].parse().expect("drawn is true/false"))
+            })
+            .collect()
+    }
+
+    #[test]
+    fn drawn_follows_the_shared_table() {
+        let table = drawn_table();
+        assert!(table.len() >= 10, "table has {} rows", table.len());
+        for (carrier, key, loaded, want) in table {
+            let got = key.drawn(carrier, |h| loaded.contains(&h));
+            assert_eq!(got, want, "carrier {carrier:?}, {key:?}, loaded {loaded:?}");
+        }
+    }
+
+    #[test]
+    fn seam_keys_match_vertex_positions() {
+        // The keys come from hex math; check them against the tris' actual corners:
+        // `also` is the chunk of a corner cell that is neither the carrier nor the owner.
+        for r in CHUNK_RADII {
+            for (q, s) in SEAM_COORDS {
+                let coord = Hex::new(q, s);
+                let g = HGridSettings::default();
+                let layout = HGridLayout::for_chunk(&g, coord, r, &[]).unwrap();
+                let tris = layout.entangled_seam_tris();
+                let keys = entangled_seam_keys(coord, r);
+                assert_eq!(keys.len(), tris.len(), "r {r}, {coord:?}");
+                let counts = layout.entangled_seam_counts();
+                assert_eq!(counts.iter().map(|(q, j)| q + j).sum::<usize>(), tris.len());
+                let owners = layout.entangled_ring().zip(&counts).flat_map(|(h, &(q, j))| {
+                    std::iter::repeat_n(h, q + j)
+                });
+                for ((t, key), ring_cell) in tris.iter().zip(&keys).zip(owners) {
+                    assert_eq!(key.owner, ring_cell.to_lower_res(r));
+                    let chunk_of = |v: &Vec3| {
+                        std::iter::once(ring_cell)
+                            .chain(ring_cell.all_neighbors())
+                            .find(|&n| (0..6).any(|i| layout.vertex(n, i) == Some(*v)))
+                            .expect("seam vertex is a corner of its ring cell or a neighbour")
+                            .to_lower_res(r)
+                    };
+                    let also = t.iter().map(chunk_of).find(|&c| c != coord && c != key.owner);
+                    assert_eq!(key.also, also, "r {r}, {coord:?}, {t:?}");
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn own_and_seam_tris_split_all_tris() {
+        for r in CHUNK_RADII {
+            let g = HGridSettings::default();
+            let layout = HGridLayout::for_chunk(&g, Hex::new(2, -1), r, &[]).unwrap();
+            let own = layout.own_tris();
+            assert_eq!(own.len(), 14 * layout.own_cells().count(), "r {r}: 14 tris per own cell");
+            let seam = layout.entangled_seam_tris();
+            let mut split: Vec<_> = own.iter().chain(&seam).map(tri_bits).collect();
+            let mut all: Vec<_> = layout.all_tris().iter().map(tri_bits).collect();
+            split.sort();
+            all.sort();
+            assert_eq!(split, all, "r {r}");
+            assert_eq!(layout.entangled_ring().count(), 6 * (r as usize + 1));
+        }
+        let grid = HGridLayout::new(&HGridSettings::default(), 2);
+        assert!(grid.entangled_seam_tris().is_empty() && grid.entangled_seam_counts().is_empty());
+        assert_eq!(grid.own_tris(), grid.all_tris());
     }
 
     #[test]
