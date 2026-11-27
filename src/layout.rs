@@ -663,11 +663,15 @@ mod tests {
             let counts = layout.owned_tris_into(h, false, &mut tris);
             assert_eq!(counts, (6, 6, 2), "own cell {h:?}");
         }
-        assert_eq!(tris.len(), 14 * shapes::hexagon(center, r).count());
         for h in center.ring(r + 1) {
             let (faces, ..) = layout.owned_tris_into(h, false, &mut tris);
             assert_eq!(faces, 0, "entangled cell {h:?} emits no face");
         }
+        assert_eq!(
+            tris.len(),
+            layout.all_tris(false).len(),
+            "own + seam tris cover the chunk"
+        );
         assert_eq!(fnv1a_tris(&tris), CHUNK_TRIS_GOLDEN);
     }
 
