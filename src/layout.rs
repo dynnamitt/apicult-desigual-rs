@@ -647,8 +647,12 @@ mod tests {
     #[test]
     fn all_tris_golden_checksum() {
         // Pins all_tris byte-for-byte. Update the constant only on an intentional geometry change.
-        let (g, radius) = (default_settings(), GOLDEN_RADIUS);
-        let layout = HGridLayout::new(&g, radius, &[], &[Hex::ZERO, Hex::new(1, 0), Hex::new(2, 0)]);
+        let layout = HGridLayout::new(
+            &default_settings(),
+            GOLDEN_RADIUS,
+            &[],
+            &[Hex::ZERO, Hex::new(1, 0), Hex::new(2, 0)],
+        );
         let tris: Vec<_> = layout
             .all_tris(false)
             .into_iter()
@@ -723,8 +727,8 @@ mod tests {
 
     #[test]
     fn all_tris_is_concat_of_owned_tris_into() {
-        let (g, radius) = (default_settings(), 2);
-        let layout = HGridLayout::new(&g, radius, &[], &[Hex::ZERO, Hex::new(1, 0)]);
+        let g = default_settings();
+        let layout = HGridLayout::new(&g, 2, &[], &[Hex::ZERO, Hex::new(1, 0)]);
         for entangled in [false, true] {
             let concat = shapes::hexagon(Hex::ZERO, 2).fold(Vec::new(), |mut out, hex| {
                 layout.owned_tris_into(hex, entangled, &mut out);
@@ -736,8 +740,8 @@ mod tests {
 
     #[test]
     fn owned_tris_into_counts_match_appended() {
-        let (g, radius) = (default_settings(), 2);
-        let layout = HGridLayout::new(&g, radius, &[], &[]);
+        let g = default_settings();
+        let layout = HGridLayout::new(&g, 2, &[], &[]);
         let mut out = Vec::new();
         for hex in shapes::hexagon(Hex::ZERO, 2) {
             let before = out.len();
@@ -792,8 +796,8 @@ mod tests {
 
     #[test]
     fn interpolate_at_center_uniform_height() {
-        let (g, radius) = (default_settings(), 1);
-        let layout = HGridLayout::new(&g, radius, &[], &[]);
+        let g = default_settings();
+        let layout = HGridLayout::new(&g, 1, &[], &[]);
         let h = layout.interpolate_height(Vec2::ZERO);
         let center_h = layout.cell(&Hex::ZERO).unwrap().height;
         assert!(
@@ -837,8 +841,8 @@ mod tests {
 
     #[test]
     fn hex_face_tris_share_height_per_hex() {
-        let (g, radius) = (default_settings(), 1);
-        let layout = HGridLayout::new(&g, radius, &[], &[]);
+        let g = default_settings();
+        let layout = HGridLayout::new(&g, 1, &[], &[]);
         let tris = layout.hex_face_tris(false);
         for (i, tri) in tris.iter().enumerate() {
             let y0 = tri[0].y;
@@ -855,8 +859,8 @@ mod tests {
     fn hex_face_bridge_quads_per_hex_shape() {
         // Radius-1 grid: 1 center + 6 borders. Center sees 6 in-grid
         // neighbors → 6 bridges; each border sees 3.
-        let (g, radius) = (default_settings(), 1);
-        let layout = HGridLayout::new(&g, radius, &[], &[]);
+        let g = default_settings();
+        let layout = HGridLayout::new(&g, 1, &[], &[]);
         let bridges = layout.hex_face_bridge_quads(false);
         assert_eq!(bridges.len(), 7);
         let counts: Vec<usize> = bridges
@@ -897,8 +901,8 @@ mod tests {
         // `shapes::hexagon` shares its order between hex_face_tris and
         // hex_face_bridge_quads, so the i-th hex's 6 tris live at
         // face_tris[i*6 .. (i+1)*6] alongside bridges[i].
-        let (g, radius) = (default_settings(), 1);
-        let layout = HGridLayout::new(&g, radius, &[], &[]);
+        let g = default_settings();
+        let layout = HGridLayout::new(&g, 1, &[], &[]);
         let face_tris = layout.hex_face_tris(false);
         let bridges = layout.hex_face_bridge_quads(false);
         let center_idx = bridges
@@ -968,8 +972,8 @@ mod tests {
 
     #[test]
     fn overrides_replace_noise_values() {
-        let (g, radius) = (default_settings(), 2);
-        let baseline = HGridLayout::new(&g, radius, &[], &[]);
+        let g = default_settings();
+        let baseline = HGridLayout::new(&g, 2, &[], &[]);
 
         let pinned_height = 12.5_f32;
         let pinned_radius = 1.75_f32;
@@ -980,7 +984,7 @@ mod tests {
             (NoiseType::Size, Hex::ZERO, pinned_radius),
             (NoiseType::Height, off_grid, 999.0),
         ];
-        let pinned = HGridLayout::new(&g, radius, &overrides, &[]);
+        let pinned = HGridLayout::new(&g, 2, &overrides, &[]);
 
         let pinned_zero = pinned.cell(&Hex::ZERO).unwrap();
         assert_eq!(pinned_zero.height, pinned_height);
@@ -1020,12 +1024,12 @@ mod tests {
 
     #[test]
     fn entangle_marks_cells_and_propagates_to_quads() {
-        let (g, radius) = (default_settings(), 2);
+        let g = default_settings();
         let a = Hex::ZERO;
         let b = Hex::new(1, 0);
         let c = Hex::new(2, 0);
         let off_grid = Hex::new(999, 999);
-        let layout = HGridLayout::new(&g, radius, &[], &[a, b, off_grid]);
+        let layout = HGridLayout::new(&g, 2, &[], &[a, b, off_grid]);
 
         assert!(layout.cell(&a).unwrap().entangled);
         assert!(layout.cell(&b).unwrap().entangled);
@@ -1140,13 +1144,14 @@ mod tests {
             max_radius_ratio: 0.65,
             ..HGridSettings::default()
         };
-        let layout = HGridLayout::new(&s, 5, &[], &[]);
+        let radius = 5;
+        let layout = HGridLayout::new(&s, radius, &[], &[]);
 
         let lo = s.nominal_hex_radius * s.min_radius_ratio;
         let hi = s.nominal_hex_radius * s.max_radius_ratio;
         let eps = 1e-4;
 
-        let (min_r, max_r) = hexx::shapes::hexagon(Hex::ZERO, 5)
+        let (min_r, max_r) = hexx::shapes::hexagon(Hex::ZERO, radius)
             .map(|h| layout.cell(&h).unwrap().radius)
             .fold(
                 (f32::INFINITY, f32::NEG_INFINITY),
