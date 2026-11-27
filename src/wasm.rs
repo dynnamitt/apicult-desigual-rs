@@ -28,7 +28,7 @@ use hexx::Hex;
 use wasm_bindgen::prelude::*;
 
 use crate::chunk::entangled_seam_keys;
-use crate::layout::{ChunkError, HGridLayout, HGridSettings};
+use crate::layout::{ChunkError, HGridLayout, HGridSettings, chunk_center_hex};
 
 /// Project defaults with the two noise seeds the pages choose.
 fn seeded(height_seed: u32, radius_seed: u32) -> HGridSettings {
@@ -186,8 +186,9 @@ pub fn chunk_entangled_seam_keys(chunk_radius: u32, q: i32, r: i32) -> Result<Ve
 /// @throws when the chunk can't be built (see `HGridLayout::for_chunk`).
 #[wasm_bindgen]
 pub fn chunk_center(chunk_radius: u32, q: i32, r: i32) -> Result<Vec<f32>, JsError> {
-    let layout = chunk_layout(chunk_radius, 0, 0, q, r)?;
-    let c = layout.hex_to_world_pos(layout.center());
+    let center = chunk_center_hex(Hex::new(q, r), chunk_radius).map_err(js_error)?;
+    // World positions depend only on the hex size, so a one-cell grid will do.
+    let c = HGridLayout::new(&HGridSettings::default(), 0).hex_to_world_pos(center);
     Ok(vec![c.x, c.y])
 }
 

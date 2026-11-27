@@ -11,7 +11,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ```sh
 cargo build
 cargo test                                           # runs unit tests in src/ + doctests
-make test                                            # cargo test + `node --test web/*.test.mjs`
+make test                                            # cargo test (also the wasm module's, with `--features wasm`) + `node --test web/*.test.mjs`
 cargo test <name>                                    # single test by name substring
 cargo test --doc                                     # doctests only (math.rs has executable examples)
 cargo run --example geo_export                       # plain SVG to stdout

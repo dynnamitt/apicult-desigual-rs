@@ -806,7 +806,7 @@ a:focus-visible { outline: 2px solid var(--quad); outline-offset: 2px; }
 <tr><td><code>r = ⌊(1 + Y − Z) / 3⌋</code></td><td class="mono">⌊2/3⌋ = 0</td></tr>
 <tr><td>chunk</td><td class="mono">(1, 0) ✓ matches figure R.3</td></tr>
 </table></div>
-<p><strong>A limit for large coordinates:</strong> hexx computes <code>y + shift·x</code> in <code>i32</code>, then divides as <code>f32</code>. Integers are exact in <code>f32</code> only up to 2²⁴ = 16,777,216. Past about <code>16.7M / (3r + 2)</code> cells from the origin (roughly 840,000 cells for <code>r = 6</code>), the floor can land on the wrong side of a band edge, and a cell can be put in the wrong chunk. <code>NoiseWorld::chunk</code> inherits this limit.</p>
+<p><strong>A limit for large coordinates:</strong> hexx computes <code>y + shift·x</code> in <code>i32</code>, then divides as <code>f32</code>. Integers are exact in <code>f32</code> only up to 2²⁴ = 16,777,216. Past about <code>16.7M / (3r + 2)</code> cells from the origin (roughly 840,000 cells for <code>r = 6</code>), the floor can land on the wrong side of a band edge, and a cell can be put in the wrong chunk. <code>HGridLayout::for_chunk</code> and <code>entangled_seam_keys</code> reject such chunks with <code>ChunkError::TooFarFromOrigin</code>.</p>
 <figure><div class="svgwrap"><svg viewBox="0 0 660 600" role="img" aria-label="A radius 7 grid split into radius 2 chunks; outer chunks are partial">
 <defs><marker id="arr9" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="currentColor"/></marker></defs>
 <polygon class="tile t0 part" points="119.5,433.4 109.2,415.6 88.8,415.6 78.5,433.4 88.8,451.1 109.2,451.1" />
@@ -1038,7 +1038,7 @@ a:focus-visible { outline: 2px solid var(--quad); outline-offset: 2px; }
 <text class="lbl mono acc" x="412.9" y="243.7" text-anchor="start">b</text>
 <text class="lbl mono acc" x="379.8" y="164.3" text-anchor="start">c</text>
 <text class="lbl mono acc" x="327.1" y="186.6" text-anchor="end">d</text></svg></div><figcaption>For cell <code>(0,0)</code>, <code>all_tris()</code> appends 14 triangles, numbered here in append order. 0–5 are the face fan. 6–11 are the quads on e0, e2, e4, each split into <code>[a,b,c]</code> then <code>[a,c,d]</code>. 12 and 13 are the junctions at corners 0 and 1. The faint quads on e1, e3, e5 belong to the neighbours and get appended when those cells run. The other four junctions are owned by neighbours too.</figcaption></figure>
-<p>Because ownership is per cell, any way of splitting the cells into groups splits the triangle stream with no overlap and no holes. Chunks are one such split; <code>chunk::tests::owned_streams_partition_world</code> checks it bit for bit.</p>
+<p>Because ownership is per cell, any way of splitting the cells into groups splits the triangle stream with no overlap and no holes. Chunks are one such split; <code>chunk::tests::own_streams_partition_world</code> checks it bit for bit.</p>
 <h2 id="entangled">4 · Entangled cells</h2>
 <p>A chunk layout (<a href="#chunks">section 5</a>) holds one ring of cells more than the chunk: its neighbours' cells at distance <code>r + 1</code> from the centre, so every gap along the chunk's edge has both sides. Those are the <em>entangled</em> cells (<code>is_entangled(hex)</code>). Being entangled is not something a cell stores; it follows from where the cell sits. A <code>HGridLayout::new</code> grid has none.</p>
 <ul id="entangle-rules">

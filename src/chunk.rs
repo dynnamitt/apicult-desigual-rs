@@ -356,8 +356,10 @@ mod tests {
     #[test]
     fn keys_reject_what_for_chunk_rejects() {
         let g = HGridSettings::default();
-        for coord in [Hex::new(2_000_000, 0), Hex::new(i32::MAX, 0), Hex::new(-3, 2)] {
+        let far = [Hex::new(2_000_000, 0), Hex::new(i32::MAX, 0)];
+        for (coord, ok) in far.map(|c| (c, false)).into_iter().chain([(Hex::new(-3, 2), true)]) {
             let layout = HGridLayout::for_chunk(&g, coord, 6, &[]).err();
+            assert_eq!(layout.is_none(), ok, "{coord:?}");
             assert_eq!(entangled_seam_keys(coord, 6).err(), layout, "{coord:?}");
         }
     }

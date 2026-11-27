@@ -95,6 +95,7 @@ test("groupSeams groups tris by key in first-seen order", () => {
   assert.deepEqual(groups.map((g) => g.length / 9), [2, 1, 1]);
   assert.deepEqual(Array.from(groups[0]), Array.from(Float32Array.from([...tri(1), ...tri(3)])));
   assert.deepEqual(groupSeams([], new Float32Array()), { keys: new Int32Array(), groups: [] });
+  assert.throws(() => groupSeams(keys, tris.subarray(9)), /4 keys for 3 tris/);
 });
 
 test("duplicateTris counts exact repeats across buffers", () => {

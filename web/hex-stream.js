@@ -140,6 +140,9 @@ const FLOATS_PER_TRI = 9;
  * @returns {{keys: Int32Array, groups: Float32Array[]}} 4 ints per group, and each group's tris
  */
 export const groupSeams = (keys, tris) => {
+  if (keys.length / SEAM_KEY_STRIDE !== tris.length / FLOATS_PER_TRI) {
+    throw new Error(`groupSeams: ${keys.length / SEAM_KEY_STRIDE} keys for ${tris.length / FLOATS_PER_TRI} tris`);
+  }
   const order = new Map(); // key string → group index
   const groupKeys = [], groups = [];
   for (let i = 0; i < keys.length / SEAM_KEY_STRIDE; i++) {

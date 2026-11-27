@@ -44,6 +44,7 @@ build:
 
 test: test-js
 	cargo test
+	cargo test --features wasm wasm::
 
 # Pure-JS units: the weld helper and the units demo's pathfinding, neither of
 # which needs a browser or a wasm build.
