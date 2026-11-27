@@ -645,6 +645,32 @@ mod tests {
         assert_eq!(fnv1a_tris(&tris), ALL_TRIS_GOLDEN);
     }
 
+    const CHUNK_GOLDEN_COORD: (i32, i32) = (1, -2);
+    const CHUNK_GOLDEN_RADIUS: u32 = 3;
+    const CHUNK_TRIS_GOLDEN: u64 = 14_654_224_851_271_909_658;
+
+    #[test]
+    fn chunk_tris_golden_checksum() {
+        // Pins one chunk byte-for-byte (docs/design/cell-state.md, D11): each own cell's
+        // 14 tris in `shapes::hexagon` order, then the entangled seam tris (per ring cell,
+        // quads then junctions) in `ring(r + 1)` order. It outlives `all_tris_golden_checksum`
+        // through the API change; update the constant only on an intentional geometry change.
+        let (r, (q, s)) = (CHUNK_GOLDEN_RADIUS, CHUNK_GOLDEN_COORD);
+        let layout = HGridLayout::for_chunk(&default_settings(), Hex::new(q, s), r);
+        let center = layout.center();
+        let mut tris = Vec::new();
+        for h in shapes::hexagon(center, r) {
+            let counts = layout.owned_tris_into(h, false, &mut tris);
+            assert_eq!(counts, (6, 6, 2), "own cell {h:?}");
+        }
+        assert_eq!(tris.len(), 14 * shapes::hexagon(center, r).count());
+        for h in center.ring(r + 1) {
+            let (faces, ..) = layout.owned_tris_into(h, false, &mut tris);
+            assert_eq!(faces, 0, "entangled cell {h:?} emits no face");
+        }
+        assert_eq!(fnv1a_tris(&tris), CHUNK_TRIS_GOLDEN);
+    }
+
     const CHUNK_COORDS: [(i32, i32); 5] = [(0, 0), (1, 0), (0, -1), (-3, 2), (4, -7)];
     const CHUNK_TRI_COUNTS: [(u32, usize); 3] = [(1, 126), (2, 312), (3, 582)];
 
