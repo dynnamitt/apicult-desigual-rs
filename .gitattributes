@@ -1,0 +1,2 @@
+# ENTANGLED_SEAM_DRAWN_TABLE embeds this file; keep it LF on every checkout.
+testdata/*.tsv text eol=lf

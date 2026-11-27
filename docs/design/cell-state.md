@@ -59,7 +59,7 @@ Target API for epic #39. The decisions come from #29, #37 and #38 (D1–D8 in #3
 ### Seams
 
 - **D17, `entangled_seam_keys(coord, chunk_radius)`.** A pure function: one `(owner, also)` per entangled seam tri, parallel to `entangled_seam_tris`. Which tris exist depends only on the chunk shape, not on heights, so no layout is built. It takes `coord` and returns absolute keys (amended from relative keys, which every consumer would have had to shift itself). It shares the ownership rules with `owned_tris_into` through one function, so consumers never copy the corner-0/1 rule.
-- **D7, one draw rule with a shared test table.** `key.drawn(carrier, loaded)` on an `EntangledSeam` key is a pure function over hex coordinates: draw while the owner isn't loaded, and `also` isn't loaded or sorts after the carrier in `(q, r)` order (#27). A table of test cases lives in the repo (`testdata/entangled_seam_drawn.tsv`). zig-fatmile's port and the treadmill's JS are tested against the same table.
+- **D7, one draw rule with a shared test table.** `key.drawn(carrier, loaded)` on an `EntangledSeam` key is a pure function over hex coordinates: draw while the owner isn't loaded, and `also` isn't loaded or sorts after the carrier in `(q, r)` order (#27). A table of test cases lives in the repo (`testdata/entangled_seam_drawn.tsv`, exported as the `ENTANGLED_SEAM_DRAWN_TABLE` string so a dependent crate can check its copy). zig-fatmile's port and the treadmill's JS are tested against the same table.
 
 ### Errors, exports, process
 

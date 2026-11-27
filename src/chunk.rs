@@ -39,7 +39,8 @@ use crate::layout::{
 /// The cases every port of [`EntangledSeam::drawn`] is tested against (D7):
 /// `testdata/entangled_seam_drawn.tsv`, embedded so a consumer that depends
 /// on this crate (zig-fatmile's `apicult-ffi`) can keep its copy current.
-/// Tab-separated `carrier, owner, also, loaded, drawn`; `#` lines are comments.
+/// Tab-separated `carrier, owner, also, loaded, drawn`; LF line ends; `#` and
+/// blank lines are skipped.
 pub const ENTANGLED_SEAM_DRAWN_TABLE: &str = include_str!("../testdata/entangled_seam_drawn.tsv");
 
 /// What changes in chunk `coord`'s streams when `hex` is edited (D5): the
@@ -77,8 +78,8 @@ pub struct EntangledSeam {
 impl EntangledSeam {
     /// Consumer rule 1: whether chunk `carrier` should draw a seam tri with
     /// this key now. The `(q, r)` tie-break lets exactly one of two loaded
-    /// carriers draw a corner. `testdata/entangled_seam_drawn.tsv` holds the
-    /// cases every port of this rule is tested against.
+    /// carriers draw a corner. [`ENTANGLED_SEAM_DRAWN_TABLE`] holds the cases
+    /// every port of this rule is tested against.
     ///
     /// @param carrier {Hex} — the chunk whose entangled seam tris hold this one.
     /// @param loaded {impl Fn(Hex) -> bool} — whether a chunk coordinate is loaded.
