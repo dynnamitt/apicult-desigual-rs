@@ -32,9 +32,30 @@
 
 use hexx::Hex;
 
-#[cfg(doc)]
-use crate::layout::HGridLayout;
-use crate::layout::{ChunkError, chunk_center_hex, owned_gaps};
+use crate::layout::{
+    ChunkError, Delta, HGridLayout, HGridSettings, Override, chunk_center_hex, owned_gaps,
+};
+
+/// What changes in chunk `coord`'s streams when `hex` is edited (D5): the
+/// stateless form of [`HGridLayout::delta`]. Builds the chunk from noise plus
+/// `overrides`, which already hold the edit, so the tris come from the same
+/// code as a full rebuild.
+///
+/// An edit on a chunk's edge or corner also changes the 1 or 2 neighbour
+/// chunks that hold the cell in their entangled ring: call this for each.
+///
+/// @param overrides — the chunk's stored edits, own and ring, including `hex`'s new value.
+/// @returns the changed runs of `own_tris` and `entangled_seam_tris`, or why
+///   the chunk can't be built.
+pub fn delta(
+    g: &HGridSettings,
+    coord: Hex,
+    chunk_radius: u32,
+    overrides: &[Override],
+    hex: Hex,
+) -> Result<Delta, ChunkError> {
+    Ok(HGridLayout::for_chunk(g, coord, chunk_radius, overrides)?.delta(hex))
+}
 
 /// The key of an entangled seam tri: which chunk owns it, and which third
 /// chunk (if any) it also touches. A seam tri with no `also` touches only its
@@ -373,6 +394,59 @@ mod tests {
         let hexes: Vec<Hex> = layout.own_cells().collect();
         assert_eq!(states.iter().map(|c| c.hex).collect::<Vec<_>>(), hexes);
         assert_eq!(states.iter().find(|c| c.hex == Hex::new(1, -1)).unwrap().height, 7.5);
+    }
+
+    /// Overwrite `stream`'s runs with `runs`, checking each keeps its length.
+    fn apply_runs(stream: &mut [[Vec3; 3]], runs: &[crate::TriSequence]) {
+        for run in runs {
+            let range = run.offset..run.offset + run.tris.len();
+            assert!(range.end <= stream.len(), "{:?} overruns the stream", run.cell);
+            stream[range].copy_from_slice(&run.tris);
+        }
+    }
+
+    #[test]
+    fn delta_matches_a_full_rebuild() {
+        use crate::NoiseType::{Height, Size};
+        let (g, r) = (HGridSettings::default(), 3);
+        for coord in [Hex::ZERO, Hex::new(2, -1)] {
+            let center = coord.to_higher_res(r);
+            let corner = center + Hex::new(r as i32, 0);
+            let edge = center + Hex::new(r as i32, -1);
+            let ring = center + Hex::new(r as i32 + 1, 0);
+            let ring_mid = center + Hex::new(r as i32 + 1, -2);
+            // An earlier edit elsewhere stays in the overrides throughout.
+            let stored: Override = (Height, center + Hex::new(-1, 1), 3.0);
+            for hex in [center, edge, corner, ring, ring_mid] {
+                for edit in [(Height, hex, 19.5), (Size, hex, 0.5)] {
+                    let before = HGridLayout::for_chunk(&g, coord, r, &[stored]).unwrap();
+                    let after = HGridLayout::for_chunk(&g, coord, r, &[stored, edit]).unwrap();
+                    let d = delta(&g, coord, r, &[stored, edit], hex).unwrap();
+                    assert!(d.own.len() + d.entangled_seams.len() <= 7, "{hex:?}: {d:?}");
+                    let mut own = before.own_tris();
+                    apply_runs(&mut own, &d.own);
+                    assert_eq!(own, after.own_tris(), "{coord:?}, {edit:?}");
+                    let mut seams = before.entangled_seam_tris();
+                    apply_runs(&mut seams, &d.entangled_seams);
+                    assert_eq!(seams, after.entangled_seam_tris(), "{coord:?}, {edit:?}");
+                    assert_ne!(own, before.own_tris(), "{edit:?} changed no own tri");
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn delta_offsets_follow_the_streams() {
+        let layout = HGridLayout::for_chunk(&HGridSettings::default(), Hex::ZERO, 2, &[]).unwrap();
+        let own: Vec<Hex> = layout.own_cells().collect();
+        let d = layout.delta(Hex::new(1, -1));
+        assert_eq!(d.own.len(), 7, "an interior cell and its 6 neighbours");
+        for run in &d.own {
+            let i = own.iter().position(|&h| h == run.cell).unwrap();
+            assert_eq!((run.offset, run.tris.len()), (14 * i, 14), "{:?}", run.cell);
+        }
+        assert!(d.entangled_seams.is_empty());
+        assert_eq!(layout.delta(Hex::new(50, 50)), crate::Delta::default());
     }
 
     #[test]

@@ -8,9 +8,10 @@ pub mod layout;
 pub mod math;
 pub mod serialize;
 
-pub use chunk::{EntangledSeam, entangled_seam_keys};
+pub use chunk::{EntangledSeam, delta, entangled_seam_keys};
 pub use layout::{
-    ChunkError, HGridLayout, HGridSettings, HexCell, NoiseParams, NoiseType, Override,
+    ChunkError, Delta, HGridLayout, HGridSettings, HexCell, NoiseParams, NoiseType, Override,
+    TriSequence,
 };
 pub use math::{
     edge_cuboid_transform, gap_filler, gap_vertex_data, idw_interpolate_height, map_noise_to_range,

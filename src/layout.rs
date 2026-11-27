@@ -90,6 +90,30 @@ pub struct HexCell {
     pub radius: f32,
 }
 
+/// One cell's run of tris in a stream: [`HGridLayout::own_tris`] (an own
+/// cell's 14-tri `tri_sequence`) or [`HGridLayout::entangled_seam_tris`] (an
+/// entangled cell's quads then junctions).
+#[derive(Clone, Debug, PartialEq)]
+pub struct TriSequence {
+    /// The cell that owns these tris.
+    pub cell: Hex,
+    /// Index of the first tri in its stream.
+    pub offset: usize,
+    pub tris: Vec<[Vec3; 3]>,
+}
+
+/// What changes in a layout's streams when one cell's height or radius
+/// changes: the `tri_sequence`s of the cell and its 6 neighbours, each the
+/// same length and at the same offset as before (an edit keeps the topology),
+/// so a consumer overwrites those ranges in place (D5).
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct Delta {
+    /// Changed runs of [`HGridLayout::own_tris`], in `own_cells` order.
+    pub own: Vec<TriSequence>,
+    /// Changed runs of [`HGridLayout::entangled_seam_tris`], in `entangled_ring` order.
+    pub entangled_seams: Vec<TriSequence>,
+}
+
 /// Why [`HGridLayout::for_chunk`] can't build a chunk.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum ChunkError {
@@ -475,6 +499,52 @@ impl HGridLayout {
                 (2 * quads, gaps.junctions.iter().flatten().count())
             })
             .collect()
+    }
+
+    /// The runs of [`own_tris`](Self::own_tris) and
+    /// [`entangled_seam_tris`](Self::entangled_seam_tris) that hold a tri
+    /// touching `hex`: those owned by `hex` and its 6 neighbours, since every
+    /// face, gap quad and junction touching a cell is owned by it or a
+    /// neighbour. Built from this layout, so build it with the edit applied.
+    ///
+    /// For a cell on a chunk's edge or corner, the 1 or 2 neighbour chunks
+    /// that hold it in their entangled ring change too: ask each of their
+    /// layouts as well (consumer rule 3).
+    ///
+    /// @param hex — the changed cell; outside the layout, nothing it owns is here.
+    /// @returns the changed runs, at their offsets in each stream.
+    pub fn delta(&self, hex: Hex) -> Delta {
+        let touched = |h: Hex| h == hex || h.unsigned_distance_to(hex) == 1;
+        let runs = |cells: &mut dyn Iterator<Item = Hex>| {
+            let mut offset = 0;
+            let mut out = Vec::new();
+            for cell in cells {
+                let n = self.owned_count(cell);
+                if touched(cell) && n > 0 {
+                    let mut tris = Vec::with_capacity(n);
+                    self.owned_tris_into(cell, &mut tris);
+                    out.push(TriSequence { cell, offset, tris });
+                }
+                offset += n;
+            }
+            out
+        };
+        Delta {
+            own: runs(&mut self.own_cells()),
+            entangled_seams: runs(&mut self.entangled_ring()),
+        }
+    }
+
+    /// How many tris `hex` owns, from coordinates alone: what
+    /// [`owned_tris_into`](Self::owned_tris_into) would append.
+    fn owned_count(&self, hex: Hex) -> usize {
+        if self.cells.get(hex).is_none() {
+            return 0;
+        }
+        let entangled = self.is_entangled(hex);
+        let gaps = self.owned_gaps(hex, entangled);
+        let face = if entangled { 0 } else { 6 };
+        face + 2 * gaps.quads.iter().flatten().count() + gaps.junctions.iter().flatten().count()
     }
 
     /// Appends the triangles `hex` owns to `out` — the per-cell body of
