@@ -36,6 +36,12 @@ use crate::layout::{
     ChunkError, Delta, HGridLayout, HGridSettings, Override, chunk_center_hex, owned_gaps,
 };
 
+/// The cases every port of [`EntangledSeam::drawn`] is tested against (D7):
+/// `testdata/entangled_seam_drawn.tsv`, embedded so a consumer that depends
+/// on this crate (zig-fatmile's `apicult-ffi`) can keep its copy current.
+/// Tab-separated `carrier, owner, also, loaded, drawn`; `#` lines are comments.
+pub const ENTANGLED_SEAM_DRAWN_TABLE: &str = include_str!("../testdata/entangled_seam_drawn.tsv");
+
 /// What changes in chunk `coord`'s streams when `hex` is edited (D5): the
 /// stateless form of [`HGridLayout::delta`]. Builds the chunk from noise plus
 /// `overrides`, which already hold the edit, so the tris come from the same
@@ -299,7 +305,7 @@ mod tests {
             Hex::new(q.parse().expect("q"), r.parse().expect("r"))
         };
         let hexes = |t: &str| if t == "-" { Vec::new() } else { t.split(';').map(hex).collect() };
-        include_str!("../testdata/entangled_seam_drawn.tsv")
+        ENTANGLED_SEAM_DRAWN_TABLE
             .lines()
             .filter(|l| !l.starts_with('#') && !l.trim().is_empty())
             .map(|l| {

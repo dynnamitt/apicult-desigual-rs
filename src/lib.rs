@@ -8,7 +8,7 @@ pub mod layout;
 pub mod math;
 pub mod serialize;
 
-pub use chunk::{EntangledSeam, delta, entangled_seam_keys};
+pub use chunk::{ENTANGLED_SEAM_DRAWN_TABLE, EntangledSeam, delta, entangled_seam_keys};
 pub use layout::{
     ChunkError, Delta, HGridLayout, HGridSettings, HexCell, NoiseParams, NoiseType, Override,
     TriSequence,
