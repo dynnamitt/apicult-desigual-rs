@@ -45,15 +45,17 @@ fn main() {
         .and_then(|s| s.parse().ok())
         .unwrap_or(4.0);
 
-    let defaults = HGridSettings::default();
-    let settings = HGridSettings {
-        radius,
-        height_noise_seed: seed.unwrap_or(defaults.height_noise_seed),
-        radius_noise_seed: radius_seed.unwrap_or(defaults.radius_noise_seed),
+    let mut settings = HGridSettings {
         nominal_hex_radius: 4.0,
-        ..defaults
+        ..HGridSettings::default()
     };
-    let layout = HGridLayout::new(&settings, &[], &[]);
+    if let Some(seed) = seed {
+        settings.height_noise.seed = seed;
+    }
+    if let Some(seed) = radius_seed {
+        settings.radius_noise.seed = seed;
+    }
+    let layout = HGridLayout::new(&settings, radius, &[], &[]);
 
     let stdout = io::stdout();
     let mut out = stdout.lock();

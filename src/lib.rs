@@ -9,7 +9,9 @@ pub mod math;
 pub mod serialize;
 
 pub use chunk::{Chunk, ChunkSource, NoiseWorld, Seam};
-pub use layout::{GapQuad, HGridLayout, HGridSettings, HexCell, NoiseType, Override};
+pub use layout::{
+    GapQuad, HGridLayout, HGridSettings, HexCell, NoiseParams, NoiseType, Override,
+};
 pub use math::{
     edge_cuboid_transform, gap_filler, gap_vertex_data, idw_interpolate_height, map_noise_to_range,
     quad_corner_indices,

@@ -86,7 +86,7 @@ impl Seam {
 /// One `settings` (and so one set of seeds) per world.
 #[derive(Clone, Debug)]
 pub struct NoiseWorld {
-    /// Seeds and noise parameters; `settings.radius` is ignored.
+    /// Seeds, noise and size settings, the same for every chunk.
     pub settings: HGridSettings,
     pub chunk_radius: u32,
 }
@@ -191,11 +191,7 @@ mod tests {
     #[test]
     fn owned_streams_partition_world() {
         for r in CHUNK_RADII {
-            let g = HGridSettings {
-                radius: WORLD_RADIUS,
-                ..HGridSettings::default()
-            };
-            let layout = HGridLayout::new(&g, &[], &[]);
+            let layout = HGridLayout::new(&HGridSettings::default(), WORLD_RADIUS, &[], &[]);
             let fitting: HashSet<Hex> = shapes::hexagon(Hex::ZERO, WORLD_RADIUS)
                 .map(|h| h.to_lower_res(r))
                 // The entangled ring (distance r + 1 from the centre) must fit inside the world.

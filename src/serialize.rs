@@ -256,14 +256,7 @@ mod tests {
     use crate::HGridSettings;
 
     fn small_layout() -> HGridLayout {
-        HGridLayout::new(
-            &HGridSettings {
-                radius: 2,
-                ..HGridSettings::default()
-            },
-            &[],
-            &[],
-        )
+        HGridLayout::new(&HGridSettings::default(), 2, &[], &[])
     }
 
     #[test]

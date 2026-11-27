@@ -36,8 +36,9 @@ The [geometry guide](https://dynnamitt.github.io/apicult-desigual-rs/guide.html)
 ```rust
 use apicult_desigual::{HGridLayout, HGridSettings};
 
-let settings = HGridSettings { radius: 10, ..HGridSettings::default() };
-let layout = HGridLayout::from_settings(&settings);
+let mut settings = HGridSettings::default();
+settings.height_noise.seed = 7; // NoiseParams { seed, octaves, scale }, one per noise channel
+let layout = HGridLayout::new(&settings, 10, &[], &[]); // 10 rings around the origin
 
 let height = layout.height(&hexx::Hex::ZERO);
 let vertex = layout.vertex(hexx::Hex::ZERO, 0);

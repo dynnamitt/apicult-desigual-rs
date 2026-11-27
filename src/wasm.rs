@@ -32,6 +32,14 @@ use wasm_bindgen::prelude::*;
 use crate::chunk::{Chunk, ChunkSource, NoiseWorld};
 use crate::layout::{GapQuad, HGridLayout, HGridSettings, NoiseType, Override};
 
+/// Project defaults with the two noise seeds the pages choose.
+fn seeded(height_seed: u32, radius_seed: u32) -> HGridSettings {
+    let mut g = HGridSettings::default();
+    g.height_noise.seed = height_seed;
+    g.radius_noise.seed = radius_seed;
+    g
+}
+
 /// Mirror of `crate::NoiseType` exposed as a C-like enum for `wasm-bindgen`.
 #[wasm_bindgen]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -146,17 +154,12 @@ impl WasmLayout {
         overrides: Vec<OverrideSpec>,
         entangle: Vec<EntangleSpec>,
     ) -> Self {
-        let settings = HGridSettings {
-            radius,
-            height_noise_seed: height_seed,
-            radius_noise_seed: radius_seed,
-            ..HGridSettings::default()
-        };
+        let settings = seeded(height_seed, radius_seed);
         let mapped_overrides: Vec<Override> =
             overrides.into_iter().map(Override::from).collect();
         let mapped_entangle: Vec<Hex> = entangle.into_iter().map(Hex::from).collect();
         Self {
-            inner: HGridLayout::new(&settings, &mapped_overrides, &mapped_entangle),
+            inner: HGridLayout::new(&settings, radius, &mapped_overrides, &mapped_entangle),
         }
     }
 
@@ -235,11 +238,7 @@ impl WasmChunkWorld {
     pub fn new(chunk_radius: u32, height_seed: u32, radius_seed: u32) -> Self {
         Self {
             inner: NoiseWorld {
-                settings: HGridSettings {
-                    height_noise_seed: height_seed,
-                    radius_noise_seed: radius_seed,
-                    ..HGridSettings::default()
-                },
+                settings: seeded(height_seed, radius_seed),
                 chunk_radius,
             },
         }
