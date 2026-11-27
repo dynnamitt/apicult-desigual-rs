@@ -1,6 +1,6 @@
 /**
  * Babylon.js scene for `hex-units.html` — a small game-engine demo driven by
- * the same wasm geometry as the treadmill's three.js.
+ * the same wasm module as the three.js chunk treadmill.
  *
  * What the engine is actually doing here (as opposed to the three.js treadmill,
  * which is a renderer showcase):

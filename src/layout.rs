@@ -167,16 +167,31 @@ impl HGridLayout {
     ///   entangled ring (the neighbours' edits), applied after sampling.
     /// @returns a layout of radius `chunk_radius + 1` around the chunk centre,
     ///   or why it can't be built: an override outside it or not finite, or a
-    ///   chunk so far out that `to_lower_res`'s `f32` division puts an own cell
-    ///   in the wrong chunk (past roughly `16.7M / (3·chunk_radius + 2)` cells).
+    ///   chunk so far out that `to_lower_res`'s `f32` division puts an own or
+    ///   ring cell in the wrong chunk (past roughly `16.7M / (3·chunk_radius + 2)`
+    ///   cells), or that its centre doesn't fit in `i32`.
     pub fn for_chunk(
         g: &HGridSettings,
         coord: Hex,
         chunk_radius: u32,
         overrides: &[Override],
     ) -> Result<Self, ChunkError> {
+        // `to_higher_res` multiplies in `i32`: rule out overflow (a panic in
+        // debug builds) before calling it, with room for the ring.
+        let (range, q, r) = (i64::from(chunk_radius), i64::from(coord.x), i64::from(coord.y));
+        let fits = |v: i64| v.abs() + range < i64::from(i32::MAX);
+        let (cq, cr) = (q * (range + 1) + range * (q + r), r * (range + 1) - range * q);
+        if ![q + r, cq, cr, cq + cr].into_iter().all(fits) {
+            return Err(ChunkError::TooFarFromOrigin(coord));
+        }
         let center = coord.to_higher_res(chunk_radius);
-        if shapes::hexagon(center, chunk_radius).any(|h| h.to_lower_res(chunk_radius) != coord) {
+        // Own cells must map to `coord` and ring cells away from it: `Chunk`'s
+        // seam owners come from the ring cells' `to_lower_res`.
+        let misplaced = shapes::hexagon(center, chunk_radius + 1).any(|h| {
+            let own = center.unsigned_distance_to(h) <= chunk_radius;
+            (h.to_lower_res(chunk_radius) == coord) != own
+        });
+        if misplaced {
             return Err(ChunkError::TooFarFromOrigin(coord));
         }
         let mut layout = Self::build(g, center, chunk_radius + 1, true);
@@ -987,6 +1002,11 @@ mod tests {
         let far = Hex::new(2_000_000, 0);
         let err = HGridLayout::for_chunk(&g, far, r, &[]).err();
         assert_eq!(err, Some(ChunkError::TooFarFromOrigin(far)));
+        // So far out that `to_higher_res` would overflow `i32`.
+        for huge in [Hex::new(i32::MAX, 0), Hex::new(0, i32::MIN), Hex::new(400_000_000, -1)] {
+            let err = HGridLayout::for_chunk(&g, huge, r, &[]).err();
+            assert_eq!(err, Some(ChunkError::TooFarFromOrigin(huge)));
+        }
         assert!(HGridLayout::for_chunk(&g, Hex::new(-3, 2), r, &[]).is_ok());
     }
 

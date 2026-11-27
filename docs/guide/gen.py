@@ -353,7 +353,7 @@ layout_gaps = [(h, k, pts) for h in own + rim for k, pts in owned_gaps(*h, set(o
 b = ([hexpoly(v, *h, R, "face entring") for h in rim] + [hexpoly(v, *h, R, "face") for h in own]
      + [poly(v, pts, k) for _, k, pts in layout_gaps])
 figs["f10g"] = fig("\n".join(b), 500, 490, "A chunk layout of radius 2: all_tris() closes the outline of the chunk's own cells",
-  "<code>HGridLayout::for_chunk(g, (0,0), 2)</code>: 19 own cells and an entangled ring at distance 3. <code>all_tris()</code> draws the 19 own faces (solid) and every gap touching an own cell, whichever cell owns it. It skips the entangled cells' faces (dashed) and the gaps between two entangled cells. Ownership doesn't matter for the outline: it is closed on all six sides. That makes 312 triangles in total, the same as 19 faces plus every gap touching them; <code>for_chunk_all_tris_counts</code> pins the 312.")
+  "<code>HGridLayout::for_chunk(g, (0,0), 2, &amp;[])</code>: 19 own cells and an entangled ring at distance 3. <code>all_tris()</code> draws the 19 own faces (solid) and every gap touching an own cell, whichever cell owns it. It skips the entangled cells' faces (dashed) and the gaps between two entangled cells. Ownership doesn't matter for the outline: it is closed on all six sides. That makes 312 triangles in total, the same as 19 faces plus every gap touching them; <code>for_chunk_all_tris_counts</code> pins the 312.")
 
 # ---- F14: one chunk's owned stream and seam groups (HGridLayout::for_chunk + NoiseWorld::chunk)
 owner = {h: to_lower_res(*h, CR) for h in rim}

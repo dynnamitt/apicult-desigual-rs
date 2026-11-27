@@ -1,9 +1,8 @@
 /**
  * Seed helpers shared by the demo pages.
  *
- * Both pages build several `WasmLayout`s per render (the terrain cluster needs
- * 14 seeds, the units grid 2) but expose a single seed box, so one typed root
- * has to fan out into a stable sequence of u32s.
+ * Each page needs two noise seeds (height and radius) but exposes a single
+ * seed box, so one typed root has to fan out into a stable sequence of u32s.
  */
 
 /** A fresh random u32, for the "re-roll" / blank-seed path. */

@@ -301,7 +301,6 @@ a:focus-visible { outline: 2px solid var(--quad); outline-offset: 2px; }
 </ul>
 <p>So <code>all_tris()</code> on a chunk layout draws the chunk's faces and every gap piece that reaches an own cell, whoever owns it. The outline is closed on all six sides:</p>
 {{f10g}}
-<p><code>HGridLayout::for_chunk</code> builds exactly the layout in the figure above, for one chunk.</p>
 
 <h2 id="chunks">5 · Streaming chunks</h2>
 <p><code>src/chunk.rs</code> builds any chunk of an unbounded world on demand from its coordinate. <code>NoiseWorld { settings, chunk_radius }</code> implements <code>ChunkSource::chunk(coord) -&gt; Result&lt;Chunk, ChunkError&gt;</code>. One <code>NoiseWorld</code>, and so one set of seeds, serves the whole world.</p>
