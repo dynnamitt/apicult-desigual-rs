@@ -25,10 +25,10 @@ The [geometry guide](https://dynnamitt.github.io/apicult-desigual-rs/guide.html)
 
 ## What it does
 
-- **`HGridLayout`** -- builds a hex grid of `radius` rings from `HGridSettings` (`HGridLayout::new(&settings, radius, overrides, entangle)`), sampling Fbm noise for per-hex heights and radii. Provides vertex computation, coordinate conversion, IDW height interpolation, and triangulated geometry: `gap_quads`, `gap_tris`, `hex_face_tris(entangled)`, `gap_quad_tris(entangled)`, and the unified `all_tris(entangled)` stream (gap quads split along the canonical `[v0, v2]` diagonal). The per-cell `entangled: bool` flag is set via `HGridLayout::new`'s `entangle: &[Hex]` arg and partitions the hex-face / gap-quad output streams so two materials can render entangled vs non-entangled cells separately.
+- **`HGridLayout`** -- builds a bounded hex grid of `radius` rings (`HGridLayout::new(&settings, radius)`), or one chunk of an unbounded world with its stored edits (`HGridLayout::for_chunk(&settings, coord, chunk_radius, &overrides)`, a `Result`), sampling Fbm noise for per-hex heights and radii. Provides vertex computation, coordinate conversion, IDW height interpolation, and triangulated geometry: `gap_quads`, `gap_tris`, `hex_face_tris`, `gap_quad_tris`, and the unified `all_tris()` stream (gap quads split along the canonical `[v0, v2]` diagonal). A chunk layout's outer ring is *entangled* (`is_entangled`): neighbour cells held only so the gaps along the chunk's edge have both sides.
 - **Gap analysis** -- `gap_filler` counts quad/tri gaps using even-edge ownership rules. `quad_corner_indices` maps edge indices to the four corners forming each quad.
 - **Serialization** -- `SerializeGeo` trait with three implementors: `SvgPlain`, `SvgRich`, `JsonV1` (`{hexes, edges, quads, tris}`). The web 3D demo bypasses JSON entirely and pulls geometry through the wasm module instead.
-- **Wasm bindings** -- `WasmLayout` exposes flat `Float32Array` buffers for the welded fill mesh (`tris`), gap-quad perimeter segments (`wire_edges`), and per-hex face fans grouped 54 floats at a time (`face_tris`) — all filtered by `entangled: bool`. Inputs are `OverrideSpec` (per-hex pinned values) and `EntangleSpec` (entangle marker).
+- **Wasm bindings** -- `WasmLayout` exposes flat `Float32Array` buffers for the welded fill mesh (`tris`), gap-quad perimeter segments (`wire_edges`), and per-hex face fans grouped 54 floats at a time (`face_tris`). `WasmChunkWorld` hands out chunks for the treadmill.
 - **Pure math helpers** -- `edge_cuboid_transform`, `gap_vertex_data`, `map_noise_to_range`, `idw_interpolate_height`.
 
 ## Usage
@@ -38,15 +38,14 @@ use apicult_desigual::{HGridLayout, HGridSettings};
 
 let mut settings = HGridSettings::default();
 settings.height_noise.seed = 7; // NoiseParams { seed, octaves, scale }, one per noise channel
-let layout = HGridLayout::new(&settings, 10, &[], &[]); // 10 rings around the origin
+let layout = HGridLayout::new(&settings, 10); // 10 rings around the origin
 
-let height = layout.height(&hexx::Hex::ZERO);
+let height = layout.cell(&hexx::Hex::ZERO).unwrap().height;
 let vertex = layout.vertex(hexx::Hex::ZERO, 0);
 let ground = layout.interpolate_height(glam::Vec2::new(5.0, 3.0));
 
 // Unified triangle stream — diagonal choice owned here, not on the client.
-// Pass `false` to get only non-entangled cells (the default for a freshly built layout).
-let tris = layout.all_tris(false);
+let tris = layout.all_tris();
 ```
 
 ## Preview example
@@ -69,7 +68,7 @@ rustup target add wasm32-unknown-unknown      # one-time setup
 wasm-pack build --target web --features wasm  # writes web/pkg/{apicult_desigual.js, _bg.wasm, .d.ts}
 ```
 
-The bundle contains four interactive pages over the same geometry, plus the static `guide.html`: `index.html`, a three.js viewer of the welded 7-mesh cluster; `hex-units.html`, a Babylon.js demo where units pathfind across the grid (`web/hex-units.md`); `hex-crawler.html`, a Phaser board where a character with no sprite *is* the fill, creeping hex to hex and lighting the gap quads as it crosses (`web/hex-crawler.md`); and `hex-stream.html`, a three.js treadmill of seven streaming chunks around a moving camera.
+The bundle contains three interactive pages over the same geometry, plus the static `guide.html`: `index.html`, a three.js treadmill of seven streaming chunks around a moving camera; `hex-units.html`, a Babylon.js demo where units pathfind across the grid (`web/hex-units.md`); `hex-crawler.html`, a Phaser board where a character with no sprite *is* the fill, creeping hex to hex and lighting the gap quads as it crosses (`web/hex-crawler.md`).
 
 To build the whole preview page (SVGs + v1 JSON + wasm pkg + HTML) locally, use the root Makefile target:
 

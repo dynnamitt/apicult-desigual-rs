@@ -52,7 +52,7 @@ export const BRIDGE_SLOT_STRIDE = 13;
  * - `slot` — fan tri index for `kind 0`, in bridge-slot space (see the offset
  *   note above); unused for `kind 1`, which is matched by its cell pair instead
  *   so that a crossing is found whichever way the character is going.
- * - `weight` — the convention `web/hex-terrain-shader.js` established: `1.0` at
+ * - `weight` — the band-shader convention (from the retired flower page): `1.0` at
  *   the fan centre and `0.0` at the rim for hex faces; `0.0` on the source side
  *   (`q0`/`q3`) and `1.0` on the neighbour side (`q1`/`q2`) for gap quads. In
  *   the gap it doubles as the band coordinate, so no extra attribute is needed.
@@ -132,9 +132,9 @@ function deriveSlotOffset(faceTris, bridges, hexCount) {
  * Builds every buffer and table the crawler page needs.
  *
  * @param {object} buffers
- * @param {Float32Array} buffers.faceTris `WasmLayout.face_tris(false)`.
- * @param {Float32Array} buffers.bridges `WasmLayout.face_bridge_quads(false)`.
- * @param {Float32Array} buffers.tris `WasmLayout.tris(false)` — the unified
+ * @param {Float32Array} buffers.faceTris `WasmLayout.face_tris()`.
+ * @param {Float32Array} buffers.bridges `WasmLayout.face_bridge_quads()`.
+ * @param {Float32Array} buffers.tris `WasmLayout.tris()` — the unified
  *   stream, used only for the dim base layer since it already carries the
  *   junction triangles that neither per-hex stream reports.
  * @param {{centers: Float32Array, count: number}} graph Cell graph from
@@ -179,7 +179,7 @@ export function buildBoard({ faceTris, bridges, tris }, graph) {
   };
 
   // Hex faces. The fan centre carries weight 1, the two rim corners 0, so the
-  // fill reads as rim → centroid exactly like the terrain page's ring overlay.
+  // fill reads as rim → centroid exactly like the retired flower page's ring overlay.
   for (let h = 0; h < hexCount; h++) {
     for (let t = 0; t < 6; t++) {
       const slot = (t + slotOffset) % 6;
@@ -192,7 +192,7 @@ export function buildBoard({ faceTris, bridges, tris }, graph) {
   }
 
   // Gap quads, split on the canonical [q0, q2] diagonal to match
-  // `gap_quad_tris` — the same unpacking as `hex-terrain-shader.js::bridgeGeometry`.
+  // `gap_quad_tris`.
   const QUAD_TRIS = [[0, 1, 2], [0, 2, 3]];
   const CORNER_WEIGHT = [0, 1, 1, 0];
   for (const [h, s, n] of owned) {
@@ -206,7 +206,7 @@ export function buildBoard({ faceTris, bridges, tris }, graph) {
   }
 
   // Dim base layer: the whole board including 3-hex junction tris, which
-  // neither per-hex stream reports and which `tris(false)` already contains.
+  // neither per-hex stream reports and which `tris()` already contains.
   const baseVertexCount = Math.floor(tris.length / 3);
   const base = new Float32Array(baseVertexCount * FLOATS_PER_BASE_VERTEX);
   for (let i = 0, b = 0; i + 3 <= tris.length; i += 3) {

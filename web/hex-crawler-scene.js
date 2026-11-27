@@ -147,7 +147,7 @@ void main() {
              * mix(1.0, ${GAP_DIM.toFixed(2)}, vKind);
   vec3 col = mix(board, vec3(${TRAIL_COLOR}), vTrail * uTrailOn * 0.35);
 
-  // The character: rim → centroid gradient, the same weight the terrain page's
+  // The character: rim → centroid gradient, the same weight the retired flower page's
   // ring overlay uses.
   vec3 body = mix(vec3(${CHAR_RIM}), vec3(${CHAR_CORE}), vWeight);
   col = mix(col, body, vFill);
@@ -254,11 +254,11 @@ export function mount(canvas, statsEl, { initialSettings, WasmLayout }) {
       ? [randomU32(), randomU32()]
       : seedSequence(settings.seed, 2);
 
-    const layout = new WasmLayout(settings.radius, heightSeed, radiusSeed, [], []);
+    const layout = new WasmLayout(settings.radius, heightSeed, radiusSeed);
     const buffers = {
-      faceTris: layout.face_tris(false),
-      bridges: layout.face_bridge_quads(false),
-      tris: layout.tris(false),
+      faceTris: layout.face_tris(),
+      bridges: layout.face_bridge_quads(),
+      tris: layout.tris(),
     };
     layout.free();
 
@@ -343,7 +343,7 @@ export function mount(canvas, statsEl, { initialSettings, WasmLayout }) {
     gl.disable(gl.CULL_FACE);
     gl.disable(gl.SCISSOR_TEST);
 
-    // Dim full board first, junction triangles included — `tris(false)` already
+    // Dim full board first, junction triangles included — `tris()` already
     // carries those, so no extra wasm export is needed just to draw them.
     if (state.settings.base) {
       const { program, attribs, uniforms } = programs.base;

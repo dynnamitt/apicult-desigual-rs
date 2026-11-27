@@ -7,7 +7,7 @@ the hex grid.
 
 ## Why Babylon, and why a `<script>` tag
 
-The terrain page loads three.js as an ES module through an importmap, because
+The treadmill loads three.js as an ES module through an importmap, because
 three ships a single-file `three.module.js`. Babylon has no equivalent: the
 modular `@babylonjs/core` package is hundreds of ES modules that assume a
 bundler, and this repo's preview pipeline is deliberately bundler-free (`make
@@ -40,7 +40,7 @@ and units that face backwards.
 The demo needs, per hex: a world position, a terrain height, and its neighbors.
 None of that needs a new wasm export.
 
-- **Position and height** come from `face_tris(false)`. That stream is grouped
+- **Position and height** come from `face_tris()`. That stream is grouped
   per hex — 54 floats, being 6 centre-fan triangles — and every one of those
   triangles *starts at the fan centre*, so floats `[0..3)` of each group are the
   hex's world-space centre `(x, height, z)`.
@@ -75,13 +75,13 @@ gaps in this geometry are a feature, and the units acknowledge them.
 | `TransformNode` hierarchy | one node per unit carrying body + nose mesh; heading and position set once on the parent |
 | `onBeforeRenderObservable` | the update loop, advancing each unit by `engine.getDeltaTime()` (clamped, so a backgrounded tab doesn't teleport anyone) |
 | `scene.onPointerDown` | ray picking against the terrain mesh; the hit point maps to the nearest cell and rallies the squad onto it and its neighbours |
-| `GlowLayer` | bloom on the units' emissive channel, standing in for the terrain page's `UnrealBloomPass` |
+| `GlowLayer` | bloom on the units' emissive channel, standing in for the retired flower page's `UnrealBloomPass` |
 | `MeshBuilder.CreateLines` | the route trails and goal markers |
 
-## Shared with the terrain page
+## Shared with the other pages
 
-`weld.js` (indexed-mesh welding, see [hex-terrain.md](hex-terrain.md) for why
-welding matters), `seed.js` (`splitmix32` seed fan-out) and `hex-controls.js`
-(the schema-driven sidebar binder) are used by both pages; `demo.css` styles
-both. Each page contributes its own schema to `hex-controls.js`, so a third page
-would only add one.
+`weld.js` (indexed-mesh welding: shared corners become one vertex, so smooth
+normals and the wireframe don't split at every triangle), `seed.js`
+(`splitmix32` seed fan-out) and `hex-controls.js` (the schema-driven sidebar
+binder) are shared by every page; `demo.css` styles them all. Each page
+contributes its own schema to `hex-controls.js`, so a new page only adds one.

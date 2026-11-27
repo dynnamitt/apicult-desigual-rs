@@ -27,7 +27,7 @@
 use glam::{Vec2, Vec3};
 use hexx::{Hex, shapes};
 
-use crate::layout::{HGridLayout, HGridSettings, HexCell};
+use crate::layout::{ChunkError, HGridLayout, HGridSettings, HexCell};
 
 /// Deterministic per-coordinate chunk generator.
 pub trait ChunkSource {
@@ -36,8 +36,9 @@ pub trait ChunkSource {
     /// Owned + seam geometry of chunk `coord`. Same seeds and coord give the same output.
     ///
     /// @param coord — the chunk's coordinate on the chunk lattice.
-    /// @returns the chunk's cells, owned stream and seam groups.
-    fn chunk(&self, coord: Hex) -> Chunk;
+    /// @returns the chunk's cells, owned stream and seam groups, or why the
+    ///   chunk can't be built (see [`HGridLayout::for_chunk`]).
+    fn chunk(&self, coord: Hex) -> Result<Chunk, ChunkError>;
 }
 
 /// One chunk's state and geometry. Ring cells are dropped after building.
@@ -48,7 +49,7 @@ pub struct Chunk {
     pub center: Vec2,
     /// Own cells, in `shapes::hexagon(center, chunk_radius)` order.
     pub cells: Vec<HexCell>,
-    /// Owned stream: `owned_tris_into(cell, false)` of every own cell, concatenated.
+    /// Owned stream: `owned_tris_into(cell)` of every own cell, concatenated.
     pub owned: Vec<[Vec3; 3]>,
     /// Triangle count of each cell's run in `owned`; parallel to `cells`.
     pub owned_runs: Vec<usize>,
@@ -96,16 +97,16 @@ impl ChunkSource for NoiseWorld {
         self.chunk_radius
     }
 
-    fn chunk(&self, coord: Hex) -> Chunk {
+    fn chunk(&self, coord: Hex) -> Result<Chunk, ChunkError> {
         let r = self.chunk_radius;
-        let layout = HGridLayout::for_chunk(&self.settings, coord, r);
+        let layout = HGridLayout::for_chunk(&self.settings, coord, r, &[])?;
         let center = layout.center();
 
         let (cells, owned, owned_runs) = shapes::hexagon(center, r).fold(
             (Vec::new(), Vec::new(), Vec::new()),
             |(mut cells, mut owned, mut runs), h| {
                 cells.push(layout.cell(&h).expect("own cell is in the chunk layout"));
-                let (f, q, j) = layout.owned_tris_into(h, false, &mut owned);
+                let (f, q, j) = layout.owned_tris_into(h, &mut owned);
                 runs.push(f + q + j);
                 (cells, owned, runs)
             },
@@ -122,7 +123,7 @@ impl ChunkSource for NoiseWorld {
         let seams = center.ring(r + 1).fold(Vec::<Seam>::new(), |mut groups, h| {
             let owner = h.to_lower_res(r);
             let mut tris = Vec::new();
-            layout.owned_tris_into(h, false, &mut tris);
+            layout.owned_tris_into(h, &mut tris);
             tris.into_iter().for_each(|t| {
                 let also = t.iter().map(|v| chunk_of(h, v)).find(|&c| c != coord && c != owner);
                 match groups.iter_mut().find(|s| s.owner == owner && s.also == also) {
@@ -133,14 +134,14 @@ impl ChunkSource for NoiseWorld {
             groups
         });
 
-        Chunk {
+        Ok(Chunk {
             coord,
             center: layout.hex_to_world_pos(center),
             cells,
             owned,
             owned_runs,
             seams,
-        }
+        })
     }
 }
 
@@ -191,7 +192,7 @@ mod tests {
     #[test]
     fn owned_streams_partition_world() {
         for r in CHUNK_RADII {
-            let layout = HGridLayout::new(&HGridSettings::default(), WORLD_RADIUS, &[], &[]);
+            let layout = HGridLayout::new(&HGridSettings::default(), WORLD_RADIUS);
             let fitting: HashSet<Hex> = shapes::hexagon(Hex::ZERO, WORLD_RADIUS)
                 .map(|h| h.to_lower_res(r))
                 // The entangled ring (distance r + 1 from the centre) must fit inside the world.
@@ -202,14 +203,14 @@ mod tests {
             let src = world(r);
             let mut got: Vec<[u32; 9]> = fitting
                 .iter()
-                .flat_map(|&c| src.chunk(c).owned)
+                .flat_map(|&c| src.chunk(c).unwrap().owned)
                 .map(|t| tri_bits(&t))
                 .collect();
             let mut want: Vec<[u32; 9]> = fitting
                 .iter()
                 .flat_map(|c| shapes::hexagon(c.to_higher_res(r), r))
                 .fold(Vec::new(), |mut out, h| {
-                    layout.owned_tris_into(h, false, &mut out);
+                    layout.owned_tris_into(h, &mut out);
                     out
                 })
                 .iter()
@@ -227,7 +228,7 @@ mod tests {
             let src = world(r);
             for (q, s) in SEAM_COORDS {
                 let coord = Hex::new(q, s);
-                let c = src.chunk(coord);
+                let c = src.chunk(coord).unwrap();
                 assert!((1..=MAX_SEAM_GROUPS).contains(&c.seams.len()), "r {r}: {}", c.seams.len());
                 for Seam { owner, also, tris } in &c.seams {
                     assert_ne!(*owner, coord);
@@ -237,15 +238,15 @@ mod tests {
                         assert!(coord.unsigned_distance_to(*b) == 1 && owner.unsigned_distance_to(*b) == 1, "r {r}: also {b:?}");
                     }
                     let owned: HashSet<[u32; 9]> =
-                        src.chunk(*owner).owned.iter().map(tri_bits).collect();
+                        src.chunk(*owner).unwrap().owned.iter().map(tri_bits).collect();
                     assert!(
                         tris.iter().all(|t| owned.contains(&tri_bits(t))),
                         "r {r}: seam of {coord:?} not in owner {owner:?}"
                     );
                 }
                 let seam_total: usize = c.seams.iter().map(|s| s.tris.len()).sum();
-                let layout = HGridLayout::for_chunk(&src.settings, coord, r);
-                assert_eq!(c.owned.len() + seam_total, layout.all_tris(false).len(), "r {r}");
+                let layout = HGridLayout::for_chunk(&src.settings, coord, r, &[]).unwrap();
+                assert_eq!(c.owned.len() + seam_total, layout.all_tris().len(), "r {r}");
             }
         }
     }
@@ -253,12 +254,11 @@ mod tests {
     #[test]
     fn chunk_runs_and_cells_line_up() {
         for r in CHUNK_RADII {
-            let c = world(r).chunk(Hex::new(-3, 2));
+            let c = world(r).chunk(Hex::new(-3, 2)).unwrap();
             let n = shapes::hexagon(c.coord.to_higher_res(r), r).count();
             assert_eq!(c.cells.len(), n);
             assert_eq!(c.owned_runs.len(), n);
             assert_eq!(c.owned_runs.iter().sum::<usize>(), c.owned.len());
-            assert!(c.cells.iter().all(|cell| !cell.entangled));
         }
     }
 
@@ -268,16 +268,16 @@ mod tests {
             for (q, s) in SEAM_COORDS {
                 let coord = Hex::new(q, s);
                 let src = world(r);
-                let layout = HGridLayout::for_chunk(&src.settings, coord, r);
+                let layout = HGridLayout::for_chunk(&src.settings, coord, r, &[]).unwrap();
                 let want = layout.hex_to_world_pos(coord.to_higher_res(r));
-                assert_eq!(src.chunk(coord).center, want, "r {r}, {coord:?}");
+                assert_eq!(src.chunk(coord).unwrap().center, want, "r {r}, {coord:?}");
             }
         }
     }
 
     #[test]
     fn chunk_zero_radius_2_counts() {
-        let c = world(2).chunk(Hex::ZERO);
+        let c = world(2).chunk(Hex::ZERO).unwrap();
         assert_eq!(c.owned.len(), GUIDE_OWNED);
         // The guide counts per owner; corner groups fold back into their owner.
         for ((q, s), n) in GUIDE_SEAMS {
@@ -310,7 +310,7 @@ mod tests {
             // The 1+6 first, so the low ONE_PLUS_SIX bits of a loaded set pick them.
             let mut region: Vec<Hex> = std::iter::once(Hex::ZERO).chain(Hex::ZERO.ring(1)).collect();
             region.extend(shapes::hexagon(Hex::ZERO, REGION_RADIUS).filter(|h| h.length() > 1));
-            let chunks: Vec<Chunk> = region.iter().map(|&c| src.chunk(c)).collect();
+            let chunks: Vec<Chunk> = region.iter().map(|&c| src.chunk(c).unwrap()).collect();
             // Number each distinct triangle once, so a loaded set is just counting.
             let mut ids = std::collections::HashMap::new();
             let mut id_of = |t: &[Vec3; 3]| {
@@ -346,7 +346,7 @@ mod tests {
     #[test]
     fn chunk_is_deterministic() {
         let coord = Hex::new(-3, 2);
-        assert_eq!(world(2).chunk(coord), world(2).chunk(coord));
+        assert_eq!(world(2).chunk(coord).unwrap(), world(2).chunk(coord).unwrap());
         assert_eq!(world(2).chunk_radius(), 2);
     }
 }

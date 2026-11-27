@@ -222,8 +222,7 @@ impl SerializeGeo for JsonV1 {
         let quad_entries: Vec<String> = layout
             .gap_quads()
             .iter()
-            .map(|q| {
-                let c = q.corners;
+            .map(|c| {
                 format!(
                     "[{},{},{},{}]",
                     fmt_v3(c[0]),
@@ -256,7 +255,7 @@ mod tests {
     use crate::HGridSettings;
 
     fn small_layout() -> HGridLayout {
-        HGridLayout::new(&HGridSettings::default(), 2, &[], &[])
+        HGridLayout::new(&HGridSettings::default(), 2)
     }
 
     #[test]

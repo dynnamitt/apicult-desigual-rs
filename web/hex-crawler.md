@@ -1,7 +1,7 @@
 # The crawler demo (`hex-crawler.html`)
 
-The third demo page, and the one that inverts the other two. `hex-terrain.html`
-and `hex-units.html` both draw the grid and put *things* on top of it. Here there
+The crawler inverts the units page. `hex-units.html` draws the grid and puts
+*things* on top of it. Here there
 is no sprite at all: the character **is** the fill. It occupies one hex or one
 gap quad completely, and it moves by draining out of one shape and pouring into
 the next, using the grid's own triangles as the animation primitive.
@@ -43,19 +43,18 @@ the other side.
 
 Everything comes out of the three streams that already exist.
 
-- **Hex faces** are `face_tris(false)`, grouped 54 floats per hex.
-- **Gaps** are `face_bridge_quads(false)`, 6 slots × 13 floats
-  (`[flag, q0, q1, q2, q3]`), unpacked exactly as
-  `hex-terrain-shader.js::bridgeGeometry` does — split on the canonical
+- **Hex faces** are `face_tris()`, grouped 54 floats per hex.
+- **Gaps** are `face_bridge_quads()`, 6 slots × 13 floats
+  (`[flag, q0, q1, q2, q3]`), unpacked the way `gap_quad_tris` splits them — on the canonical
   `[q0, q2]` diagonal, weights `0` on the source side and `1` on the neighbour
   side.
-- **The dim base layer** is `tris(false)`, which already carries the 3-hex
+- **The dim base layer** is `tris()`, which already carries the 3-hex
   junction triangles that neither per-hex stream reports — so no `gap_tris()`
   export was needed just to draw a complete board.
 - **Cell centres and adjacency** come from `hex-units-grid.js::buildCellGraph`,
   as on the units page.
 
-`aWeight` follows the convention the terrain page's ring overlay established:
+`aWeight` follows the convention the retired flower page's ring overlay established:
 `1.0` at the fan centre, `0.0` at the rim. In a gap it doubles as the band
 coordinate, so the bands need no attribute of their own.
 

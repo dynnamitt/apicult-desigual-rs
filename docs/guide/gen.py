@@ -290,7 +290,7 @@ qp_ = quad_pts(0, 0, 0, R)
 for nm, p, off in zip("abcd", qp_, [(-6, 16), (8, 16), (8, -6), (-6, -6)]):
     sp = v.p(p); b.append(text(sp[0]+off[0], sp[1]+off[1], nm, "lbl mono acc", "end" if off[0] < 0 else "start"))
 figs["f7"] = fig("\n".join(b), 600, 500, "One cell owns six face triangles, three gap quads and two junction triangles",
-  "For cell <code>(0,0)</code>, <code>all_tris(false)</code> appends 14 triangles, numbered here in append order. 0–5 are the face fan. 6–11 are the quads on e0, e2, e4, each split into <code>[a,b,c]</code> then <code>[a,c,d]</code>. 12 and 13 are the junctions at corners 0 and 1. The faint quads on e1, e3, e5 belong to the neighbours and get appended when those cells run. The other four junctions are owned by neighbours too.")
+  "For cell <code>(0,0)</code>, <code>all_tris()</code> appends 14 triangles, numbered here in append order. 0–5 are the face fan. 6–11 are the quads on e0, e2, e4, each split into <code>[a,b,c]</code> then <code>[a,c,d]</code>. 12 and 13 are the junctions at corners 0 and 1. The faint quads on e1, e3, e5 belong to the neighbours and get appended when those cells run. The other four junctions are owned by neighbours too.")
 
 # ---- F8 chunk tiling
 b = []
@@ -344,7 +344,7 @@ b.append(text(p0[0], p0[1]+18, "(0,0)", "lbl mono tiny"))
 figs["f13"] = fig("\n".join(b), 560, 380, "to_local gives a cell's offset from its chunk centre; wrap_in_range is the same map",
   "Cell <code>h = (4,0)</code> (blue) is in chunk (1,0), whose centre is <code>(5,−2)</code>. <code>to_local(h, 2)</code> = <code>h − to_higher_res(to_lower_res(h, 2), 2)</code> = <code>(−1,2)</code>. Read from the origin instead, the same offset is the amber cell. That is <code>wrap_in_range(2)</code>: it folds the whole plane onto one radius-2 hexagon.")
 
-# ---- F10g: one layout with its outer ring entangled (guide)
+# ---- F10g: one chunk layout: own cells plus the entangled ring (guide)
 # HGridLayout::for_chunk(g, (0,0), CR): own cells plus an entangled ring; F14 draws the same layout.
 v = View(36, 250, 243)
 R = GRID_RATIO; CR = CHUNK_R
@@ -352,8 +352,8 @@ own, rim = hexagon(CR), ring(CR+1)
 layout_gaps = [(h, k, pts) for h in own + rim for k, pts in owned_gaps(*h, set(own) | set(rim), R, set(rim))]
 b = ([hexpoly(v, *h, R, "face entring") for h in rim] + [hexpoly(v, *h, R, "face") for h in own]
      + [poly(v, pts, k) for _, k, pts in layout_gaps])
-figs["f10g"] = fig("\n".join(b), 500, 490, "A radius 3 layout with its outer ring entangled: all_tris(false) closes the outline of the inner cells",
-  "<code>HGridLayout::new</code> with <code>radius: 3</code> and every cell of ring 3 in <code>entangle</code>. <code>all_tris(false)</code> draws the 19 inner faces (solid) and every gap touching an inner cell, whichever cell owns it. It skips the entangled cells' faces (dashed) and the gaps between two entangled cells. Ownership doesn't matter for the outline: it is closed on all six sides. That makes 312 triangles in total, the same as 19 faces plus every gap touching them. <code>HGridLayout::for_chunk(g, (0,0), 2)</code> builds exactly this layout, and <code>for_chunk_all_tris_counts</code> pins the 312.")
+figs["f10g"] = fig("\n".join(b), 500, 490, "A chunk layout of radius 2: all_tris() closes the outline of the chunk's own cells",
+  "<code>HGridLayout::for_chunk(g, (0,0), 2)</code>: 19 own cells and an entangled ring at distance 3. <code>all_tris()</code> draws the 19 own faces (solid) and every gap touching an own cell, whichever cell owns it. It skips the entangled cells' faces (dashed) and the gaps between two entangled cells. Ownership doesn't matter for the outline: it is closed on all six sides. That makes 312 triangles in total, the same as 19 faces plus every gap touching them; <code>for_chunk_all_tris_counts</code> pins the 312.")
 
 # ---- F14: one chunk's owned stream and seam groups (HGridLayout::for_chunk + NoiseWorld::chunk)
 owner = {h: to_lower_res(*h, CR) for h in rim}

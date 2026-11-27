@@ -1,8 +1,8 @@
 /**
  * Babylon.js scene for `hex-units.html` — a small game-engine demo driven by
- * the same wasm geometry as the three.js terrain page.
+ * the same wasm geometry as the treadmill's three.js.
  *
- * What the engine is actually doing here (as opposed to the terrain page,
+ * What the engine is actually doing here (as opposed to the three.js treadmill,
  * which is a renderer showcase):
  *
  * - **Scene graph** — every unit is a `TransformNode` with a body and a nose
@@ -17,7 +17,7 @@
  *
  * Babylon arrives as a UMD global (`window.BABYLON`) rather than an ES module:
  * `@babylonjs/core` ships hundreds of ESM files and expects a bundler, which
- * this build deliberately does not have. The terrain page's three.js importmap
+ * this build deliberately does not have. The treadmill's three.js importmap
  * has no equivalent here.
  */
 import { weldTris } from "./weld.js";
@@ -119,9 +119,9 @@ export function mount(canvas, statsEl, { initialSettings, WasmLayout }) {
       ? [randomU32(), randomU32()]
       : seedSequence(settings.seed, 2);
 
-    const layout = new WasmLayout(settings.radius, heightSeed, radiusSeed, [], []);
-    const tris = layout.tris(false);
-    const faceTris = layout.face_tris(false);
+    const layout = new WasmLayout(settings.radius, heightSeed, radiusSeed);
+    const tris = layout.tris();
+    const faceTris = layout.face_tris();
     layout.free();
 
     const { positions, indices } = weldTris(tris);

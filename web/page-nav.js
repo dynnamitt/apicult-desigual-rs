@@ -7,10 +7,9 @@
 
 /** Every published page, in nav order. `href` is the deployed file name. */
 export const PAGES = [
-  { href: "index.html",       label: "welded terrain"  },
+  { href: "index.html",       label: "chunk treadmill" },
   { href: "hex-units.html",   label: "hex units"       },
   { href: "hex-crawler.html", label: "hex crawler"     },
-  { href: "hex-stream.html",  label: "chunk treadmill" },
   { href: "svg-preview.html", label: "grid preview"    },
   { href: "guide.html",       label: "geometry guide"  },
 ];

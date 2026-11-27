@@ -16,26 +16,6 @@
  * @property {Set<string>} live Fields that stream through `onLive`.
  */
 
-/** Sidebar of `hex-terrain.html` (the three.js flower cluster). */
-export const TERRAIN_SCHEMA = {
-  inputs: [
-    { id: "ctl-radius",          field: "radius",              parse: parseInt   },
-    { id: "ctl-seed",            field: "seed",                parse: parseSeed  },
-    { id: "ctl-nominal-hex-radius", field: "nominalHexRadius",  parse: parseFloat },
-    { id: "ctl-petal-distance",  field: "petalDistanceFactor", parse: parseFloat },
-    { id: "ctl-bloom-strength",  field: "bloomStrength",       parse: parseFloat },
-    { id: "ctl-bloom-radius",    field: "bloomRadius",         parse: parseFloat },
-    { id: "ctl-bloom-threshold", field: "bloomThreshold",      parse: parseFloat },
-    { id: "ctl-dash-speed",      field: "dashSpeed",           parse: parseFloat },
-    { id: "ctl-line-width",      field: "lineWidth",           parse: parseFloat },
-  ],
-  toggles: ["fill", "wire", "shader", "bands", "bridge", "flat"],
-  rebuild: new Set(["radius", "seed", "nominalHexRadius", "petalDistanceFactor"]),
-  live: new Set([
-    "bloomStrength", "bloomRadius", "bloomThreshold", "dashSpeed", "lineWidth",
-  ]),
-};
-
 /** Sidebar of `hex-crawler.html` (the Phaser crawler). */
 export const CRAWLER_SCHEMA = {
   inputs: [
@@ -99,9 +79,9 @@ function parseSeed(raw) {
  * Snapshot the current settings from the DOM. Used at boot and on every change.
  *
  * @param {HTMLElement} rootEl The `.controls` element.
- * @param {ControlSchema} [schema] Defaults to the terrain sidebar.
+ * @param {ControlSchema} schema The page's control surface.
  */
-export function readSettingsFromDOM(rootEl, schema = TERRAIN_SCHEMA) {
+export function readSettingsFromDOM(rootEl, schema) {
   const out = {};
   for (const spec of schema.inputs) {
     const el = rootEl.querySelector(`#${spec.id}`);
@@ -133,12 +113,11 @@ const debounce = (fn, ms) => {
  * @param {(settings: object) => void} cb.onApply  - rebuild knobs.
  * @param {(settings: object) => void} cb.onLive   - live (visual) knobs.
  * @param {(key: string, on: boolean) => void} cb.onToggle - display flags.
- * @param {ControlSchema} [cb.schema] - the page's control surface; defaults to
- *   the terrain sidebar.
+ * @param {ControlSchema} cb.schema - the page's control surface.
  */
 export function bindControls(
   rootEl,
-  { initialSettings, onApply, onLive, onToggle, schema = TERRAIN_SCHEMA },
+  { initialSettings, onApply, onLive, onToggle, schema },
 ) {
   const read = () => readSettingsFromDOM(rootEl, schema);
   const liveDispatch = debounce(() => onLive(read()), 80);

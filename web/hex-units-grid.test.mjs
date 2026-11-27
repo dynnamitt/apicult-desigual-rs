@@ -21,7 +21,7 @@ const SPACING = Math.sqrt(3) * SIZE;
 const worldPos = (q, r) => [1.5 * SIZE * q, Math.sqrt(3) * SIZE * (r + q / 2)];
 
 /**
- * Synthesizes a `face_tris(false)` buffer for a hexagon of the given radius.
+ * Synthesizes a `face_tris()` buffer for a hexagon of the given radius.
  * Only the fan-center vertex of each triangle is read by the graph builder;
  * the perimeter corners are filled with plausible junk.
  *

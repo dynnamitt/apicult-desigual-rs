@@ -143,7 +143,7 @@ a:focus-visible { outline: 2px solid var(--quad); outline-offset: 2px; }
 <p>The words this page uses for the parts of the grid:</p>
 {{f0}}
 <dl class="terms">
-<dt>cell</dt><dd>One hexagon of the grid: a <code>HexCell { hex, height, radius, entangled }</code>. Its <code>hex</code> is the hexx coordinate, axial <code>(q, r)</code>. This page says <em>cell</em> for the grid element and <code>Hex</code> only for the coordinate type.</dd>
+<dt>cell</dt><dd>One hexagon of the grid: a <code>HexCell { hex, height, radius }</code>. Its <code>hex</code> is the hexx coordinate, axial <code>(q, r)</code>. This page says <em>cell</em> for the grid element and <code>Hex</code> only for the coordinate type.</dd>
 <dt>centre</dt><dd>The cell's world position, a <code>Vec2(x, z)</code>. Centres sit on a fixed lattice, <code>√3 · nominal_hex_radius</code> apart. Height is <code>y</code>, so 3D points are <code>Vec3(x, height, z)</code>.</dd>
 <dt>nominal radius</dt><dd><code>nominal_hex_radius</code> in <code>HGridSettings</code> (default 4): the corner radius at which neighbouring faces would just touch. It fixes the lattice. Each cell's own <code>radius</code> comes from noise, between <code>min_radius_ratio</code> and <code>max_radius_ratio</code> times it (0.05 and 0.9 by default).</dd>
 <dt>corner</dt><dd>One of the six points at distance <code>cell.radius</code> from the centre, in the directions of a unit hexagon's corners, at the cell's height, numbered 0–5 (hexx <code>VertexDirection</code>).</dd>
@@ -289,26 +289,25 @@ a:focus-visible { outline: 2px solid var(--quad); outline-offset: 2px; }
 <li>A cell's height and radius come from noise at its world position, unless pinned through <code>overrides</code>. Its neighbours don't affect them, and neither does the size or centre of the grid. That is why a chunk can be built on its own (<a href="#chunks">section 5</a>).</li>
 <li>Corners scale with <code>cell.radius</code>; centres don't (see <a href="#terms">terms</a>). So a smaller cell widens the gaps around it, but never moves.</li>
 </ul>
-<p><code>all_tris(entangled)</code> walks the grid once. For each cell it appends, in a fixed order, exactly what that cell owns under the <a href="#ownership">ownership rules</a>:</p>
+<p><code>all_tris()</code> walks the grid once. For each cell it appends, in a fixed order, exactly what that cell owns under the <a href="#ownership">ownership rules</a>:</p>
 {{f7}}
 <p>Because ownership is per cell, any way of splitting the cells into groups splits the triangle stream with no overlap and no holes. Chunks are one such split; <code>chunk::tests::owned_streams_partition_world</code> checks it bit for bit.</p>
 <h2 id="entangled">4 · Entangled cells</h2>
-<p>Each cell carries an <code>entangled</code> flag (<a href="https://github.com/dynnamitt/apicult-desigual-rs/issues/8">#8</a>), set through the <code>entangle: &amp;[Hex]</code> argument of <code>HGridLayout::new</code>, and two rules for the gaps:</p>
+<p>A chunk layout (<a href="#chunks">section 5</a>) holds one ring of cells more than the chunk: its neighbours' cells at distance <code>r + 1</code> from the centre, so every gap along the chunk's edge has both sides. Those are the <em>entangled</em> cells (<code>is_entangled(hex)</code>). Being entangled is not something a cell stores; it follows from where the cell sits. A <code>HGridLayout::new</code> grid has none.</p>
 <ul id="entangle-rules">
-<li>A gap quad bridges two cells, so it is entangled only if <em>both</em> of them are. A quad between an entangled cell and a plain one counts as plain, and <code>all_tris(false)</code> draws it. (<a href="https://github.com/dynnamitt/apicult-desigual-rs/issues/8">#8</a> calls this the <em>bridging</em> rule.)</li>
-<li>Junction triangles are never entangled. <code>all_tris(true)</code> skips them, and <code>all_tris(false)</code> always includes them.</li>
+<li>An entangled cell emits no face: its own chunk draws that.</li>
+<li>A gap quad between two entangled cells is skipped: it touches no cell of the chunk.</li>
+<li>Every other gap piece an entangled cell owns is kept. Those are the chunk's <em>entangled seam tris</em>.</li>
 </ul>
-<p><code>all_tris(entangled)</code>, <code>hex_face_tris(entangled)</code> and <code>gap_quad_tris(entangled)</code> return only the matching part, so a consumer can drive entangled and plain cells with two materials. <code>entangle_borderline(dir)</code> marks one outer side of the grid.</p>
-<p>Example: entangle the whole outer ring of a radius-3 grid. <code>all_tris(false)</code> skips the ring's faces and the gap quads between two ring cells (both entangled, by the <a href="#entangle-rules">first rule</a>), but keeps every gap piece that reaches an inner cell, whoever owns it. The inner cells come out with a closed outline:</p>
+<p>So <code>all_tris()</code> on a chunk layout draws the chunk's faces and every gap piece that reaches an own cell, whoever owns it. The outline is closed on all six sides:</p>
 {{f10g}}
-<p>The terrain page's flower (<a href="https://github.com/dynnamitt/apicult-desigual-rs/issues/9">#9</a>) uses this per petal. Each petal entangles its ring of cells facing a neighbour and copies the neighbour's border values into it with overrides. The earlier-placed layout owns every gap piece the two share, so each is drawn once, with no z-fighting and no doubled triangles.</p>
 <p><code>HGridLayout::for_chunk</code> builds exactly the layout in the figure above, for one chunk.</p>
 
 <h2 id="chunks">5 · Streaming chunks</h2>
-<p><code>src/chunk.rs</code> builds any chunk of an unbounded world on demand from its coordinate. <code>NoiseWorld { settings, chunk_radius }</code> implements <code>ChunkSource::chunk(coord) -&gt; Chunk</code>. One <code>NoiseWorld</code>, and so one set of seeds, serves the whole world.</p>
-<p>A chunk is the radius-<code>r</code> hexagon of cells with <code>hex.to_lower_res(r) == coord</code> (<a href="#resolution">section 2</a>). <code>HGridLayout::for_chunk(g, coord, r)</code> builds it with one extra <em>entangled ring</em> of neighbour cells at distance <code>r + 1</code>. It samples noise at world positions and ignores <code>g.radius</code>, so a chunk built alone matches its neighbours exactly. The layout is then cut into two streams:</p>
+<p><code>src/chunk.rs</code> builds any chunk of an unbounded world on demand from its coordinate. <code>NoiseWorld { settings, chunk_radius }</code> implements <code>ChunkSource::chunk(coord) -&gt; Result&lt;Chunk, ChunkError&gt;</code>. One <code>NoiseWorld</code>, and so one set of seeds, serves the whole world.</p>
+<p>A chunk is the radius-<code>r</code> hexagon of cells with <code>hex.to_lower_res(r) == coord</code> (<a href="#resolution">section 2</a>). <code>HGridLayout::for_chunk(g, coord, r, overrides)</code> builds it with one extra <em>entangled ring</em> of neighbour cells at distance <code>r + 1</code>. It samples noise at world positions, so a chunk built alone matches its neighbours exactly, then applies <code>overrides</code>: the stored edits of the chunk's own cells and of its ring. The layout is then cut into two streams:</p>
 <ul>
-<li><strong>owned</strong>: <code>owned_tris_into(cell, false)</code> for each of the chunk's own cells, concatenated (<code>owned_runs</code> gives each cell's count). Across all chunks the owned streams cover the world with no overlap and no holes.</li>
+<li><strong>owned</strong>: <code>owned_tris_into(cell)</code> for each of the chunk's own cells, concatenated (<code>owned_runs</code> gives each cell's count). Across all chunks the owned streams cover the world with no overlap and no holes.</li>
 <li><strong>seams</strong>: the gaps that ring cells own and that touch the chunk, grouped by the neighbour chunk that owns them. Each group is a copy of triangles in that neighbour's owned stream. A junction triangle at a chunk corner touches a third chunk too, which carries the same copy, so its group also names that chunk (<code>Seam { owner, also, tris }</code>).</li>
 </ul>
 {{f14}}
@@ -318,7 +317,7 @@ a:focus-visible { outline: 2px solid var(--quad); outline-offset: 2px; }
 <li>Entangled cells are never state. A change to a cell goes to its owning chunk only.</li>
 <li>A changed cell rebuilds its own chunk and every chunk that has it in its entangled ring: 1 chunk for an interior cell, 2 along a chunk edge, 3 at a chunk corner.</li>
 </ol>
-<p>In the browser, <code>WasmChunkWorld::new(chunk_radius, height_seed, radius_seed)</code> hands out <code>chunk(q, r)</code> with flat <code>owned()</code> / <code>seam(i)</code> buffers and <code>seam_keys()</code>. The <a href="hex-stream.html">chunk treadmill</a> keeps seven chunks loaded around a moving camera and follows rule 1 on every step.</p>
+<p>In the browser, <code>WasmChunkWorld::new(chunk_radius, height_seed, radius_seed)</code> hands out <code>chunk(q, r)</code> with flat <code>owned()</code> / <code>seam(i)</code> buffers and <code>seam_keys()</code>. The <a href="index.html">chunk treadmill</a> keeps seven chunks loaded around a moving camera and follows rule 1 on every step.</p>
 </main>
 <script>
 (function () {

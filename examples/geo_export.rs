@@ -55,7 +55,7 @@ fn main() {
     if let Some(seed) = radius_seed {
         settings.radius_noise.seed = seed;
     }
-    let layout = HGridLayout::new(&settings, radius, &[], &[]);
+    let layout = HGridLayout::new(&settings, radius);
 
     let stdout = io::stdout();
     let mut out = stdout.lock();

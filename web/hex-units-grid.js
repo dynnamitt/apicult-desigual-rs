@@ -2,7 +2,7 @@
  * Hex-cell graph + A* pathfinding for the Babylon units demo.
  *
  * Deliberately engine-free: it takes the raw `Float32Array` from
- * `WasmLayout.face_tris(false)` and returns plain objects/arrays, so it runs
+ * `WasmLayout.face_tris()` and returns plain objects/arrays, so it runs
  * unchanged under node (see `web/hex-units-grid.test.mjs`).
  *
  * ## Where the cell centers come from
@@ -55,7 +55,7 @@ const planarDistSq = (c, a, b) => {
 /**
  * Builds the cell graph from a per-hex face-fan stream.
  *
- * @param {Float32Array} faceTris `WasmLayout.face_tris(entangled)` output.
+ * @param {Float32Array} faceTris `WasmLayout.face_tris()` output.
  * @returns {CellGraph}
  */
 export function buildCellGraph(faceTris) {

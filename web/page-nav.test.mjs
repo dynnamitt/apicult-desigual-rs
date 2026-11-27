@@ -5,9 +5,9 @@ import { readdirSync, readFileSync } from "node:fs";
 import { PAGES, pageOptions } from "./page-nav.js";
 
 const WEB_DIR = new URL(".", import.meta.url);
-// `make` publishes hex-terrain.html as index.html and the guide from its template; every other page keeps its name.
+// `make` publishes hex-stream.html (the treadmill) as index.html and the guide from its template; every other page keeps its name.
 const GUIDE_TMPL = "../docs/guide/guide.tmpl.html";
-const SOURCE_OF = { "index.html": "hex-terrain.html", "guide.html": GUIDE_TMPL };
+const SOURCE_OF = { "index.html": "hex-stream.html", "guide.html": GUIDE_TMPL };
 const PUBLISHED_PAGES = [...readdirSync(WEB_DIR).filter((f) => f.endsWith(".html")), GUIDE_TMPL];
 
 test("PAGES lists every published html page exactly once", () => {
@@ -25,7 +25,7 @@ test("every page mounts the shared nav", () => {
 
 test("pageOptions selects the current page", () => {
   const selected = (path) => pageOptions(path).filter((o) => o.selected).map((o) => o.href);
-  assert.deepEqual(selected("/apicult-desigual-rs/hex-stream.html"), ["hex-stream.html"]);
+  assert.deepEqual(selected("/apicult-desigual-rs/hex-units.html"), ["hex-units.html"]);
   assert.deepEqual(selected("/apicult-desigual-rs/"), ["index.html"]);
   assert.deepEqual(selected("/index.html"), ["index.html"]);
   assert.deepEqual(selected("/nope.html"), []);

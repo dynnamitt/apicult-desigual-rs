@@ -80,7 +80,7 @@ test("hex faces carry no second cell", () => {
   }
 });
 
-test("weights follow the terrain page's convention", () => {
+test("weights follow the band-shader convention", () => {
   const board = boardOf(fixture(1));
   const at = (v, f) => board.vertices[v * FLOATS_PER_VERTEX + f];
   const KIND = 5, WEIGHT = 6;
