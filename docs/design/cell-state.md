@@ -25,12 +25,12 @@ Target API for epic #39. The decisions come from #29, #37 and #38 (D1–D8 in #3
 | term | meaning |
 |---|---|
 | own cells | the radius-`chunk_radius` hexagon of cells with `hex.to_lower_res(chunk_radius) == coord` |
-| `entangled_ring` | the cells at distance `chunk_radius + 1` from the chunk centre. Every chunk layout holds them, so the gaps along its edge have both sides. Each one is in 2 or 3 chunk layouts, and is never state there |
-| `is_entangled(h)` | `center.distance_to(h) == chunk_radius + 1`. Replaces the `HexCell.entangled` field |
+| `entangled_ring` | the cells at distance `chunk_radius + 1` from the chunk centre. Every chunk layout holds them, so the gaps along its edge have both sides. Each one is an own cell of its own chunk and sits in the entangled ring of 1 or 2 others (chunk edge or corner); it is never state in those |
+| `is_entangled(h)` | `center.unsigned_distance_to(h) == chunk_radius + 1`. Replaces the `HexCell.entangled` field |
 | `tri_sequence` | the 14 tris an own cell owns: 6 face, 6 gap-quad (3 quads), 2 junction. Replaces "run" (`owned_runs`, `first_tri`). `TriSequence` (type), `triSequence` (JS, Zig) |
 | `entangled_seam_tris` | the tris the entangled ring gives a chunk: per entangled cell, its quads, then its junctions |
 | `entangled_seam_counts` | per entangled cell, its count of quad tris, then of junction tris |
-| `EntangledSeam` | a seam key `(owner, also)`. `also` is the third chunk a junction tri touches |
+| `EntangledSeam` | a seam key `(owner, also)`. `also` is the third chunk a junction tri touches, or none |
 
 ## Decisions
 
@@ -53,7 +53,7 @@ Target API for epic #39. The decisions come from #29, #37 and #38 (D1–D8 in #3
   - `entangled_seam_tris` in `center.ring(chunk_radius + 1)` order, with `entangled_seam_counts` (two per entangled cell: quad tris, then junction tris).
   - No byte format or hash in apicult.
 - **D15, `Chunk` is deleted.** The dump is a set of free functions of a layout: own cells' state, own tris, `entangled_seam_tris`, `entangled_seam_counts`. Each consumer assembles its own bundle.
-- **D10, the seam cut is its own rule.** Today the `entangled` filter makes the cut: `owned_tris_into(h, false, …)` on an entangled cell drops its face fan and the quads between two entangled cells, and the layout ends at `chunk_radius + 1`. After D6 the rule is stated directly: *an entangled cell emits only the quads and junctions that touch an own cell.* At `chunk_radius` 6 the 42 entangled cells emit 0 face, 78 quad and 40 junction tris. Of the 78 quads between the ring and the chunk, the ring owns 39 and the own cells own the other 39.
+- **D10, the seam cut is its own rule.** Today the `entangled` filter makes the cut: `owned_tris_into(h, false, …)` on an entangled cell drops its face fan and the quads between two entangled cells, and the layout ends at `chunk_radius + 1`. After D6 the rule is stated directly: *an entangled cell emits only the quads and junctions that touch an own cell.* At `chunk_radius` 6 the 42 entangled cells emit 0 face, 78 quad (39 quads) and 40 junction tris. Of the 78 quads between the ring and the chunk, the ring owns those 39 and the own cells own the other 39.
 - **D5, a stateless delta.** `delta(g, coord, chunk_radius, overrides, hex)` returns the `tri_sequence`s of the changed cell and its 6 neighbours (≤ 7 × 14 own tris at offsets 14·i, plus any entangled seam tris they own), built by the same code as the full chunk. A height edit keeps the topology, so the consumer overwrites those ranges in place. No reactive or observer plumbing.
 
 ### Seams
@@ -65,21 +65,23 @@ Target API for epic #39. The decisions come from #29, #37 and #38 (D1–D8 in #3
 
 - **D8, `Result` everywhere.** `for_chunk`, the dump functions and `delta` return `Result<_, ChunkError>`. The remaining `expect`s become errors. The C ABI turns an error into null plus an error code (zig-fatmile parks that chunk in `TerrainStream.broken`).
 - **D18, the treadmill assembles chunks in JS.** `wasm.rs` exports the free functions one to one, and `WasmChunk` goes. `hex-stream.js` builds its seam groups from `entangled_seam_tris` and `entangled_seam_keys`, under node tests. Other demo packing (54-float `face_tris`, 78-float `face_bridge_quads`) also lives in the wasm or JS layer, not in `layout`.
-- **D11, the golden checksum is bridged.** A second checksum, in its own PR before step 2, hashes one `for_chunk` chunk: each own cell's 14 tris in `shapes::hexagon` order, then `entangled_seam_tris` in `center.ring(chunk_radius + 1)` order. #39 step 2 deletes `all_tris_golden_checksum`, which D6 would otherwise change without any change to the geometry.
+- **D11, the golden checksum is bridged.** A second checksum, in its own PR (#39 step 2), hashes one `for_chunk` chunk: each own cell's 14 tris in `shapes::hexagon` order, then `entangled_seam_tris` in `center.ring(chunk_radius + 1)` order. #39 step 4 deletes `all_tris_golden_checksum`, which D6 would otherwise change without any change to the geometry.
 - **D19, this note lives here.** `docs/design/cell-state.md`, with the flow chart as `cell-state-flow.svg`, linked from CLAUDE.md.
 
 ## Order of work
 
+The steps of #39:
+
 1. #29: this note.
 2. The D11 checksum PR.
 3. #2 (`NoiseParams`), with D14's amendment.
-4. #39 step 2: `for_chunk` with overrides (D3, D16), the flower deleted (D6).
-5. #39 step 3: the seam cut as functions of a layout, by hex coordinates (D10, D17, D7).
-6. #39 step 4: the dump (D4, D15), closing #37.
-7. #39 step 5: `delta` (D5), tested against a full rebuild bit for bit.
-8. #39 step 7: zig-fatmile's `apicult-ffi` down to a C ABI shim, then bump its pinned rev.
+4. `for_chunk` with overrides (D3, D8, D16), the flower deleted (D6), `entangled` derived from position (D9).
+5. The seam cut as functions of a layout, by hex coordinates (D10, D17, D7).
+6. The dump (D4, D15), closing #37. `Chunk`, `ChunkSource`, `NoiseWorld` and `WasmChunk` go (D16, D18).
+7. `delta` (D5), tested against a full rebuild bit for bit.
+8. zig-fatmile's `apicult-ffi` down to a C ABI shim, then bump its pinned rev.
 
-The D11 checksum stays green from item 2 on, and `all_tris_golden_checksum` until item 4 deletes it. Each step's PR adapts the demo pages it touches, and the JS tests stay green.
+The D11 checksum stays green from step 2 on, and `all_tris_golden_checksum` until step 4 deletes it. Each step's PR adapts the demo pages it touches, and the JS tests stay green.
 
 ## Not in scope
 
