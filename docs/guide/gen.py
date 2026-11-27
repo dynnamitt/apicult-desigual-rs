@@ -355,7 +355,7 @@ b = ([hexpoly(v, *h, R, "face entring") for h in rim] + [hexpoly(v, *h, R, "face
 figs["f10g"] = fig("\n".join(b), 500, 490, "A chunk layout of radius 2: all_tris() closes the outline of the chunk's own cells",
   "<code>HGridLayout::for_chunk(g, (0,0), 2, &amp;[])</code>: 19 own cells and an entangled ring at distance 3. <code>all_tris()</code> draws the 19 own faces (solid) and every gap touching an own cell, whichever cell owns it. It skips the entangled cells' faces (dashed) and the gaps between two entangled cells. Ownership doesn't matter for the outline: it is closed on all six sides. That makes 312 triangles in total, the same as 19 faces plus every gap touching them; <code>for_chunk_all_tris_counts</code> pins the 312.")
 
-# ---- F14: one chunk's owned stream and seam groups (HGridLayout::for_chunk + NoiseWorld::chunk)
+# ---- F14: one chunk's own stream and seam groups (own_tris + entangled_seam_tris, keyed by owner)
 owner = {h: to_lower_res(*h, CR) for h in rim}
 tint = {h: (cq - cr) % 3 for h, (cq, cr) in owner.items()}
 assert all(to_lower_res(*h, CR) == (0, 0) for h in own) and 0 not in tint.values()

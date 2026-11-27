@@ -3,7 +3,7 @@
  * coordinates are loaded, what one step spawns and despawns, when the camera
  * has drifted far enough to step, and which seam groups to draw.
  *
- * Coordinates are `[q, r]` on the chunk lattice (`WasmChunkWorld.chunk(q, r)`),
+ * Coordinates are `[q, r]` on the chunk lattice (the wasm `chunk_*(…, q, r)` functions),
  * not cell coordinates. No engine or wasm imports, so it runs under plain node.
  */
 
@@ -24,7 +24,7 @@ export const FADE_IN_S = 0.6, FADE_OUT_S = 0.25;
 /** Opacity a despawned chunk holds for each step since it left: 10% on the first, 5% on the next, then dropped. */
 export const GHOST_ALPHAS = [0.1, 0.05];
 
-/** Ints per seam group in `WasmChunk.seam_keys()`: `[oq, or, aq, ar]`. */
+/** Ints per seam key (`chunk_entangled_seam_keys`, {@link groupSeams}): `[oq, or, aq, ar]`. */
 export const SEAM_KEY_STRIDE = 4;
 /** u16 values in one triangle of a flat f32 buffer (9 floats × 2). */
 const U16_PER_TRI = 18;
@@ -118,16 +118,42 @@ const before = ([q, r], [bq, br]) => q < bq || (q === bq && r < br);
  * `src/chunk.rs`): the owner isn't loaded, and the `also` chunk a corner
  * triangle touches isn't loaded either or comes after `self` in `(q, r)`
  * order — so of two loaded carriers exactly one draws a corner.
- * @param {Int32Array|number[]} keys `WasmChunk.seam_keys()`, `[oq, or, aq, ar, …]`
+ * @param {Int32Array|number[]} keys {@link groupSeams}' group keys, `[oq, or, aq, ar, …]`
  * @param {[number, number]} self the carrying chunk's coordinate
  * @param {Set<string>} loaded keys from {@link chunkKey}
- * @returns {number[]} group indices for `WasmChunk.seam(i)`.
+ * @returns {number[]} indices into {@link groupSeams}' groups.
  */
 export const visibleSeamGroups = (keys, self, loaded) =>
   Array.from({ length: keys.length / SEAM_KEY_STRIDE }, (_, i) => i).filter((i) => {
     const [oq, or, aq, ar] = keys.slice(SEAM_KEY_STRIDE * i, SEAM_KEY_STRIDE * (i + 1));
     return !loaded.has(chunkKey(oq, or)) && (!loaded.has(chunkKey(aq, ar)) || before(self, [aq, ar]));
   });
+
+/** Floats per triangle in a flat tri buffer: 3 corners × `(x, y, z)`. */
+const FLOATS_PER_TRI = 9;
+
+/**
+ * Group a chunk's entangled seam tris by key, in first-seen order, so each
+ * group can be one mesh that {@link visibleSeamGroups} shows or hides.
+ * @param {Int32Array|number[]} keys `chunk_entangled_seam_keys`, 4 ints per tri
+ * @param {Float32Array} tris `chunk_entangled_seam_tris`, 9 floats per tri, parallel to `keys`
+ * @returns {{keys: Int32Array, groups: Float32Array[]}} 4 ints per group, and each group's tris
+ */
+export const groupSeams = (keys, tris) => {
+  const order = new Map(); // key string → group index
+  const groupKeys = [], groups = [];
+  for (let i = 0; i < keys.length / SEAM_KEY_STRIDE; i++) {
+    const key = Array.from(keys.slice(SEAM_KEY_STRIDE * i, SEAM_KEY_STRIDE * (i + 1)));
+    const id = key.join(",");
+    if (!order.has(id)) {
+      order.set(id, groups.length);
+      groupKeys.push(...key);
+      groups.push([]);
+    }
+    groups[order.get(id)].push(...tris.subarray(FLOATS_PER_TRI * i, FLOATS_PER_TRI * (i + 1)));
+  }
+  return { keys: Int32Array.from(groupKeys), groups: groups.map((g) => Float32Array.from(g)) };
+};
 
 /**
  * Triangles that appear more than once across flat `n_tris * 9` buffers (bit-exact match).

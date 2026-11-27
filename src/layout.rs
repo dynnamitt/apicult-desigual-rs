@@ -176,24 +176,7 @@ impl HGridLayout {
         chunk_radius: u32,
         overrides: &[Override],
     ) -> Result<Self, ChunkError> {
-        // `to_higher_res` multiplies in `i32`: rule out overflow (a panic in
-        // debug builds) before calling it, with room for the ring.
-        let (range, q, r) = (i64::from(chunk_radius), i64::from(coord.x), i64::from(coord.y));
-        let fits = |v: i64| v.abs() + range < i64::from(i32::MAX);
-        let (cq, cr) = (q * (range + 1) + range * (q + r), r * (range + 1) - range * q);
-        if ![q + r, cq, cr, cq + cr].into_iter().all(fits) {
-            return Err(ChunkError::TooFarFromOrigin(coord));
-        }
-        let center = coord.to_higher_res(chunk_radius);
-        // Own cells must map to `coord` and ring cells away from it: `Chunk`'s
-        // seam owners come from the ring cells' `to_lower_res`.
-        let misplaced = shapes::hexagon(center, chunk_radius + 1).any(|h| {
-            let own = center.unsigned_distance_to(h) <= chunk_radius;
-            (h.to_lower_res(chunk_radius) == coord) != own
-        });
-        if misplaced {
-            return Err(ChunkError::TooFarFromOrigin(coord));
-        }
+        let center = chunk_center_hex(coord, chunk_radius)?;
         let mut layout = Self::build(g, center, chunk_radius + 1, true);
         layout.apply(overrides)?;
         Ok(layout)
@@ -455,6 +438,11 @@ impl HGridLayout {
         shapes::hexagon(self.center, self.grid_radius - u32::from(self.chunk))
     }
 
+    /// The own cells' state, parallel to [`own_cells`](Self::own_cells).
+    pub fn own_cell_states(&self) -> Vec<HexCell> {
+        self.own_cells().map(|h| self.cells[h]).collect()
+    }
+
     /// The entangled ring's cells in `center.ring(chunk_radius + 1)` order;
     /// none for a `new` grid.
     pub fn entangled_ring(&self) -> impl Iterator<Item = Hex> + '_ {
@@ -635,6 +623,33 @@ impl HGridLayout {
         math::idw_interpolate_height(pos, &vertices)
             .unwrap_or_else(|| self.cells.get(hex).map(|c| c.height).unwrap_or(0.0))
     }
+}
+
+/// The centre cell of chunk `coord`, if the chunk can be built exactly: its
+/// centre and ring fit in `i32`, and `to_lower_res` (which divides in `f32`)
+/// maps its own cells to `coord` and its ring cells elsewhere. Shared by
+/// [`HGridLayout::for_chunk`] and `entangled_seam_keys`, so both reject the
+/// same chunks.
+pub(crate) fn chunk_center_hex(coord: Hex, chunk_radius: u32) -> Result<Hex, ChunkError> {
+    // `to_higher_res` multiplies in `i32`: rule out overflow (a panic in
+    // debug builds) before calling it, with room for the ring.
+    let (range, q, r) = (i64::from(chunk_radius), i64::from(coord.x), i64::from(coord.y));
+    let fits = |v: i64| v.abs() + range < i64::from(i32::MAX);
+    let (cq, cr) = (q * (range + 1) + range * (q + r), r * (range + 1) - range * q);
+    if ![q + r, cq, cr, cq + cr].into_iter().all(fits) {
+        return Err(ChunkError::TooFarFromOrigin(coord));
+    }
+    let center = coord.to_higher_res(chunk_radius);
+    // Own cells must map to `coord` and ring cells away from it: seam owners
+    // (`entangled_seam_keys`) come from the ring cells' `to_lower_res`.
+    let misplaced = shapes::hexagon(center, chunk_radius + 1).any(|h| {
+        let own = center.unsigned_distance_to(h) <= chunk_radius;
+        (h.to_lower_res(chunk_radius) == coord) != own
+    });
+    if misplaced {
+        return Err(ChunkError::TooFarFromOrigin(coord));
+    }
+    Ok(center)
 }
 
 /// The gap pieces a cell owns, by hex coordinates only (no heights or radii).

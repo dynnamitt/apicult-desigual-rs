@@ -3,12 +3,12 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import {
   CHUNK_DIRS, chunkKey, footprint, stepFootprint, chunkCenter, nearestStep,
-  visibleSeamGroups, duplicateTris, advancePos, clampChunkRadius, MAX_FRAME_DT, MAX_CHUNK_RADIUS,
+  visibleSeamGroups, groupSeams, duplicateTris, advancePos, clampChunkRadius, MAX_FRAME_DT, MAX_CHUNK_RADIUS,
   advanceFade, ageGhost, FADE_IN_S, FADE_OUT_S, GHOST_ALPHAS, chunkHash,
 } from "./hex-stream.js";
 
 const ANCHOR = [2, -1];
-// Any non-degenerate lattice basis; the real one comes from WasmChunk.center().
+// Any non-degenerate lattice basis; the real one comes from the wasm chunk_center().
 const U = [17.3, -6.0], V = [3.0, 15.5];
 const PART_WAY = 0.6;
 const keys = (coords) => new Set(coords.map(([q, r]) => chunkKey(q, r)));
@@ -84,6 +84,17 @@ test("visibleSeamGroups follows the corner tie-break table", () => {
   assert.deepEqual(names(B), ["B"]);
   assert.deepEqual(names(A, B), ["A"]);
   assert.deepEqual(names(), []);
+});
+
+test("groupSeams groups tris by key in first-seen order", () => {
+  const tri = (n) => Array.from({ length: 9 }, (_, i) => n + i / 10);
+  const keys = Int32Array.from([1, 0, 1, 0, 1, -1, 1, 0, 1, 0, 1, 0, 2, 2, 2, 2]);
+  const tris = Float32Array.from([...tri(1), ...tri(2), ...tri(3), ...tri(4)]);
+  const { keys: k, groups } = groupSeams(keys, tris);
+  assert.deepEqual(Array.from(k), [1, 0, 1, 0, 1, -1, 1, 0, 2, 2, 2, 2]);
+  assert.deepEqual(groups.map((g) => g.length / 9), [2, 1, 1]);
+  assert.deepEqual(Array.from(groups[0]), Array.from(Float32Array.from([...tri(1), ...tri(3)])));
+  assert.deepEqual(groupSeams([], new Float32Array()), { keys: new Int32Array(), groups: [] });
 });
 
 test("duplicateTris counts exact repeats across buffers", () => {

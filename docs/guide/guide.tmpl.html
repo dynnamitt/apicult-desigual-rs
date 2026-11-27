@@ -303,20 +303,20 @@ a:focus-visible { outline: 2px solid var(--quad); outline-offset: 2px; }
 {{f10g}}
 
 <h2 id="chunks">5 · Streaming chunks</h2>
-<p><code>src/chunk.rs</code> builds any chunk of an unbounded world on demand from its coordinate. <code>NoiseWorld { settings, chunk_radius }</code> implements <code>ChunkSource::chunk(coord) -&gt; Result&lt;Chunk, ChunkError&gt;</code>. One <code>NoiseWorld</code>, and so one set of seeds, serves the whole world.</p>
-<p>A chunk is the radius-<code>r</code> hexagon of cells with <code>hex.to_lower_res(r) == coord</code> (<a href="#resolution">section 2</a>). <code>HGridLayout::for_chunk(g, coord, r, overrides)</code> builds it with one extra <em>entangled ring</em> of neighbour cells at distance <code>r + 1</code>. It samples noise at world positions, so a chunk built alone matches its neighbours exactly, then applies <code>overrides</code>: the stored edits of the chunk's own cells and of its ring. The layout is then cut into two streams:</p>
+<p>Any chunk of an unbounded world is built on demand from its coordinate, with one set of settings (and so one set of seeds) for the whole world.</p>
+<p>A chunk is the radius-<code>r</code> hexagon of cells with <code>hex.to_lower_res(r) == coord</code> (<a href="#resolution">section 2</a>). <code>HGridLayout::for_chunk(g, coord, r, overrides)</code> builds it with one extra <em>entangled ring</em> of neighbour cells at distance <code>r + 1</code>. It samples noise at world positions, so a chunk built alone matches its neighbours exactly, then applies <code>overrides</code>: the stored edits of the chunk's own cells and of its ring. Layout functions then cut it into two streams:</p>
 <ul>
-<li><strong>owned</strong>: <code>owned_tris_into(cell)</code> for each of the chunk's own cells, concatenated (<code>owned_runs</code> gives each cell's count). Across all chunks the owned streams cover the world with no overlap and no holes.</li>
-<li><strong>seams</strong>: the gaps that ring cells own and that touch the chunk, grouped by the neighbour chunk that owns them. Each group is a copy of triangles in that neighbour's owned stream. A junction triangle at a chunk corner touches a third chunk too, which carries the same copy, so its group also names that chunk (<code>Seam { owner, also, tris }</code>).</li>
+<li><strong>own</strong>: <code>own_tris()</code>, what the chunk's own cells own, 14 triangles per cell in <code>own_cells()</code> order. Across all chunks the own streams cover the world with no overlap and no holes.</li>
+<li><strong>entangled seams</strong>: <code>entangled_seam_tris()</code>, the gaps that ring cells own and that touch the chunk. Each is a copy of a triangle in the owning neighbour's own stream. <code>entangled_seam_keys(coord, r)</code> names that owner for each one, from hex coordinates alone. A junction triangle at a chunk corner touches a third chunk too, which carries the same copy, so its key also names that chunk (<code>EntangledSeam { owner, also }</code>).</li>
 </ul>
 {{f14}}
 <p>Rules for consumers, from the module docs:</p>
 <ol>
-<li>Always draw the owned stream. Draw a seam only while its owner isn't loaded. If it names a third chunk, draw it only while that chunk isn't loaded either, or comes after this one in <code>(q, r)</code> order. Every triangle touching a loaded chunk is then drawn exactly once (<code>EntangledSeam::drawn</code>; its test cases are in <code>testdata/entangled_seam_drawn.tsv</code>).</li>
-<li>Entangled cells are never state. A change to a cell goes to its owning chunk only.</li>
+<li>Always draw the own stream. Draw a seam triangle only while its owner isn't loaded. If it names a third chunk, draw it only while that chunk isn't loaded either, or comes after this one in <code>(q, r)</code> order. Every triangle touching a loaded chunk is then drawn exactly once (<code>EntangledSeam::drawn</code>; its test cases are in <code>testdata/entangled_seam_drawn.tsv</code>).</li>
+<li>Entangled cells are never state. A change to a cell is stored under its owning chunk only, and passed as an override to every layout that holds it.</li>
 <li>A changed cell rebuilds its own chunk and every chunk that has it in its entangled ring: 1 chunk for an interior cell, 2 along a chunk edge, 3 at a chunk corner.</li>
 </ol>
-<p>In the browser, <code>WasmChunkWorld::new(chunk_radius, height_seed, radius_seed)</code> hands out <code>chunk(q, r)</code> with flat <code>owned()</code> / <code>seam(i)</code> buffers and <code>seam_keys()</code>. The <a href="index.html">chunk treadmill</a> keeps seven chunks loaded around a moving camera and follows rule 1 on every step.</p>
+<p>In the browser, <code>chunk_own_tris</code>, <code>chunk_entangled_seam_tris</code> and <code>chunk_entangled_seam_keys</code> hand out the same streams as flat buffers, one call per chunk. The <a href="index.html">chunk treadmill</a> keeps seven chunks loaded around a moving camera and follows rule 1 on every step.</p>
 </main>
 <script>
 (function () {

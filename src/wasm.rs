@@ -19,14 +19,16 @@
 //! segments (along one hex's side). Consumers wanting a single role can
 //! derive it from the quad-local index without any extra metadata.
 //!
-//! `WasmChunkWorld` / `WasmChunk` give the treadmill page its chunks.
+//! Chunks cross as stateless functions, one per layout function (D1, D18 in
+//! `docs/design/cell-state.md`): each call builds chunk `(q, r)` from the
+//! seeds and returns one flat buffer. The treadmill groups seams itself.
 
 use glam::Vec3;
 use hexx::Hex;
 use wasm_bindgen::prelude::*;
 
-use crate::chunk::{Chunk, ChunkSource, NoiseWorld};
-use crate::layout::{HGridLayout, HGridSettings};
+use crate::chunk::entangled_seam_keys;
+use crate::layout::{ChunkError, HGridLayout, HGridSettings};
 
 /// Project defaults with the two noise seeds the pages choose.
 fn seeded(height_seed: u32, radius_seed: u32) -> HGridSettings {
@@ -95,79 +97,98 @@ impl WasmLayout {
     }
 }
 
-/// Chunk generator for one world: every chunk shares `chunk_radius` and both
-/// noise seeds (other settings are `HGridSettings::default()`).
-#[wasm_bindgen]
-pub struct WasmChunkWorld {
-    inner: NoiseWorld,
+fn js_error(e: ChunkError) -> JsError {
+    JsError::new(&e.to_string())
 }
 
-#[wasm_bindgen]
-impl WasmChunkWorld {
-    /// @param chunk_radius — rings of cells per chunk.
-    /// @param height_seed — height-noise seed, the same for every chunk.
-    /// @param radius_seed — radius-noise seed, the same for every chunk.
-    #[wasm_bindgen(constructor)]
-    pub fn new(chunk_radius: u32, height_seed: u32, radius_seed: u32) -> Self {
-        Self {
-            inner: NoiseWorld {
-                settings: seeded(height_seed, radius_seed),
-                chunk_radius,
-            },
-        }
-    }
-
-    /// Builds chunk `(q, r)` on the chunk lattice. Same seeds and coord give the same output.
-    ///
-    /// @throws when the chunk can't be built (see `HGridLayout::for_chunk`).
-    pub fn chunk(&self, q: i32, r: i32) -> Result<WasmChunk, JsError> {
-        let inner = self.inner.chunk(Hex::new(q, r)).map_err(|e| JsError::new(&e.to_string()))?;
-        Ok(WasmChunk { inner })
-    }
+/// Chunk `(q, r)` of the world with these seeds, with no edits.
+fn chunk_layout(
+    chunk_radius: u32,
+    height_seed: u32,
+    radius_seed: u32,
+    q: i32,
+    r: i32,
+) -> Result<HGridLayout, JsError> {
+    let g = seeded(height_seed, radius_seed);
+    HGridLayout::for_chunk(&g, Hex::new(q, r), chunk_radius, &[]).map_err(js_error)
 }
 
-/// One built chunk. All tri buffers are flat `n_tris * 9` floats in world space.
+/// `HGridLayout::own_tris` of chunk `(q, r)`: flat `n_tris * 9` world-space
+/// floats, 14 tris per own cell. Always drawn.
+///
+/// @throws when the chunk can't be built (see `HGridLayout::for_chunk`).
 #[wasm_bindgen]
-pub struct WasmChunk {
-    inner: Chunk,
+pub fn chunk_own_tris(
+    chunk_radius: u32,
+    height_seed: u32,
+    radius_seed: u32,
+    q: i32,
+    r: i32,
+) -> Result<Vec<f32>, JsError> {
+    let layout = chunk_layout(chunk_radius, height_seed, radius_seed, q, r)?;
+    Ok(flatten_tris(&layout.own_tris()))
 }
 
+/// `HGridLayout::own_cell_states` of chunk `(q, r)`: flat
+/// `[q, r, height, radius, …]`, 4 floats per own cell in `shapes::hexagon` order.
+///
+/// @throws when the chunk can't be built (see `HGridLayout::for_chunk`).
 #[wasm_bindgen]
-impl WasmChunk {
-    /// Owned stream — always drawn.
-    pub fn owned(&self) -> Vec<f32> {
-        flatten_tris(&self.inner.owned)
-    }
+pub fn chunk_own_cell_states(
+    chunk_radius: u32,
+    height_seed: u32,
+    radius_seed: u32,
+    q: i32,
+    r: i32,
+) -> Result<Vec<f32>, JsError> {
+    let layout = chunk_layout(chunk_radius, height_seed, radius_seed, q, r)?;
+    let cells = layout.own_cell_states();
+    Ok(cells.iter().flat_map(|c| [c.hex.x as f32, c.hex.y as f32, c.height, c.radius]).collect())
+}
 
-    /// World `[x, z]` of the chunk's centre cell.
-    pub fn center(&self) -> Vec<f32> {
-        vec![self.inner.center.x, self.inner.center.y]
-    }
+/// `HGridLayout::entangled_seam_tris` of chunk `(q, r)`: flat `n_tris * 9`
+/// world-space floats, parallel to [`chunk_entangled_seam_keys`]. Draw a tri
+/// only while `EntangledSeam::drawn` holds for its key.
+///
+/// @throws when the chunk can't be built (see `HGridLayout::for_chunk`).
+#[wasm_bindgen]
+pub fn chunk_entangled_seam_tris(
+    chunk_radius: u32,
+    height_seed: u32,
+    radius_seed: u32,
+    q: i32,
+    r: i32,
+) -> Result<Vec<f32>, JsError> {
+    let layout = chunk_layout(chunk_radius, height_seed, radius_seed, q, r)?;
+    Ok(flatten_tris(&layout.entangled_seam_tris()))
+}
 
-    /// Key of each seam group, flat `[owner_q, owner_r, also_q, also_r, …]`.
-    /// A seam with no `also` repeats its owner there, which makes rule 1
-    /// (`EntangledSeam::drawn`) reduce to "owner not loaded" with no special case.
-    ///
-    /// @returns {Vec<i32>} 4 ints per group, in `seam(i)` order.
-    pub fn seam_keys(&self) -> Vec<i32> {
-        self.inner
-            .seams
-            .iter()
-            .flat_map(|s| {
-                let also = s.also.unwrap_or(s.owner);
-                [s.owner.x, s.owner.y, also.x, also.y]
-            })
-            .collect()
-    }
+/// `entangled_seam_keys` of chunk `(q, r)`, flat `[owner_q, owner_r, also_q,
+/// also_r, …]`, 4 ints per seam tri. A key with no `also` repeats its owner
+/// there, which makes rule 1 (`EntangledSeam::drawn`) reduce to "owner not
+/// loaded" with no special case. Needs no seeds: keys depend only on the shape.
+///
+/// @throws when the chunk can't be built (see `HGridLayout::for_chunk`).
+#[wasm_bindgen]
+pub fn chunk_entangled_seam_keys(chunk_radius: u32, q: i32, r: i32) -> Result<Vec<i32>, JsError> {
+    let keys = entangled_seam_keys(Hex::new(q, r), chunk_radius).map_err(js_error)?;
+    Ok(keys
+        .iter()
+        .flat_map(|k| {
+            let also = k.also.unwrap_or(k.owner);
+            [k.owner.x, k.owner.y, also.x, also.y]
+        })
+        .collect())
+}
 
-    /// Seam group `i` — draw only while `EntangledSeam::drawn` holds. Empty when out of range.
-    pub fn seam(&self, i: usize) -> Vec<f32> {
-        self.inner
-            .seams
-            .get(i)
-            .map(|s| flatten_tris(&s.tris))
-            .unwrap_or_default()
-    }
+/// World `[x, z]` of chunk `(q, r)`'s centre cell. Needs no seeds.
+///
+/// @throws when the chunk can't be built (see `HGridLayout::for_chunk`).
+#[wasm_bindgen]
+pub fn chunk_center(chunk_radius: u32, q: i32, r: i32) -> Result<Vec<f32>, JsError> {
+    let layout = chunk_layout(chunk_radius, 0, 0, q, r)?;
+    let c = layout.hex_to_world_pos(layout.center());
+    Ok(vec![c.x, c.y])
 }
 
 fn flatten_tris(tris: &[[Vec3; 3]]) -> Vec<f32> {
@@ -209,35 +230,29 @@ fn flatten_wire_edges(quads: &[[Vec3; 4]]) -> Vec<f32> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::chunk::{ChunkSource, NoiseWorld};
 
     const CHUNK_RADIUS: u32 = 2;
     const HEIGHT_SEED: u32 = 43;
     const RADIUS_SEED: u32 = 137;
-    const OUT_OF_RANGE_SEAM: usize = 99;
 
     #[test]
-    fn wasm_chunk_flattens_streams() {
-        let world = WasmChunkWorld::new(CHUNK_RADIUS, HEIGHT_SEED, RADIUS_SEED);
-        let native = NoiseWorld {
-            settings: HGridSettings::default(),
-            chunk_radius: CHUNK_RADIUS,
-        };
+    fn chunk_functions_flatten_the_layout() {
         for (q, r) in [(0, 0), (-3, 2)] {
-            let wc = world.chunk(q, r).unwrap();
-            let c = native.chunk(Hex::new(q, r)).unwrap();
-            assert_eq!(wc.owned().len(), 9 * c.owned.len());
-            let keys = wc.seam_keys();
-            assert_eq!(keys.len(), 4 * c.seams.len());
-            for (i, s) in c.seams.iter().enumerate() {
-                assert_eq!(wc.seam(i).len(), 9 * s.tris.len());
-                let also = s.also.unwrap_or(s.owner);
-                assert_eq!(keys[4 * i..4 * i + 4], [s.owner.x, s.owner.y, also.x, also.y]);
-            }
-            assert!(c.seams.iter().any(|s| s.also.is_some()), "({q}, {r}): no corner seams");
-            assert!(wc.seam(OUT_OF_RANGE_SEAM).is_empty());
-            assert_eq!(wc.center(), vec![c.center.x, c.center.y]);
+            let g = seeded(HEIGHT_SEED, RADIUS_SEED);
+            let layout = HGridLayout::for_chunk(&g, Hex::new(q, r), CHUNK_RADIUS, &[]).unwrap();
+            let own = chunk_own_tris(CHUNK_RADIUS, HEIGHT_SEED, RADIUS_SEED, q, r).unwrap();
+            assert_eq!(own, flatten_tris(&layout.own_tris()));
+            let seam = chunk_entangled_seam_tris(CHUNK_RADIUS, HEIGHT_SEED, RADIUS_SEED, q, r);
+            let seam = seam.unwrap();
+            assert_eq!(seam, flatten_tris(&layout.entangled_seam_tris()));
+            let keys = chunk_entangled_seam_keys(CHUNK_RADIUS, q, r).unwrap();
+            assert_eq!(keys.len() / 4, seam.len() / 9);
+            assert!(keys.chunks(4).any(|k| k[..2] != k[2..]), "({q}, {r}): no corner keys");
+            let cells = chunk_own_cell_states(CHUNK_RADIUS, HEIGHT_SEED, RADIUS_SEED, q, r);
+            assert_eq!(cells.unwrap().len(), 4 * layout.own_cells().count());
+            let c = layout.hex_to_world_pos(layout.center());
+            assert_eq!(chunk_center(CHUNK_RADIUS, q, r).unwrap(), vec![c.x, c.y]);
         }
-        assert_eq!(world.chunk(0, 0).unwrap().center(), vec![0.0, 0.0]);
+        assert_eq!(chunk_center(CHUNK_RADIUS, 0, 0).unwrap(), vec![0.0, 0.0]);
     }
 }

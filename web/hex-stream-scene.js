@@ -4,7 +4,7 @@ import { weldedMesh } from "./three-weld.js";
 import { showError, needsResize, runFrames } from "./canvas.js";
 import {
   CHUNK_DIRS, chunkKey, footprint, stepFootprint, chunkCenter, nearestStep,
-  visibleSeamGroups, duplicateTris, SEAM_KEY_STRIDE, advancePos, clampChunkRadius, advanceFade, ageGhost, chunkHash,
+  visibleSeamGroups, groupSeams, duplicateTris, advancePos, clampChunkRadius, advanceFade, ageGhost, chunkHash,
 } from "./hex-stream.js";
 import { randomU32, seedSequence } from "./seed.js";
 
@@ -57,11 +57,12 @@ const disposeMesh = (group, mesh) => {
  * @param {HTMLElement} statsEl
  * @param {object} opts
  * @param {object} opts.initialSettings `STREAM_SCHEMA` snapshot.
- * @param {Function} opts.WasmChunkWorld wasm-bindgen class.
+ * @param {object} opts.wasm the wasm module's chunk functions: `chunk_own_tris`,
+ *   `chunk_entangled_seam_tris`, `chunk_entangled_seam_keys`, `chunk_center`.
  * @returns {{regenerate: (s: object) => void, updateLive: (s: object) => void,
  *   setToggle: (k: string, on: boolean) => void}}
  */
-export function mount(canvas, statsEl, { initialSettings, WasmChunkWorld }) {
+export function mount(canvas, statsEl, { initialSettings, wasm }) {
   try {
     const state = { ...initialSettings };
 
@@ -85,7 +86,7 @@ export function mount(canvas, statsEl, { initialSettings, WasmChunkWorld }) {
     const group = new THREE.Group();
     scene.add(group);
 
-    let world = null;
+    let world = null; // { radius, hSeed, rSeed }: one per build, so every chunk fits
     let loaded = new Map(); // chunkKey → { coord, owned: Mesh, seams: {mesh, tris}[], keys, fade, ghost }
     let anchor = [0, 0], pos = [0, 0], u = [0, 0], v = [0, 0], steps = 0;
     let overlaps = 0;
@@ -98,18 +99,21 @@ export function mount(canvas, statsEl, { initialSettings, WasmChunkWorld }) {
     });
 
     const buildChunk = (coord, alpha = 1) => {
-      const wc = world.chunk(coord[0], coord[1]);
-      const owned = new THREE.Mesh(weldedMesh(wc.owned()), material(chunkColor(coord)));
+      const { radius, hSeed, rSeed } = world;
+      const [q, r] = coord;
+      const own = wasm.chunk_own_tris(radius, hSeed, rSeed, q, r);
+      const owned = new THREE.Mesh(weldedMesh(own), material(chunkColor(coord)));
       group.add(owned);
-      const keys = wc.seam_keys();
-      const seams = Array.from({ length: keys.length / SEAM_KEY_STRIDE }, (_, i) => {
-        const tris = wc.seam(i);
+      const { keys, groups } = groupSeams(
+        wasm.chunk_entangled_seam_keys(radius, q, r),
+        wasm.chunk_entangled_seam_tris(radius, hSeed, rSeed, q, r),
+      );
+      const seams = groups.map((tris) => {
         const mesh = new THREE.Mesh(weldedMesh(tris), material(SEAM_COLOR));
         group.add(mesh);
         return { mesh, tris };
       });
-      const center = Array.from(wc.center());
-      wc.free();
+      const center = Array.from(wasm.chunk_center(radius, q, r));
       const c = { coord, center, owned, seams, keys, fade: { alpha, target: 1, delay: 0 }, ghost: 0 };
       applyAlpha(c);
       loaded.set(chunkKey(...coord), c);
@@ -138,7 +142,7 @@ export function mount(canvas, statsEl, { initialSettings, WasmChunkWorld }) {
         });
         c.owned.material.color.copy(color);
       });
-      // Seams doubling up is #27; owned streams are disjoint by construction (owned_streams_partition_world).
+      // Seams doubling up is #27; own streams are disjoint by construction (own_streams_partition_world).
       const chunks = [...loaded.values()];
       overlaps = duplicateTris(chunks.flatMap((c) => c.seams.filter((s) => s.mesh.visible).map((s) => s.tris)));
     };
@@ -176,7 +180,7 @@ export function mount(canvas, statsEl, { initialSettings, WasmChunkWorld }) {
       const [hSeed, rSeed] = state.seed === null
         ? [randomU32(), randomU32()]
         : seedSequence(state.seed, 2);
-      world = new WasmChunkWorld(clampChunkRadius(state.chunkRadius), hSeed, rSeed);
+      world = { radius: clampChunkRadius(state.chunkRadius), hSeed, rSeed };
       anchor = [0, 0];
       pos = [0, 0];
       steps = 0;
@@ -189,7 +193,6 @@ export function mount(canvas, statsEl, { initialSettings, WasmChunkWorld }) {
 
     const dropWorld = () => {
       [...loaded.values()].forEach((c) => dropChunk(c.coord));
-      world?.free();
       world = null;
     };
 

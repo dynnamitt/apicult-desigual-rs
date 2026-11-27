@@ -85,7 +85,7 @@
   </p>
 
 <script type="module">
-import init, { WasmChunkWorld } from './pkg/apicult_desigual.js';
+import init, * as wasm from './pkg/apicult_desigual.js';
 import { mount } from './hex-stream-scene.js';
 import { bindControls, readSettingsFromDOM, STREAM_SCHEMA } from './hex-controls.js';
 
@@ -96,7 +96,7 @@ const statsEl    = document.getElementById('stats');
 const controlsEl = document.querySelector('.controls');
 
 const initialSettings = readSettingsFromDOM(controlsEl, STREAM_SCHEMA);
-const api = mount(stageEl, statsEl, { initialSettings, WasmChunkWorld });
+const api = mount(stageEl, statsEl, { initialSettings, wasm });
 
 bindControls(controlsEl, {
   initialSettings,
