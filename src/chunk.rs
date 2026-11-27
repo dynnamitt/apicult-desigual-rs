@@ -447,6 +447,41 @@ mod tests {
         }
         assert!(d.entangled_seams.is_empty());
         assert_eq!(layout.delta(Hex::new(50, 50)), crate::Delta::default());
+        // Just past the ring: a ring cell's neighbour, but outside the layout.
+        assert_eq!(layout.delta(Hex::new(4, 0)), crate::Delta::default());
+    }
+
+    /// Consumer rule 3: an edit on a chunk's edge or corner also changes the
+    /// neighbour chunks holding the cell in their ring, and their deltas cover it.
+    #[test]
+    fn delta_covers_the_neighbour_chunks() {
+        use crate::NoiseType::Height;
+        let (g, r) = (HGridSettings::default(), 3);
+        let center = Hex::ZERO.to_higher_res(r);
+        for (hex, holders) in [
+            (center + Hex::new(r as i32, -1), 2),
+            (center + Hex::new(r as i32, 0), 3),
+        ] {
+            let mut chunks: Vec<Hex> = std::iter::once(hex)
+                .chain(hex.all_neighbors())
+                .map(|h| h.to_lower_res(r))
+                .collect();
+            chunks.sort_by_key(|c| (c.x, c.y));
+            chunks.dedup();
+            assert_eq!(chunks.len(), holders, "{hex:?}");
+            let edit: Override = (Height, hex, 19.5);
+            for coord in chunks {
+                let before = HGridLayout::for_chunk(&g, coord, r, &[]).unwrap();
+                let after = HGridLayout::for_chunk(&g, coord, r, &[edit]).unwrap();
+                let d = delta(&g, coord, r, &[edit], hex).unwrap();
+                let mut own = before.own_tris();
+                apply_runs(&mut own, &d.own);
+                assert_eq!(own, after.own_tris(), "{coord:?}");
+                let mut seams = before.entangled_seam_tris();
+                apply_runs(&mut seams, &d.entangled_seams);
+                assert_eq!(seams, after.entangled_seam_tris(), "{coord:?}");
+            }
+        }
     }
 
     #[test]

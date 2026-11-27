@@ -494,9 +494,8 @@ impl HGridLayout {
     pub fn entangled_seam_counts(&self) -> Vec<(usize, usize)> {
         self.entangled_ring()
             .map(|hex| {
-                let gaps = self.owned_gaps(hex, true);
-                let quads = gaps.quads.iter().flatten().count();
-                (2 * quads, gaps.junctions.iter().flatten().count())
+                let (_, quads, junctions) = self.owned_counts(hex);
+                (quads, junctions)
             })
             .collect()
     }
@@ -511,16 +510,21 @@ impl HGridLayout {
     /// that hold it in their entangled ring change too: ask each of their
     /// layouts as well (consumer rule 3).
     ///
-    /// @param hex — the changed cell; outside the layout, nothing it owns is here.
+    /// @param hex — the changed cell; outside the layout, the delta is empty.
     /// @returns the changed runs, at their offsets in each stream.
     pub fn delta(&self, hex: Hex) -> Delta {
-        let touched = |h: Hex| h == hex || h.unsigned_distance_to(hex) == 1;
+        // Nothing in the layout touches a cell outside it, though a ring cell
+        // can still be its neighbour.
+        if self.cells.get(hex).is_none() {
+            return Delta::default();
+        }
         let runs = |cells: &mut dyn Iterator<Item = Hex>| {
             let mut offset = 0;
             let mut out = Vec::new();
             for cell in cells {
-                let n = self.owned_count(cell);
-                if touched(cell) && n > 0 {
+                let (face, quads, junctions) = self.owned_counts(cell);
+                let n = face + quads + junctions;
+                if n > 0 && cell.unsigned_distance_to(hex) <= 1 {
                     let mut tris = Vec::with_capacity(n);
                     self.owned_tris_into(cell, &mut tris);
                     out.push(TriSequence { cell, offset, tris });
@@ -535,16 +539,18 @@ impl HGridLayout {
         }
     }
 
-    /// How many tris `hex` owns, from coordinates alone: what
-    /// [`owned_tris_into`](Self::owned_tris_into) would append.
-    fn owned_count(&self, hex: Hex) -> usize {
+    /// `(face_tris, quad_tris, junction_tris)` that `hex` owns, from
+    /// coordinates alone: what [`owned_tris_into`](Self::owned_tris_into)
+    /// would append and return.
+    fn owned_counts(&self, hex: Hex) -> (usize, usize, usize) {
         if self.cells.get(hex).is_none() {
-            return 0;
+            return (0, 0, 0);
         }
         let entangled = self.is_entangled(hex);
         let gaps = self.owned_gaps(hex, entangled);
         let face = if entangled { 0 } else { 6 };
-        face + 2 * gaps.quads.iter().flatten().count() + gaps.junctions.iter().flatten().count()
+        let quads = gaps.quads.iter().flatten().count();
+        (face, 2 * quads, gaps.junctions.iter().flatten().count())
     }
 
     /// Appends the triangles `hex` owns to `out` — the per-cell body of
@@ -897,6 +903,40 @@ mod tests {
         let before = out.len();
         assert_eq!(layout.owned_tris_into(Hex::new(999, 999), &mut out), (0, 0, 0));
         assert_eq!(out.len(), before);
+    }
+
+    #[test]
+    fn owned_counts_match_owned_tris_into() {
+        let g = default_settings();
+        let grid = HGridLayout::new(&g, 2);
+        let chunk = HGridLayout::for_chunk(&g, Hex::new(1, -1), 2, &[]).unwrap();
+        for layout in [&grid, &chunk] {
+            // Own, entangled and border cells, and a ring of cells outside.
+            for hex in shapes::hexagon(layout.center(), layout.grid_radius() + 1) {
+                let mut out = Vec::new();
+                let counts = layout.owned_tris_into(hex, &mut out);
+                assert_eq!(layout.owned_counts(hex), counts, "{hex:?}");
+            }
+        }
+    }
+
+    #[test]
+    fn delta_patches_a_new_grid() {
+        let g = default_settings();
+        let before = HGridLayout::new(&g, 3);
+        // A centre, an edge and a corner cell: border cells own fewer tris.
+        for hex in [Hex::ZERO, Hex::new(3, -1), Hex::new(3, 0), Hex::new(-3, 3)] {
+            let mut after = HGridLayout::new(&g, 3);
+            after.apply(&[(NoiseType::Height, hex, 19.5)]).unwrap();
+            let d = after.delta(hex);
+            assert!(d.entangled_seams.is_empty());
+            let mut tris = before.own_tris();
+            for run in &d.own {
+                let range = run.offset..run.offset + run.tris.len();
+                tris[range].copy_from_slice(&run.tris);
+            }
+            assert_eq!(tris, after.all_tris(), "{hex:?}");
+        }
     }
 
     #[test]
