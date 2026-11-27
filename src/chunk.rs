@@ -111,7 +111,8 @@ impl EntangledSeam {
 /// or edits, so no layout is built.
 ///
 /// Matches the layout for every `coord` that [`HGridLayout::for_chunk`]
-/// accepts.
+/// accepts. Call it only for those: for a `coord` it rejects, the `i32`
+/// math overflows (a panic in debug builds) or the owners come out wrong.
 ///
 /// @param coord — the carrying chunk's coordinate on the chunk lattice.
 /// @param chunk_radius — rings of cells per chunk.
@@ -126,9 +127,8 @@ pub fn entangled_seam_keys(coord: Hex, chunk_radius: u32) -> Vec<EntangledSeam> 
     for hex in center.ring(r + 1) {
         let owner = hex.to_lower_res(r);
         let gaps = owned_gaps(hex, |nb| exists(nb) && !entangled(nb), exists);
-        for _ in gaps.quads.iter().flatten() {
-            keys.extend([EntangledSeam { owner, also: None }; 2]);
-        }
+        let quad_tris = 2 * gaps.quads.iter().flatten().count();
+        keys.extend(std::iter::repeat_n(EntangledSeam { owner, also: None }, quad_tris));
         for (_, gv) in gaps.junctions.iter().flatten() {
             let also = gv
                 .coordinates()
@@ -172,6 +172,7 @@ impl ChunkSource for NoiseWorld {
 
         let keys = entangled_seam_keys(coord, r);
         let tris = layout.entangled_seam_tris();
+        assert_eq!(keys.len(), tris.len(), "a seam key per entangled seam tri, chunk {coord:?}");
         let seams = keys.into_iter().zip(tris).fold(Vec::<Seam>::new(), |mut groups, (key, t)| {
             match groups.iter_mut().find(|s| s.key() == key) {
                 Some(s) => s.tris.push(t),

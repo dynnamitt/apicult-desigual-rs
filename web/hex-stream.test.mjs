@@ -60,7 +60,7 @@ test("visibleSeamGroups hides groups whose owner is loaded", () => {
 test("visibleSeamGroups follows testdata/entangled_seam_drawn.tsv, the rule's shared table", () => {
   const hex = (t) => t.split(",").map(Number);
   const rows = readFileSync(new URL("../testdata/entangled_seam_drawn.tsv", import.meta.url), "utf8")
-    .split("\n").filter((l) => l.trim() && !l.startsWith("#")).map((l) => l.split("\t"));
+    .split(/\r?\n/).filter((l) => l.trim() && !l.startsWith("#")).map((l) => l.split("\t"));
   assert.ok(rows.length >= 10);
   for (const [carrier, owner, also, loaded, drawn] of rows) {
     const keys = [...hex(owner), ...hex(also === "-" ? owner : also)]; // no `also` repeats the owner

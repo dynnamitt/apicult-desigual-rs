@@ -438,7 +438,12 @@ impl HGridLayout {
     /// For a chunk layout that is the chunk's own tris plus the entangled
     /// ring's seam tris, interleaved in hexagon order.
     pub fn all_tris(&self) -> Vec<[Vec3; 3]> {
-        shapes::hexagon(self.center, self.grid_radius).fold(Vec::new(), |mut out, hex| {
+        self.owned_tris_of(shapes::hexagon(self.center, self.grid_radius))
+    }
+
+    /// [`owned_tris_into`](Self::owned_tris_into) over `cells`, in their order.
+    fn owned_tris_of(&self, cells: impl Iterator<Item = Hex>) -> Vec<[Vec3; 3]> {
+        cells.fold(Vec::new(), |mut out, hex| {
             self.owned_tris_into(hex, &mut out);
             out
         })
@@ -453,18 +458,14 @@ impl HGridLayout {
     /// The entangled ring's cells in `center.ring(chunk_radius + 1)` order;
     /// none for a `new` grid.
     pub fn entangled_ring(&self) -> impl Iterator<Item = Hex> + '_ {
-        let rings = if self.chunk { 1 } else { 0 };
-        (0..rings).flat_map(move |_| self.center.ring(self.grid_radius))
+        self.chunk.then(|| self.center.ring(self.grid_radius)).into_iter().flatten()
     }
 
     /// The tris the own cells own, cell by cell in [`own_cells`](Self::own_cells)
     /// order. In a chunk every own cell has all its neighbours, so each owns
     /// exactly 14: 6 face, 6 gap-quad and 2 junction tris (its `tri_sequence`).
     pub fn own_tris(&self) -> Vec<[Vec3; 3]> {
-        self.own_cells().fold(Vec::new(), |mut out, hex| {
-            self.owned_tris_into(hex, &mut out);
-            out
-        })
+        self.owned_tris_of(self.own_cells())
     }
 
     /// The tris the entangled ring gives this chunk: per entangled cell, in
@@ -472,20 +473,16 @@ impl HGridLayout {
     /// junctions. Each is a copy of a tri in the owning neighbour chunk's
     /// [`own_tris`](Self::own_tris). Empty for a `new` grid.
     pub fn entangled_seam_tris(&self) -> Vec<[Vec3; 3]> {
-        self.entangled_ring().fold(Vec::new(), |mut out, hex| {
-            self.owned_tris_into(hex, &mut out);
-            out
-        })
+        self.owned_tris_of(self.entangled_ring())
     }
 
     /// `(quad_tris, junction_tris)` of each entangled cell, parallel to
     /// [`entangled_ring`](Self::entangled_ring): how
     /// [`entangled_seam_tris`](Self::entangled_seam_tris) splits up.
     pub fn entangled_seam_counts(&self) -> Vec<(usize, usize)> {
-        let in_layout = |h: Hex| self.cells.get(h).is_some();
         self.entangled_ring()
             .map(|hex| {
-                let gaps = owned_gaps(hex, |nb| in_layout(nb) && !self.is_entangled(nb), in_layout);
+                let gaps = self.owned_gaps(hex, true);
                 let quads = gaps.quads.iter().flatten().count();
                 (2 * quads, gaps.junctions.iter().flatten().count())
             })
@@ -531,9 +528,7 @@ impl HGridLayout {
         }
         let after_faces = out.len();
 
-        let in_layout = |h: Hex| self.cells.get(h).is_some();
-        let quad = |nb: Hex| in_layout(nb) && !(entangled && self.is_entangled(nb));
-        let gaps = owned_gaps(hex, quad, in_layout);
+        let gaps = self.owned_gaps(hex, entangled);
         for (edge_index, neighbor) in gaps.quads.into_iter().flatten() {
             let nb_cell = self.cells[neighbor];
             let (v0_idx, v1_idx, n0_idx, n1_idx) = math::quad_corner_indices(edge_index);
@@ -569,6 +564,14 @@ impl HGridLayout {
             after_quads - after_faces,
             out.len() - after_quads,
         )
+    }
+
+    /// [`owned_gaps`] of `hex` in this layout: a quad needs its neighbour in the
+    /// layout and, from an `entangled` cell, not entangled itself (D10).
+    fn owned_gaps(&self, hex: Hex, entangled: bool) -> OwnedGaps {
+        let in_layout = |h: Hex| self.cells.get(h).is_some();
+        let quad = |nb: Hex| in_layout(nb) && !(entangled && self.is_entangled(nb));
+        owned_gaps(hex, quad, in_layout)
     }
 
     /// Returns the three world-space corners of every 3-hex junction gap tri.

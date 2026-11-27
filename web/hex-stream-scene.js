@@ -126,7 +126,7 @@ export function mount(canvas, statsEl, { initialSettings, WasmChunkWorld }) {
     // A seam wears its own chunk's colour (unless `seams` highlights it), not the
     // owner's: it must not preview the chunk that has not loaded yet (c3fc7e8).
     // Every chunk in the scene counts as loaded at any opacity (ghosts and fade-ins
-    // included), as Seam::drawn requires: otherwise a neighbour's seam doubles its owned strips.
+    // included), as EntangledSeam::drawn requires: otherwise a neighbour's seam doubles its owned strips.
     const refreshSeams = () => {
       const keys = new Set(loaded.keys());
       loaded.forEach((c) => {
