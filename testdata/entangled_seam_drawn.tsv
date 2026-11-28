@@ -1,4 +1,4 @@
-# Consumer rule 1 (EntangledSeam::drawn, docs/design/cell-state.md D7): may chunk `carrier`
+# Consumer rule 1 (EntangledSeam::drawn and the rules in src/chunk.rs's module docs): may chunk `carrier`
 # draw an entangled seam tri keyed (owner, also) while the chunks in `loaded` are loaded?
 # Every port of the rule is tested against this table: Rust (src/chunk.rs), the treadmill's
 # JS (web/hex-stream.test.mjs) and zig-fatmile (via ENTANGLED_SEAM_DRAWN_TABLE). Columns are

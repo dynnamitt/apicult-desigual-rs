@@ -44,6 +44,7 @@ main { max-width: 68ch; margin: 0 auto; padding: 48px 20px 96px; }
 h1, h2 { font-family: var(--display); text-wrap: balance; line-height: 1.2; }
 h1 { font-size: 2.2rem; margin: 0 0 8px; font-weight: 600; }
 h2 { font-size: 1.5rem; margin: 56px 0 8px; padding-top: 16px; border-top: 1px solid var(--rule); font-weight: 600; }
+h3 { font: 600 1.1rem var(--display); margin: 28px 0 6px; }
 details.fn { border: 1px solid var(--rule); border-radius: 6px; background: var(--card); margin: 10px 0; }
 details.fn > summary { cursor: pointer; list-style: none; display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 12px; padding: 10px 14px; }
 details.fn > summary::-webkit-details-marker { display: none; }
@@ -149,18 +150,25 @@ a:focus-visible { outline: 2px solid var(--quad); outline-offset: 2px; }
 <dt>corner</dt><dd>One of the six points at distance <code>cell.radius</code> from the centre, in the directions of a unit hexagon's corners, at the cell's height, numbered 0–5 (hexx <code>VertexDirection</code>).</dd>
 <dt>edge</dt><dd>The side from corner <code>i</code> to corner <code>i+1</code>, numbered 0–5 (hexx <code>EdgeDirection</code>). Edge <code>e</code> faces the neighbour in direction <code>e</code>; the neighbour sees the same edge as <code>(e+3) mod 6</code>.</dd>
 <dt>face</dt><dd>The flat top of a cell, drawn as a fan of six triangles from the centre.</dd>
-<dt>gap</dt><dd>The space between faces, which opens wherever <code>cell.radius &lt; nominal_hex_radius</code>. With the default ratios that is every cell; a <code>max_radius_ratio</code> above 1, or a radius pinned by an override, can make faces touch or overlap. The gap is filled by two kinds of piece:</dd>
+<dt>gap</dt><dd>The space between faces, which opens wherever <code>cell.radius &lt; nominal_hex_radius</code>. With the default ratios that is every cell; a <code>max_radius_ratio</code> above 1, or a radius fixed by an override (a stored edit, section 5), can make faces touch or overlap. The gap is filled by two kinds of piece:</dd>
 <dt class="sub">gap quad</dt><dd>Across an edge two cells share: two corners from each, drawn as two triangles.</dd>
 <dt class="sub">junction triangle</dt><dd>Where three cells meet: one corner from each.</dd>
+<dt>gap piece</dt><dd>A gap quad or a junction triangle.</dd>
 <dt>owner</dt><dd>The one cell that emits a gap piece, by the rules below.</dd>
 <dt>ring <code>k</code></dt><dd>The cells at distance exactly <code>k</code> from a given cell (hexx <code>Hex::ring</code>); a radius-<code>r</code> grid is rings 0 to <code>r</code>.</dd>
+<dt>chunk</dt><dd>A radius-<code>r</code> hexagon of cells, the unit an unbounded world is built and loaded in. Its own cells are those with <code>hex.to_lower_res(r) == coord</code>; every cell is an own cell of exactly one chunk, its <em>home chunk</em> (section 5).</dd>
+<dt>tri sequence</dt><dd>The triangles one cell owns, in the order it emits them: face fan, then its gap quads, then its junction triangles. An <em>own cell</em> of a chunk (section 5) always has all six neighbours, so its <code>tri_sequence</code> is exactly 14 triangles: 6 face, 6 for its 3 gap quads, 2 junction (section 3).</dd>
+<dt>entangled ring</dt><dd>The ring of cells, from neighbouring chunks, one step outside a chunk. A chunk's layout holds it so that every gap along the chunk's edge has a cell on both sides. Its cells are the chunk's <em>entangled cells</em> (in captions also <em>ring cells</em>); each is an own cell of its home chunk (section 4).</dd>
+<dt>entangled seam tris</dt><dd>The triangles a chunk's entangled cells give it: the gap pieces they own that touch an own cell (section 4). Shortened to <em>seam tris</em>.</dd>
+<dt>seam key</dt><dd><code>EntangledSeam { owner, also }</code>: for one seam tri, the chunk that owns it (<code>owner</code>) and, at a chunk corner, the third chunk that carries the same copy (<code>also</code>). Section 5.</dd>
+<dt>carrier</dt><dd>The chunk whose seam tris hold the copy being drawn (section 5).</dd>
 </dl>
-<p id="ownership">Two <strong>ownership rules</strong> keep every gap piece from being drawn twice. 1.5, 1.6 and sections 3 to 5 all rest on them:</p>
+<p id="ownership">Two <strong>ownership rules</strong> keep every gap piece from being drawn twice. Sections 1.5, 1.6 and 3 to 5 all rest on them:</p>
 <ul>
-<li><strong>Gap quads.</strong> Every interior edge is shared by two cells. If one meets it as an even edge (0, 2, 4), the other meets it as odd (3, 5, 1), because <code>e+3</code> flips parity. So "the cell that meets it as an even edge owns it" picks exactly one owner.</li>
-<li><strong>Junction triangles.</strong> Every interior corner is shared by three cells, and it is corner 0 or 1 of exactly one of them. That cell owns the triangle, so each cell owns the junctions at its corners 0 and 1.</li>
+<li><strong>Gap quads.</strong> Each cell numbers a shared edge differently: if it is edge <code>e</code> for one cell, it is edge <code>e+3</code> for the other, and <code>e+3</code> has the opposite parity. So exactly one of the two sees an even edge (0, 2 or 4). That cell owns the gap quad.</li>
+<li><strong>Junction triangles.</strong> Each interior corner is corner 0 or 1 of exactly one of its three cells; that cell owns the junction triangle. So each cell owns the junctions at its corners 0 and 1.</li>
 </ul>
-<p>A gap piece is only emitted when every cell it touches exists. Later sections add <em>entangled</em> cells (section 4) and <em>chunks</em> and <em>seams</em> (section 5).</p>
+<p>In code, <code>layout::owned_gaps</code> (<code>src/layout.rs</code>) applies both rules, and <code>quad_corner_indices</code> (<code>src/math.rs</code>) picks a quad's corners. A gap piece is only emitted when every cell it touches exists. Later sections add <em>entangled</em> cells (section 4) and <em>chunks</em> and <em>seams</em> (section 5).</p>
 
 <h2 id="math">1 · The math functions, simplest first</h2>
 <p><code>src/math.rs</code> holds pure functions over <code>glam</code> and <code>hexx</code> types. None of them know about <code>HGridLayout</code>. They're ordered here from plain arithmetic to the grid combinatorics the rest of the crate is built on.</p>
@@ -171,7 +179,7 @@ a:focus-visible { outline: 2px solid var(--quad); outline-offset: 2px; }
 <div class="fnbody">
 <p>Noise generators return values centred on zero, roughly in <code>[-1, 1]</code>. This is the straight line through <code>(-1, min)</code> and <code>(1, max)</code>:</p>
 <p class="formula">out = min + (n + 1) / 2 · (max − min)</p>
-<p>The layout calls it twice per cell. Once for height, into <code>[0, max_height]</code> (default 20). Once for the cell's corner radius, into <code>[nominal · min_ratio, nominal · max_ratio]</code> (default 0.2 to 3.6 for a nominal radius of 4). With the default ratios every radius stays below the <a href="#terms">nominal radius</a>, so every cell is surrounded by gap. The centres sit 6.93 apart at the default.</p>
+<p>The layout calls it twice per cell: once for height, into <code>[0, max_height]</code> (default 20), and once for the cell's corner radius, into <code>[nominal · min_ratio, nominal · max_ratio]</code> (default 0.2 to 3.6 for a nominal radius of 4, whose centres sit 6.93 apart).</p>
 {{f1}}
 </div>
 </details>
@@ -192,7 +200,7 @@ a:focus-visible { outline: 2px solid var(--quad); outline-offset: 2px; }
 <summary><span class="h3">1.3 <code>gap_vertex_data</code><span class="lvl">translate + cross product</span></span><span class="gist">shift to origin, normal from a cross product</span></summary>
 <div class="fnbody">
 <p>This prepares a gap polygon for mesh upload. It moves the polygon so its first vertex is at the origin, and finds which way it faces.</p>
-<p>The face direction is the cross product of the vectors <code>v0→v1</code> and <code>v0→v2</code>. For these gaps the winding makes that cross product point down, so the function negates it.</p>
+<p>The face direction is the cross product of the vectors <code>v0→v1</code> and <code>v0→v2</code>. Gap polygons are wound so this cross product points down, so the function negates it.</p>
 <p>When <code>flat</code> is set it ignores the slope and returns straight up, so tilted gap pieces get the same lighting as the flat faces.</p>
 {{f3}}
 </div>
@@ -201,7 +209,7 @@ a:focus-visible { outline: 2px solid var(--quad); outline-offset: 2px; }
 <summary><span class="h3">1.4 <code>idw_interpolate_height</code><span class="lvl">inverse distance weighting</span></span><span class="gist">height at any point as a 1/d²-weighted mean of nearby corners</span></summary>
 <div class="fnbody">
 <p><em>IDW</em> stands for <strong>inverse distance weighting</strong>. It answers "how high is the ground at an arbitrary point Q?" Every nearby corner votes with its height, and its vote counts <code>1 / d²</code>, where <code>d</code> is its distance to Q in the x–z plane. The closer the corner, the louder its vote:</p>
-<p class="formula">h(Q) = Σ hᵢ / dᵢ²  ⁄  Σ 1 / dᵢ²</p>
+<p class="formula">h(Q) = (Σ hᵢ / dᵢ²) / (Σ 1 / dᵢ²)</p>
 <p>Near a corner its weight blows up, so the function simply snaps to that corner once <code>d² &lt; 0.001</code>. It returns <code>None</code> for an empty list and leaves the fallback to the caller.</p>
 {{f4}}
 </div>
@@ -230,7 +238,7 @@ a:focus-visible { outline: 2px solid var(--quad); outline-offset: 2px; }
 </details>
 
 <h2 id="resolution">2 · Resolution functions from hexx</h2>
-<p>hexx (0.24, <code>hex/mod.rs</code>) can treat a radius-<code>r</code> hexagon of cells as one cell of a coarser hex grid. It calls these <em>resolutions</em>, after Sander Evers' "hexagon tiling of a hexagonal grid". The <a href="#chunks"><code>chunk</code> module</a> builds on two of them: a chunk with coordinate <code>c</code> holds the cells with <code>hex.to_lower_res(r) == c</code>, and its centre cell is <code>c.to_higher_res(r)</code>. The other functions below are hexx background; the crate doesn't call them.</p>
+<p>hexx (0.24, <code>hex/mod.rs</code>) can treat a radius-<code>r</code> hexagon of cells as one cell of a coarser hex grid. It calls these <em>resolutions</em>, after Sander Evers' "hexagon tiling of a hexagonal grid". The <a href="#chunks"><code>chunk</code> module</a> builds on two of them: a chunk with coordinate <code>c</code> holds the cells with <code>hex.to_lower_res(r) == c</code>, and its centre cell is <code>c.to_higher_res(r)</code>. The other functions below are hexx background; the crate doesn't call them. Only R.2 and R.4 are needed for section 5; skip the rest on a first read.</p>
 
 <details class="fn">
 <summary><span class="h3">R.1 <code>Hex::range_count</code></span><span class="gist">cells in a radius-r hexagon</span></summary>
@@ -243,9 +251,10 @@ a:focus-visible { outline: 2px solid var(--quad); outline-offset: 2px; }
 <details class="fn">
 <summary><span class="h3">R.2 <code>Hex::to_higher_res</code></span><span class="gist">chunk coordinate → its centre cell, linear</span></summary>
 <div class="fnbody">
+<p>Higher resolution means finer: <code>to_higher_res</code> turns a chunk coordinate into its centre cell, and <code>to_lower_res</code> turns a cell into its chunk coordinate.</p>
 <p>Going down to finer cells is a plain linear map in cubic coordinates <code>(x, y, z = −x − y)</code>:</p>
 <p class="formula">to_higher_res((x, y), r) = ( x·(r+1) − r·z ,  y·(r+1) − r·x )</p>
-<p>Chunk <code>(1,0)</code> goes to <code>(2r+1, −r)</code>, which is <code>(5,−2)</code> for <code>r = 2</code>. Every chunk centre is an integer combination of two such basis vectors. The coarse lattice is the fine one scaled by <code>√range_count(r)</code> and rotated, so chunk rows never line up with cell rows.</p>
+<p>Chunk <code>(1,0)</code> goes to <code>(2r+1, −r)</code>, which is <code>(5,−2)</code> for <code>r = 2</code>. Every chunk centre is an integer combination of the images of chunks <code>(1,0)</code> and <code>(0,1)</code>. The coarse lattice is the fine one scaled by <code>√range_count(r)</code> and rotated, so chunk rows never line up with cell rows.</p>
 <p>The function is <code>const</code> and exact integer arithmetic.</p>
 {{f12}}
 </div>
@@ -276,47 +285,56 @@ a:focus-visible { outline: 2px solid var(--quad); outline-offset: 2px; }
 <tr><td><code>Z = ⌊(4 + 8·(−4)) / 19⌋</code></td><td class="mono">⌊−28/19⌋ = −2</td></tr>
 <tr><td><code>q = ⌊(1 + X − Y) / 3⌋</code></td><td class="mono">⌊3/3⌋ = 1</td></tr>
 <tr><td><code>r = ⌊(1 + Y − Z) / 3⌋</code></td><td class="mono">⌊2/3⌋ = 0</td></tr>
-<tr><td>chunk</td><td class="mono">(1, 0) ✓ matches figure R.3</td></tr>
+<tr><td>chunk</td><td class="mono">(1, 0) ✓ matches the example in R.3</td></tr>
 </table></div>
 <p><strong>A limit for large coordinates:</strong> hexx computes <code>y + shift·x</code> in <code>i32</code>, then divides as <code>f32</code>. Integers are exact in <code>f32</code> only up to 2²⁴ = 16,777,216. Past about <code>16.7M / (3r + 2)</code> cells from the origin (roughly 840,000 cells for <code>r = 6</code>), the floor can land on the wrong side of a band edge, and a cell can be put in the wrong chunk. <code>HGridLayout::for_chunk</code> and <code>entangled_seam_keys</code> reject such chunks with <code>ChunkError::TooFarFromOrigin</code>.</p>
 {{f8}}
-<p>The figures on this page use a Python port of this function, checked against hexx for all 169 cells of the figure above.</p>
+<p>The figures on this page use a Python port of this function, checked against hexx for all 169 cells of the radius-7 grid in the figure above.</p>
 </div>
 </details>
 <h2 id="cell">3 · What one cell owns</h2>
-<p><code>HGridLayout::new</code> builds a <code>HexagonalMap</code> of radius <code>settings.radius</code> around <code>Hex::ZERO</code>. Each cell gets its height and radius from <code>Fbm&lt;Perlin&gt;</code> sampled at its world centre divided by a scale (50 for height, 30 for radius).</p>
+<p><code>HGridLayout::new(g, radius)</code> builds a <code>HexagonalMap</code> of <code>radius</code> rings around <code>Hex::ZERO</code>; <code>HGridLayout::for_chunk</code> builds one chunk (<a href="#chunks">section 5</a>). Each cell gets its height and radius from <code>Fbm&lt;Perlin&gt;</code> sampled at its world centre divided by a scale (<code>g.height_noise.scale</code> 50, <code>g.radius_noise.scale</code> 30).</p>
 <ul>
-<li>A cell's height and radius come from noise at its world position, unless pinned through <code>overrides</code>. Its neighbours don't affect them, and neither does the size or centre of the grid. That is why a chunk can be built on its own (<a href="#chunks">section 5</a>).</li>
-<li>Corners scale with <code>cell.radius</code>; centres don't (see <a href="#terms">terms</a>). So a smaller cell widens the gaps around it, but never moves.</li>
+<li>A cell's height and radius depend only on its own world position, plus any override: an absolute value from a stored edit (<a href="#chunks">section 5</a>). They don't depend on its neighbours, or on where the grid or chunk is centred. That is why a chunk can be built alone and still match its neighbours.</li>
+<li>Corners scale with <code>cell.radius</code>; centres don't (<a href="#terms">section 0</a>). So a smaller cell widens the gaps around it, but never moves.</li>
 </ul>
-<p><code>all_tris()</code> walks the grid once. For each cell it appends, in a fixed order, exactly what that cell owns under the <a href="#ownership">ownership rules</a>:</p>
+<p><code>all_tris()</code> walks the grid once. For each cell it calls <code>owned_tris_into(cell, out)</code>, which appends, in a fixed order, exactly what that cell owns under the <a href="#ownership">ownership rules</a>: its <em>tri sequence</em>.</p>
 {{f7}}
 <p>Because ownership is per cell, any way of splitting the cells into groups splits the triangle stream with no overlap and no holes. Chunks are one such split; <code>chunk::tests::own_streams_partition_world</code> checks it bit for bit.</p>
 <h2 id="entangled">4 · Entangled cells</h2>
-<p>A chunk layout (<a href="#chunks">section 5</a>) holds one ring of cells more than the chunk: its neighbours' cells at distance <code>r + 1</code> from the centre, so every gap along the chunk's edge has both sides. Those are the <em>entangled</em> cells (<code>is_entangled(hex)</code>). Being entangled is not something a cell stores; it follows from where the cell sits. A <code>HGridLayout::new</code> grid has none.</p>
+<p>A chunk's layout (<a href="#chunks">section 5</a>) holds one ring of cells beyond the chunk itself: cells of the neighbouring chunks, at distance <code>r + 1</code> from the chunk's centre. These are its entangled cells (<code>is_entangled(hex)</code>). A cell is entangled only because of where it sits in this layout; in its home chunk it's an ordinary own cell, so nothing marks it. A <code>HGridLayout::new</code> grid has none.</p>
 <ul id="entangle-rules">
 <li>An entangled cell emits no face: its own chunk draws that.</li>
 <li>A gap quad between two entangled cells is skipped: it touches no cell of the chunk.</li>
-<li>Every other gap piece an entangled cell owns is kept. Those are the chunk's <em>entangled seam tris</em>.</li>
+<li>Every other gap piece an entangled cell owns, which is every one that touches an own cell, is kept. Those are the chunk's <em>entangled seam tris</em>.</li>
 </ul>
+<p>The doc comment on <code>HGridLayout::owned_tris_into</code> (<code>src/layout.rs</code>) states this cut, and <code>entangled_cells_emit_only_what_touches_the_chunk</code> tests it.</p>
 <p>So <code>all_tris()</code> on a chunk layout draws the chunk's faces and every gap piece that reaches an own cell, whoever owns it. The outline is closed on all six sides:</p>
 {{f10g}}
+<p>The ring's share of those 312 triangles, cell by cell. <code>entangled_ring()</code> lists the entangled cells in ring order, <code>entangled_seam_tris()</code> emits the triangles each one gives the chunk, and <code>entangled_seam_counts()</code> gives, per cell, how many are quad tris and how many junction tris (a gap quad is 2 triangles, so quad tris are always even).</p>
+<p><code>owned_tris_into</code> and <code>entangled_seam_keys</code> make this cut with one shared rule, so the seam tris and their keys line up one to one.</p>
+{{f10r}}
 
 <h2 id="chunks">5 · Streaming chunks</h2>
 <p>Any chunk of an unbounded world is built on demand from its coordinate, with one set of settings (and so one set of seeds) for the whole world.</p>
 <p>A chunk is the radius-<code>r</code> hexagon of cells with <code>hex.to_lower_res(r) == coord</code> (<a href="#resolution">section 2</a>). <code>HGridLayout::for_chunk(g, coord, r, overrides)</code> builds it with one extra <em>entangled ring</em> of neighbour cells at distance <code>r + 1</code>. It samples noise at world positions, so a chunk built alone matches its neighbours exactly, then applies <code>overrides</code>: the stored edits of the chunk's own cells and of its ring. Layout functions then cut it into two streams:</p>
 <ul>
-<li><strong>own</strong>: <code>own_tris()</code>, what the chunk's own cells own, 14 triangles per cell in <code>own_cells()</code> order. Across all chunks the own streams cover the world with no overlap and no holes.</li>
-<li><strong>entangled seams</strong>: <code>entangled_seam_tris()</code>, the gaps that ring cells own and that touch the chunk. Each is a copy of a triangle in the owning neighbour's own stream. <code>entangled_seam_keys(coord, r)</code> names that owner for each one, from hex coordinates alone. A junction triangle at a chunk corner touches a third chunk too, which carries the same copy, so its key also names that chunk (<code>EntangledSeam { owner, also }</code>).</li>
+<li><strong>Own stream</strong>: <code>own_tris()</code> returns the triangles the chunk's own cells own, one 14-triangle tri sequence per cell, in <code>own_cells()</code> order (<code>shapes::hexagon</code> order). <code>own_cell_states()</code> gives each cell's <code>(q, r, height, radius)</code> in the same order. Across all chunks the own streams cover the world with no overlap and no holes.</li>
+<li><strong>Entangled seam tris</strong> (seam tris for short): <code>entangled_seam_tris()</code>, the gap pieces that entangled cells own and that touch the chunk. Each is a copy of a triangle in the owning neighbour's own stream. <code>entangled_seam_keys(coord, r)</code> names that owner for each one, from hex coordinates alone. A junction triangle at a chunk corner touches a third chunk too, which carries the same copy, so its key also names that chunk (<code>EntangledSeam { owner, also }</code>).</li>
 </ul>
+<p>Once a neighbour is loaded, its own stream draws the same triangles, so the seam tris it owns must be hidden. A corner tri has two carriers: the chunk being drawn and the one its key names as <code>also</code>. When both are loaded, the carrier that comes first in <code>(q, r)</code> order draws the corner; for that carrier, <code>also</code> comes after it.</p>
 {{f14}}
-<p>Rules for consumers, from the module docs:</p>
+<p>Rules for consumers, from the <code>chunk</code> module docs (<code>src/chunk.rs</code>):</p>
 <ol>
-<li>Always draw the own stream. Draw a seam triangle only while its owner isn't loaded. If it names a third chunk, draw it only while that chunk isn't loaded either, or comes after this one in <code>(q, r)</code> order. Every triangle touching a loaded chunk is then drawn exactly once (<code>EntangledSeam::drawn</code>; its test cases are in <code>testdata/entangled_seam_drawn.tsv</code>).</li>
-<li>Entangled cells are never state. A change to a cell is stored under its owning chunk only, and passed as an override to every layout that holds it.</li>
-<li>A changed cell rebuilds its own chunk and every chunk that has it in its entangled ring: 1 chunk for an interior cell, 2 along a chunk edge, 3 at a chunk corner.</li>
+<li>Always draw the own stream. Draw a seam tri only while its owner isn't loaded. If its key names a third chunk (<code>also</code>), draw it only if that chunk isn't loaded, or comes after the carrier in <code>(q, r)</code> order. When both carriers are loaded, the one that comes first draws it. Every triangle touching a loaded chunk is then drawn exactly once (<code>EntangledSeam::drawn(carrier, loaded)</code>; its test cases are in <code>testdata/entangled_seam_drawn.tsv</code>).</li>
+<li>Entangled cells are never state: a cell's edit is stored once, under its home chunk, and passed as an override to every chunk layout that holds the cell, as own or as entangled.</li>
+<li>A changed cell rebuilds every chunk that holds it (counting its home chunk): 1 for an interior cell (one not in any other chunk's entangled ring), 2 along a chunk edge, 3 at a chunk corner.</li>
 </ol>
-<p>In the browser, <code>chunk_own_tris</code>, <code>chunk_entangled_seam_tris</code> and <code>chunk_entangled_seam_keys</code> hand out the same streams as flat buffers, one call per chunk. The <a href="index.html">chunk treadmill</a> keeps seven chunks loaded around a moving camera and follows rule 1 on every step.</p>
+<h3 id="edits">Edits</h3>
+<p>An <em>edit</em> is what the consumer stores: a cell and an absolute value for its height or radius. An <em>override</em> is how that edit is passed to <code>for_chunk</code>.</p>
+<p>The consumer stores its edits (for example a dug, that is lowered, cell's new height) under each cell's home chunk, and passes a chunk's own and entangled-ring edits to <code>for_chunk</code> as overrides on every build, so a rebuilt chunk keeps them. After an edit, <code>delta(g, coord, r, overrides, hex)</code> returns, for the edited cell and its 6 neighbours, their tri sequences (<code>cell</code>, <code>offset</code>, <code>tris</code>) at their offsets in <code>own_tris</code> and <code>entangled_seam_tris</code>. An edit doesn't change how many triangles a cell has, so those ranges can be overwritten in place. Call <code>delta</code> once for each of the 1 to 3 chunks that hold the cell, its home chunk included (rule 3).</p>
+<h3 id="browser">In the browser</h3>
+<p><code>chunk_own_tris</code>, <code>chunk_entangled_seam_tris</code> and <code>chunk_entangled_seam_keys</code> hand out the same streams as flat buffers, and <code>chunk_own_cell_states</code> the own cells' state, one call per chunk. The chunk treadmill (the demo page <code>hex-stream.html</code>, published as <a href="index.html"><code>index.html</code></a>) keeps seven chunks loaded around a moving camera and follows rule 1 on every step.</p>
 </main>
 <script>
 (function () {

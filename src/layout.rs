@@ -105,7 +105,7 @@ pub struct TriSequence {
 /// What changes in a layout's streams when one cell's height or radius
 /// changes: the `tri_sequence`s of the cell and its 6 neighbours, each the
 /// same length and at the same offset as before (an edit keeps the topology),
-/// so a consumer overwrites those ranges in place (D5).
+/// so a consumer overwrites those ranges in place.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Delta {
     /// Changed runs of [`HGridLayout::own_tris`], in `own_cells` order.
@@ -563,8 +563,9 @@ impl HGridLayout {
     ///
     /// An entangled cell ([`HGridLayout::is_entangled`]) emits only what
     /// touches an own cell: no face fan and no quad to another entangled cell
-    /// (decision D10 in `docs/design/cell-state.md`). What it emits are its
-    /// chunk's entangled seam tris.
+    /// (applied by the `owned_gaps` method; `chunk::entangled_seam_keys` keys
+    /// the same pieces through the free `layout::owned_gaps`). What it emits
+    /// are its chunk's entangled seam tris.
     ///
     /// @param hex — the owning cell; a hex outside the layout appends nothing.
     /// @param out — triangles are appended here.
@@ -631,7 +632,7 @@ impl HGridLayout {
     }
 
     /// [`owned_gaps`] of `hex` in this layout: a quad needs its neighbour in the
-    /// layout and, from an `entangled` cell, not entangled itself (D10).
+    /// layout and, from an `entangled` cell, not entangled itself.
     fn owned_gaps(&self, hex: Hex, entangled: bool) -> OwnedGaps {
         let in_layout = |h: Hex| self.cells.get(h).is_some();
         let quad = |nb: Hex| in_layout(nb) && !(entangled && self.is_entangled(nb));
@@ -818,7 +819,7 @@ mod tests {
 
     #[test]
     fn chunk_tris_golden_checksum() {
-        // Pins one chunk byte-for-byte (docs/design/cell-state.md, D11): each own cell's
+        // Pins one chunk byte-for-byte (the order `own_tris` and `entangled_seam_tris` document): each own cell's
         // 14 tris in `shapes::hexagon` order, then the entangled seam tris (per ring cell,
         // quads then junctions) in `ring(r + 1)` order. Update the constant only on an
         // intentional geometry change.
@@ -955,7 +956,7 @@ mod tests {
 
     #[test]
     fn entangled_cells_emit_only_what_touches_the_chunk() {
-        // D10: no face fan, no quad between two entangled cells, and every tri
+        // The cut `owned_tris_into` documents: no face fan, no quad between two entangled cells, and every tri
         // touches an own cell (some vertex lies within the own hexagon's reach).
         let r = 2;
         let layout = HGridLayout::for_chunk(&default_settings(), Hex::new(2, -1), r, &[]).unwrap();
