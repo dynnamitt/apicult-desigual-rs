@@ -3,8 +3,8 @@
 //! A chunk is the radius-`chunk_radius` hexagon of cells with
 //! `hex.to_lower_res(chunk_radius) == coord`. [`HGridLayout::for_chunk`]
 //! builds it from noise plus stored edits, with one extra entangled ring of
-//! neighbour cells, and these layout functions cut it into two streams
-//! (see `docs/design/cell-state.md`):
+//! neighbour cells, and these layout functions cut it into two streams (the
+//! cut itself is stated on [`HGridLayout::owned_tris_into`]):
 //!
 //! - **own** — [`HGridLayout::own_tris`]: 14 tris per own cell (its
 //!   `tri_sequence`), in [`HGridLayout::own_cells`] order, with the cells'

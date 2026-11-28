@@ -168,7 +168,7 @@ a:focus-visible { outline: 2px solid var(--quad); outline-offset: 2px; }
 <li><strong>Gap quads.</strong> Each cell numbers a shared edge differently: if it is edge <code>e</code> for one cell, it is edge <code>e+3</code> for the other, and <code>e+3</code> has the opposite parity. So exactly one of the two sees an even edge (0, 2 or 4). That cell owns the gap quad.</li>
 <li><strong>Junction triangles.</strong> Each interior corner is corner 0 or 1 of exactly one of its three cells; that cell owns the junction triangle. So each cell owns the junctions at its corners 0 and 1.</li>
 </ul>
-<p>A gap piece is only emitted when every cell it touches exists. Later sections add <em>entangled</em> cells (section 4) and <em>chunks</em> and <em>seams</em> (section 5).</p>
+<p>In code, <code>layout::owned_gaps</code> (<code>src/layout.rs</code>) applies both rules, and <code>quad_corner_indices</code> (<code>src/math.rs</code>) picks a quad's corners. A gap piece is only emitted when every cell it touches exists. Later sections add <em>entangled</em> cells (section 4) and <em>chunks</em> and <em>seams</em> (section 5).</p>
 
 <h2 id="math">1 · The math functions, simplest first</h2>
 <p><code>src/math.rs</code> holds pure functions over <code>glam</code> and <code>hexx</code> types. None of them know about <code>HGridLayout</code>. They're ordered here from plain arithmetic to the grid combinatorics the rest of the crate is built on.</p>
@@ -308,6 +308,7 @@ a:focus-visible { outline: 2px solid var(--quad); outline-offset: 2px; }
 <li>A gap quad between two entangled cells is skipped: it touches no cell of the chunk.</li>
 <li>Every other gap piece an entangled cell owns, which is every one that touches an own cell, is kept. Those are the chunk's <em>entangled seam tris</em>.</li>
 </ul>
+<p>The doc comment on <code>HGridLayout::owned_tris_into</code> (<code>src/layout.rs</code>) states this cut, and <code>entangled_cells_emit_only_what_touches_the_chunk</code> tests it.</p>
 <p>So <code>all_tris()</code> on a chunk layout draws the chunk's faces and every gap piece that reaches an own cell, whoever owns it. The outline is closed on all six sides:</p>
 {{f10g}}
 <p>The ring's share of those 312 triangles, cell by cell. <code>entangled_ring()</code> lists the entangled cells in ring order, <code>entangled_seam_tris()</code> emits the triangles each one gives the chunk, and <code>entangled_seam_counts()</code> gives, per cell, how many are quad tris and how many junction tris (a gap quad is 2 triangles, so quad tris are always even).</p>
@@ -323,7 +324,7 @@ a:focus-visible { outline: 2px solid var(--quad); outline-offset: 2px; }
 </ul>
 <p>Once a neighbour is loaded, its own stream draws the same triangles, so the seam tris it owns must be hidden. A corner tri has two carriers: the chunk being drawn and the one its key names as <code>also</code>. When both are loaded, the carrier that comes first in <code>(q, r)</code> order draws the corner; for that carrier, <code>also</code> comes after it.</p>
 {{f14}}
-<p>Rules for consumers, from the module docs:</p>
+<p>Rules for consumers, from the <code>chunk</code> module docs (<code>src/chunk.rs</code>):</p>
 <ol>
 <li>Always draw the own stream. Draw a seam tri only while its owner isn't loaded. If its key names a third chunk (<code>also</code>), draw it only if that chunk isn't loaded, or comes after the carrier in <code>(q, r)</code> order. When both carriers are loaded, the one that comes first draws it. Every triangle touching a loaded chunk is then drawn exactly once (<code>EntangledSeam::drawn(carrier, loaded)</code>; its test cases are in <code>testdata/entangled_seam_drawn.tsv</code>).</li>
 <li>Entangled cells are never state: a cell's edit is stored once, under its home chunk, and passed as an override to every chunk layout that holds the cell, as own or as entangled.</li>

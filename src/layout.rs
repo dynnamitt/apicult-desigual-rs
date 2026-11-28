@@ -563,8 +563,9 @@ impl HGridLayout {
     ///
     /// An entangled cell ([`HGridLayout::is_entangled`]) emits only what
     /// touches an own cell: no face fan and no quad to another entangled cell
-    /// (see `docs/design/cell-state.md`). What it emits are its
-    /// chunk's entangled seam tris.
+    /// (applied by the `owned_gaps` method; `chunk::entangled_seam_keys` keys
+    /// the same pieces through the free `layout::owned_gaps`). What it emits
+    /// are its chunk's entangled seam tris.
     ///
     /// @param hex — the owning cell; a hex outside the layout appends nothing.
     /// @param out — triangles are appended here.
@@ -818,7 +819,7 @@ mod tests {
 
     #[test]
     fn chunk_tris_golden_checksum() {
-        // Pins one chunk byte-for-byte (docs/design/cell-state.md): each own cell's
+        // Pins one chunk byte-for-byte (the order `own_tris` and `entangled_seam_tris` document): each own cell's
         // 14 tris in `shapes::hexagon` order, then the entangled seam tris (per ring cell,
         // quads then junctions) in `ring(r + 1)` order. Update the constant only on an
         // intentional geometry change.
@@ -955,7 +956,7 @@ mod tests {
 
     #[test]
     fn entangled_cells_emit_only_what_touches_the_chunk() {
-        // No face fan, no quad between two entangled cells, and every tri
+        // The cut `owned_tris_into` documents: no face fan, no quad between two entangled cells, and every tri
         // touches an own cell (some vertex lies within the own hexagon's reach).
         let r = 2;
         let layout = HGridLayout::for_chunk(&default_settings(), Hex::new(2, -1), r, &[]).unwrap();

@@ -2,8 +2,8 @@
 """Generates docs/guide.html: fills the {{name}} slots of guide.tmpl.html with
 inline SVG figures computed from the same rules as the Rust crate (hexx 0.24's
 flat-top layout and direction tables, quad_corner_indices, the even-edge and
-corner-0/1 junction ownership rules, the entangled-ring cut (docs/design/cell-state.md),
-and the own / entangled seam streams of
+corner-0/1 junction ownership rules, the entangled-ring cut (HGridLayout::owned_tris_into and owned_gaps
+in src/layout.rs), and the own / entangled seam streams of
 HGridLayout::for_chunk).
 
     python3 docs/guide/gen.py                       # writes docs/guide.html
