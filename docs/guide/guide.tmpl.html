@@ -154,6 +154,9 @@ a:focus-visible { outline: 2px solid var(--quad); outline-offset: 2px; }
 <dt class="sub">junction triangle</dt><dd>Where three cells meet: one corner from each.</dd>
 <dt>owner</dt><dd>The one cell that emits a gap piece, by the rules below.</dd>
 <dt>ring <code>k</code></dt><dd>The cells at distance exactly <code>k</code> from a given cell (hexx <code>Hex::ring</code>); a radius-<code>r</code> grid is rings 0 to <code>r</code>.</dd>
+<dt>tri sequence</dt><dd>The triangles one cell owns, in the order it emits them: face fan, then its gap quads, then its junction triangles. A cell inside a chunk always has all its neighbours, so its <code>tri_sequence</code> is exactly 14 triangles (section 3).</dd>
+<dt>entangled ring</dt><dd>The ring of neighbour-chunk cells one step outside a chunk, which a chunk layout holds so that every gap along its edge has both sides (section 4).</dd>
+<dt>seam key</dt><dd><code>EntangledSeam { owner, also }</code>: which chunk owns an entangled seam triangle, and which third chunk a corner one also touches (section 5).</dd>
 </dl>
 <p id="ownership">Two <strong>ownership rules</strong> keep every gap piece from being drawn twice. 1.5, 1.6 and sections 3 to 5 all rest on them:</p>
 <ul>
@@ -284,12 +287,12 @@ a:focus-visible { outline: 2px solid var(--quad); outline-offset: 2px; }
 </div>
 </details>
 <h2 id="cell">3 · What one cell owns</h2>
-<p><code>HGridLayout::new</code> builds a <code>HexagonalMap</code> of radius <code>settings.radius</code> around <code>Hex::ZERO</code>. Each cell gets its height and radius from <code>Fbm&lt;Perlin&gt;</code> sampled at its world centre divided by a scale (50 for height, 30 for radius).</p>
+<p><code>HGridLayout::new(g, radius)</code> builds a <code>HexagonalMap</code> of <code>radius</code> rings around <code>Hex::ZERO</code>; <code>HGridLayout::for_chunk</code> builds one chunk (<a href="#chunks">section 5</a>). Each cell gets its height and radius from <code>Fbm&lt;Perlin&gt;</code> sampled at its world centre divided by a scale (<code>g.height_noise.scale</code> 50, <code>g.radius_noise.scale</code> 30).</p>
 <ul>
-<li>A cell's height and radius come from noise at its world position, unless pinned through <code>overrides</code>. Its neighbours don't affect them, and neither does the size or centre of the grid. That is why a chunk can be built on its own (<a href="#chunks">section 5</a>).</li>
+<li>A cell's height and radius come from noise at its world position, unless a chunk's <code>overrides</code> set them (stored edits, section 5). Its neighbours don't affect them, and neither does the size or centre of the grid. That is why a chunk can be built on its own (<a href="#chunks">section 5</a>).</li>
 <li>Corners scale with <code>cell.radius</code>; centres don't (see <a href="#terms">terms</a>). So a smaller cell widens the gaps around it, but never moves.</li>
 </ul>
-<p><code>all_tris()</code> walks the grid once. For each cell it appends, in a fixed order, exactly what that cell owns under the <a href="#ownership">ownership rules</a>:</p>
+<p><code>all_tris()</code> walks the grid once. For each cell it calls <code>owned_tris_into(cell, out)</code>, which appends, in a fixed order, exactly what that cell owns under the <a href="#ownership">ownership rules</a>: its <em>tri sequence</em>.</p>
 {{f7}}
 <p>Because ownership is per cell, any way of splitting the cells into groups splits the triangle stream with no overlap and no holes. Chunks are one such split; <code>chunk::tests::own_streams_partition_world</code> checks it bit for bit.</p>
 <h2 id="entangled">4 · Entangled cells</h2>
@@ -301,12 +304,14 @@ a:focus-visible { outline: 2px solid var(--quad); outline-offset: 2px; }
 </ul>
 <p>So <code>all_tris()</code> on a chunk layout draws the chunk's faces and every gap piece that reaches an own cell, whoever owns it. The outline is closed on all six sides:</p>
 {{f10g}}
+<p>The ring's part of that, cell by cell. <code>entangled_ring()</code> walks the ring cells, <code>entangled_seam_tris()</code> emits what each gives the chunk, and <code>entangled_seam_counts()</code> says how many of those are quad and junction triangles:</p>
+{{f10r}}
 
 <h2 id="chunks">5 · Streaming chunks</h2>
 <p>Any chunk of an unbounded world is built on demand from its coordinate, with one set of settings (and so one set of seeds) for the whole world.</p>
 <p>A chunk is the radius-<code>r</code> hexagon of cells with <code>hex.to_lower_res(r) == coord</code> (<a href="#resolution">section 2</a>). <code>HGridLayout::for_chunk(g, coord, r, overrides)</code> builds it with one extra <em>entangled ring</em> of neighbour cells at distance <code>r + 1</code>. It samples noise at world positions, so a chunk built alone matches its neighbours exactly, then applies <code>overrides</code>: the stored edits of the chunk's own cells and of its ring. Layout functions then cut it into two streams:</p>
 <ul>
-<li><strong>own</strong>: <code>own_tris()</code>, what the chunk's own cells own, 14 triangles per cell in <code>own_cells()</code> order. Across all chunks the own streams cover the world with no overlap and no holes.</li>
+<li><strong>own</strong>: <code>own_tris()</code>, what the chunk's own cells own, one 14-triangle tri sequence per cell in <code>own_cells()</code> order, with the cells' state in <code>own_cell_states()</code>. Across all chunks the own streams cover the world with no overlap and no holes.</li>
 <li><strong>entangled seams</strong>: <code>entangled_seam_tris()</code>, the gaps that ring cells own and that touch the chunk. Each is a copy of a triangle in the owning neighbour's own stream. <code>entangled_seam_keys(coord, r)</code> names that owner for each one, from hex coordinates alone. A junction triangle at a chunk corner touches a third chunk too, which carries the same copy, so its key also names that chunk (<code>EntangledSeam { owner, also }</code>).</li>
 </ul>
 {{f14}}
@@ -316,6 +321,7 @@ a:focus-visible { outline: 2px solid var(--quad); outline-offset: 2px; }
 <li>Entangled cells are never state. A change to a cell is stored under its owning chunk only, and passed as an override to every layout that holds it.</li>
 <li>A changed cell rebuilds its own chunk and every chunk that has it in its entangled ring: 1 chunk for an interior cell, 2 along a chunk edge, 3 at a chunk corner.</li>
 </ol>
+<p><strong>Edits.</strong> A consumer keeps its edits itself (a dug cell's new height, as an absolute value) and passes a chunk's own and ring edits to <code>for_chunk</code> on every build, so a rebuilt chunk keeps them. After an edit, <code>delta(g, coord, r, overrides, hex)</code> returns the tri sequences of the edited cell and its 6 neighbours, at their offsets in <code>own_tris</code> and <code>entangled_seam_tris</code>. They keep their lengths, so they can be overwritten in place. Call it for each of the 1 to 3 chunks that hold the cell (rule 3).</p>
 <p>In the browser, <code>chunk_own_tris</code>, <code>chunk_entangled_seam_tris</code> and <code>chunk_entangled_seam_keys</code> hand out the same streams as flat buffers, one call per chunk. The <a href="index.html">chunk treadmill</a> keeps seven chunks loaded around a moving camera and follows rule 1 on every step.</p>
 </main>
 <script>
