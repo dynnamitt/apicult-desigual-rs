@@ -19,7 +19,7 @@
 //! segments (along one hex's side). Consumers wanting a single role can
 //! derive it from the quad-local index without any extra metadata.
 //!
-//! Chunks cross as stateless functions, one per layout function (D1, D18 in
+//! Chunks cross as stateless functions, one per layout function (see
 //! `docs/design/cell-state.md`): each call builds chunk `(q, r)` from the
 //! seeds and returns one flat buffer. The treadmill groups seams itself.
 

@@ -3,7 +3,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { needsResize, runFrames } from "./canvas.js";
 
-// Pixel 5 emulation from #28: 351×424 CSS px at devicePixelRatio 3.
+// Pixel 5 emulation: 351×424 CSS px at devicePixelRatio 3.
 const css = { clientWidth: 351, clientHeight: 424 };
 
 test("needsResize is false once the buffer matches at a high devicePixelRatio", () => {

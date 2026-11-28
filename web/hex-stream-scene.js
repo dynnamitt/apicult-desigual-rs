@@ -142,7 +142,7 @@ export function mount(canvas, statsEl, { initialSettings, wasm }) {
         });
         c.owned.material.color.copy(color);
       });
-      // Seams doubling up is #27; own streams are disjoint by construction (own_streams_partition_world).
+      // Seams can double up at chunk corners; own streams are disjoint by construction (own_streams_partition_world).
       const chunks = [...loaded.values()];
       overlaps = duplicateTris(chunks.flatMap((c) => c.seams.filter((s) => s.mesh.visible).map((s) => s.tris)));
     };

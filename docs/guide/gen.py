@@ -2,8 +2,8 @@
 """Generates docs/guide.html: fills the {{name}} slots of guide.tmpl.html with
 inline SVG figures computed from the same rules as the Rust crate (hexx 0.24's
 flat-top layout and direction tables, quad_corner_indices, the even-edge and
-corner-0/1 junction ownership rules, the entangled-ring cut (D10 in
-docs/design/cell-state.md), and the own / entangled seam streams of
+corner-0/1 junction ownership rules, the entangled-ring cut (docs/design/cell-state.md),
+and the own / entangled seam streams of
 HGridLayout::for_chunk).
 
     python3 docs/guide/gen.py                       # writes docs/guide.html
@@ -369,7 +369,7 @@ figs["f10g"] = fig("\n".join(b), 500, 490, "A chunk layout of radius 2: all_tris
 assert rim == [(3, 0), (2, 1), (1, 2), (0, 3), (-1, 3), (-2, 3), (-3, 3), (-3, 2), (-3, 1), (-3, 0), (-2, -1), (-1, -2), (0, -3), (1, -3), (2, -3), (3, -3), (3, -2), (3, -1)]
 seam = [(h, k, pts) for h, k, pts in layout_gaps if h in rim_set]  # entangled_seam_tris, cell by cell
 counts = [(2 * sum(k == "quad" for g, k, _ in seam if g == h), sum(k == "junc" for g, k, _ in seam if g == h)) for h in rim]
-# The quads D10 drops: what owned_gaps would give a ring cell if the ring weren't entangled.
+# The quads the entangled-ring cut drops: what owned_gaps would give a ring cell if the ring weren't entangled.
 skipped = [pts for h in rim for k, pts in owned_gaps(*h, cells, R) if k == "quad" and (h, k, pts) not in seam]
 # Rust's entangled_seam_counts() for the same layout.
 assert counts == [(0, 0), (2, 0), (2, 0), (2, 0), (2, 1), (2, 1), (0, 1), (2, 2), (2, 2), (2, 2), (2, 2), (2, 2), (0, 1), (2, 1), (2, 1), (2, 0), (2, 0), (2, 0)], counts
@@ -381,11 +381,10 @@ for i, h in enumerate(rim):
     c = v.p(center(*h))
     b.append(text(c[0], c[1] - 2, str(i), "lbl mono"))
     b.append(text(c[0], c[1] + 11, f"{counts[i][0]}·{counts[i][1]}", "lbl mono tiny dim"))
-figs["f10r"] = fig("\n".join(b), 500, 490, "The entangled ring of chunk (0,0), radius 2: each ring cell in entangled_ring order with its quad and junction tri counts",
-  f"The same layout as above, with only what the ring gives the chunk. Each dashed ring cell shows its index in <code>entangled_ring()</code> (hexx's <code>ring</code> order: from <code>(3,0)</code>, one side at a time) and its <code>entangled_seam_counts()</code> entry, quad tris · junction tris. "
-  f"A ring cell emits no face, and the quads on its even edges that lead to another ring cell are dropped (dotted outlines): they touch no cell of this chunk. "
-  f"What is left are the chunk's entangled seam tris, {n_q} quad tris and {n_j} junction tris, in this order: per ring cell, quads then junctions. Cell 0 owns none of the gaps it shares with the chunk, so its count is 0·0. "
-  f"<code>owned_tris_into</code> and <code>entangled_seam_keys</code> make this cut with one shared rule, so the tris and their keys line up one to one.")
+figs["f10r"] = fig("\n".join(b), 500, 490, "The entangled ring of chunk (0,0), radius 2: each entangled cell in entangled_ring order with its quad and junction tri counts",
+  f"The same layout as above, with only what the ring gives the chunk. Each dashed entangled cell shows its index in <code>entangled_ring()</code> (hexx's <code>ring</code> order: from <code>(3,0)</code>, one side at a time) and its <code>entangled_seam_counts()</code> entry, quad tris · junction tris (a gap quad is 2 triangles). "
+  f"An entangled cell emits no face, and the quads on its even edges that lead to another entangled cell are dropped (dotted outlines): they touch no cell of this chunk. "
+  f"What is left are the chunk's entangled seam tris, {n_q} quad tris ({n_q // 2} quads) and {n_j} junction tris, in this order: per entangled cell, quads then junctions. Cell 0 owns none of the gaps it shares with the chunk, so its count is 0·0.")
 
 # ---- F14: one chunk's own stream and entangled seam tris (own_tris + entangled_seam_tris, keyed by owner)
 owner = {h: to_lower_res(*h, CR) for h in rim}
@@ -407,10 +406,10 @@ for o in groups:
     mx, mz = (sum(c[0] for c in cells_o) / len(cells_o) * 1.32, sum(c[1] for c in cells_o) / len(cells_o) * 1.32)
     sp = v.p((mx, mz)); b.append(text(sp[0], sp[1]+4, f"({o[0]},{o[1]})".replace("-", "−"), "lbl mono"))
 figs["f14"] = fig("\n".join(b), 500, 490, "Chunk (0,0) of radius 2: its own stream, and its entangled seam tris tinted by the neighbour chunk that owns them",
-  f"Chunk <code>(0,0)</code> with <code>chunk_radius = 2</code>. <code>for_chunk</code> adds ring 3 (dashed), tinted by the neighbour chunk each ring cell belongs to, labelled outside. "
-  f"<strong>Own</strong> (<code>own_tris</code>), solid: the 19 faces and every gap an own cell owns, {n_owned} triangles, 14 per cell. "
-  f"<strong>Entangled seams</strong> (<code>entangled_seam_tris</code>), dashed and tinted by the key's <code>owner</code>: the gaps ring cells own that touch the chunk, {n_seam} triangles from the {len(groups)} neighbour chunks that own them. "
-  f"Together they make the same 312 triangles as <code>all_tris()</code> in section 4. Once a neighbour is loaded, its own stream draws the same triangles, so the seam tris it owns are hidden. A corner triangle is carried by two chunks (its key's <code>also</code>); when both are loaded, only the one first in <code>(q, r)</code> order draws it.")
+  f"Chunk <code>(0,0)</code> with <code>chunk_radius = 2</code>. <code>for_chunk</code> adds ring 3 (dashed), tinted by the neighbour chunk each entangled cell belongs to, labelled outside. "
+  f"<strong>Own stream</strong> (<code>own_tris</code>), solid: the 19 faces and every gap an own cell owns, {n_owned} triangles, 14 per cell. "
+  f"<strong>Entangled seam tris</strong> (<code>entangled_seam_tris</code>), dashed and tinted by the key's <code>owner</code>: the gap pieces entangled cells own that touch the chunk, {n_seam} triangles from the {len(groups)} neighbour chunks that own them. "
+  f"Together they make the same 312 triangles as <code>all_tris()</code> in section 4. A corner tri has two carriers; when both are loaded, the carrier that comes first in <code>(q, r)</code> order draws it.")
 
 tmpl = args.template.read_text()
 for k, svg in figs.items(): tmpl = tmpl.replace("{{" + k + "}}", svg)
