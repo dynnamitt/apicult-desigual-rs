@@ -322,7 +322,7 @@ a:focus-visible { outline: 2px solid var(--quad); outline-offset: 2px; }
 <li>A changed cell rebuilds its own chunk and every chunk that has it in its entangled ring: 1 chunk for an interior cell, 2 along a chunk edge, 3 at a chunk corner.</li>
 </ol>
 <p><strong>Edits.</strong> A consumer keeps its edits itself (a dug cell's new height, as an absolute value) and passes a chunk's own and ring edits to <code>for_chunk</code> on every build, so a rebuilt chunk keeps them. After an edit, <code>delta(g, coord, r, overrides, hex)</code> returns the tri sequences of the edited cell and its 6 neighbours, at their offsets in <code>own_tris</code> and <code>entangled_seam_tris</code>. They keep their lengths, so they can be overwritten in place. Call it for each of the 1 to 3 chunks that hold the cell (rule 3).</p>
-<p>In the browser, <code>chunk_own_tris</code>, <code>chunk_entangled_seam_tris</code> and <code>chunk_entangled_seam_keys</code> hand out the same streams as flat buffers, one call per chunk. The <a href="index.html">chunk treadmill</a> keeps seven chunks loaded around a moving camera and follows rule 1 on every step.</p>
+<p>In the browser, <code>chunk_own_tris</code>, <code>chunk_entangled_seam_tris</code> and <code>chunk_entangled_seam_keys</code> hand out the same streams as flat buffers, and <code>chunk_own_cell_states</code> the own cells' state, one call per chunk. The <a href="index.html">chunk treadmill</a> keeps seven chunks loaded around a moving camera and follows rule 1 on every step.</p>
 </main>
 <script>
 (function () {
